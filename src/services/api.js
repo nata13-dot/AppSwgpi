@@ -8,6 +8,8 @@ const api = axios.create({
   headers: { Accept: 'application/json' },
 })
 
+let refreshPromise = null
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
@@ -16,8 +18,29 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
+  async (error) => {
+    const original = error.config
+    const isAuthEndpoint = ['/auth/login', '/auth/refresh', '/auth/logout'].some((path) => original?.url?.includes(path))
+    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token')
+
+    if (error.response?.status === 401 && token && !isAuthEndpoint && !original?._retried) {
+      original._retried = true
+      try {
+        refreshPromise ||= axios.post(`${API_URL}/auth/refresh`, null, {
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        }).finally(() => { refreshPromise = null })
+        const { data } = await refreshPromise
+        const storage = localStorage.getItem('auth_token') ? localStorage : sessionStorage
+        storage.setItem('auth_token', data.access_token)
+        if (data.user) storage.setItem('auth_user', JSON.stringify(data.user))
+        original.headers.Authorization = `Bearer ${data.access_token}`
+        return api(original)
+      } catch {
+        // The refresh response is terminal; the cleanup below handles the session.
+      }
+    }
+
+    if (error.response?.status === 401 && !original?.url?.includes('/auth/login')) {
       for (const storage of [localStorage, sessionStorage]) {
         storage.removeItem('auth_token')
         storage.removeItem('auth_user')

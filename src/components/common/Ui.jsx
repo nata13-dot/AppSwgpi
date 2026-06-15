@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { FiAlertCircle, FiChevronLeft, FiChevronRight, FiInbox, FiSearch } from 'react-icons/fi'
+import Swal from 'sweetalert2'
 import { statusLabel, statusTone } from '../../utils/formatters'
 
 /* eslint-disable react-refresh/only-export-components */
@@ -75,6 +76,25 @@ export function Modal({ open, title, children, onClose }) {
       </section>
     </div>
   )
+}
+
+export const confirmAction = async ({
+  title = 'Confirmar acción',
+  text = 'Esta operación no se puede deshacer.',
+  confirmText = 'Sí, continuar',
+} = {}) => {
+  const result = await Swal.fire({
+    title,
+    text,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: confirmText,
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#1B396A',
+    cancelButtonColor: '#6c757d',
+    reverseButtons: true,
+  })
+  return result.isConfirmed
 }
 
 export function useDebounced(value, delay = 350) {
