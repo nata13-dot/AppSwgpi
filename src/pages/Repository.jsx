@@ -35,6 +35,21 @@ export default function Repository({ publicView = false }) {
     onSuccess: () => { toast.success('Documento agregado al repositorio.'); setUploadOpen(false); client.invalidateQueries({ queryKey: ['repository'] }) },
     onError: (error) => toast.error(apiError(error)),
   })
+  const download = async (document) => {
+    if (publicView || !isAuthenticated) {
+      window.location.assign(`${API_URL}/repositorio/${document.id}/download`)
+      return
+    }
+    try {
+      const response = await api.get(`/repositorio/${document.id}/download`, { responseType: 'blob' })
+      const url = URL.createObjectURL(response.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = document.nombre || document.title || `documento-${document.id}`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (error) { toast.error(apiError(error)) }
+  }
   const payload = query.data
   const pagination = payload?.data?.data ? payload.data : payload
   const documents = pagination?.data || []
@@ -48,7 +63,7 @@ export default function Repository({ publicView = false }) {
           <section className="document-grid">{documents.map((document) => <article className="document-card" key={document.id}>
             <div className="document-cover"><FiFileText /><span>PDF</span></div>
             <div><StatusBadge value={document.status || 'publicado'} /><h2>{document.title || document.titulo || document.nombre}</h2><p>{document.description || document.descripcion || 'Documento del repositorio institucional.'}</p><small>{document.project?.title || document.project_title || 'ITSSMT'} · {formatDate(document.created_at)}</small>
-              <a href={`${API_URL}/repositorio/${document.id}/download`}><FiDownload /> Descargar documento</a>
+              <button className="document-download" onClick={() => download(document)}><FiDownload /> Descargar documento</button>
             </div>
           </article>)}</section>
         )}

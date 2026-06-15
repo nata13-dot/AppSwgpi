@@ -16,12 +16,13 @@ const SystemManagement = lazy(() => import('./pages/SystemManagement'))
 const Semesters = lazy(() => import('./pages/Semesters'))
 const Proposals = lazy(() => import('./pages/Proposals'))
 const Evaluations = lazy(() => import('./pages/Evaluations'))
+const StudentEvaluations = lazy(() => import('./pages/StudentEvaluations'))
 const EvaluationDocuments = lazy(() => import('./pages/EvaluationDocuments'))
 
 const commonRoutes = (role) => <>
   <Route index element={<Dashboard />} />
   <Route path="deliverables" element={<Deliverables />} />
-  <Route path="evaluations" element={<Evaluations />} />
+  <Route path="evaluations" element={role === 'student' ? <StudentEvaluations /> : <Evaluations />} />
   <Route path="evaluation-documents" element={<EvaluationDocuments />} />
   <Route path="repository" element={<Repository />} />
   <Route path="profile" element={<Profile />} />
