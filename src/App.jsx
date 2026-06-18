@@ -23,6 +23,8 @@ const commonRoutes = (role) => <>
   <Route index element={<Dashboard />} />
   <Route path="deliverables" element={<Deliverables />} />
   <Route path="evaluations" element={role === 'student' ? <StudentEvaluations /> : <Evaluations />} />
+  {role !== 'student' && <Route path="evaluation-rooms" element={<Evaluations initialTab="rooms" />} />}
+  {role !== 'student' && <Route path="evaluations-archived" element={<Evaluations initialArchived />} />}
   <Route path="evaluation-documents" element={<EvaluationDocuments />} />
   <Route path="repository" element={<Repository />} />
   <Route path="profile" element={<Profile />} />
@@ -38,7 +40,7 @@ export default function App() {
     <Route path="/repository" element={<Repository publicView />} />
     <Route element={<ProtectedRoute />}>
       <Route element={<AppLayout />}>
-        <Route element={<RoleRoute role="admin" />}><Route path="/admin"><Route index element={<Dashboard />} /><Route path="users" element={<UsersModule />} /><Route path="advisors" element={<UsersModule advisors />} /><Route path="projects" element={<ProjectsModule />} /><Route path="proposals" element={<Proposals />} /><Route path="deliverables" element={<Deliverables />} /><Route path="evaluations" element={<Evaluations />} /><Route path="evaluation-documents" element={<EvaluationDocuments />} /><Route path="academics" element={<Academics />} /><Route path="semesters" element={<Semesters />} /><Route path="repository" element={<Repository />} /><Route path="tags" element={<SystemManagement key="tags" initialTab="tags" />} /><Route path="notices" element={<SystemManagement key="notices" initialTab="notices" />} /><Route path="settings" element={<SystemManagement key="settings" />} /><Route path="profile" element={<Profile />} /></Route></Route>
+        <Route element={<RoleRoute role="admin" />}><Route path="/admin"><Route index element={<Dashboard />} /><Route path="users" element={<UsersModule />} /><Route path="advisors" element={<UsersModule advisors />} /><Route path="projects" element={<ProjectsModule />} /><Route path="proposals" element={<Proposals />} /><Route path="deliverables" element={<Deliverables />} /><Route path="evaluations" element={<Evaluations />} /><Route path="evaluation-rooms" element={<Evaluations initialTab="rooms" />} /><Route path="evaluations-archived" element={<Evaluations initialArchived />} /><Route path="evaluation-rubric" element={<Evaluations initialTab="rubric" />} /><Route path="evaluation-managers" element={<Evaluations initialTab="managers" />} /><Route path="evaluation-documents" element={<EvaluationDocuments />} /><Route path="academics" element={<Academics />} /><Route path="semesters" element={<Semesters />} /><Route path="repository" element={<Repository />} /><Route path="tags" element={<SystemManagement key="tags" initialTab="tags" />} /><Route path="notices" element={<SystemManagement key="notices" initialTab="notices" />} /><Route path="settings" element={<SystemManagement key="settings" />} /><Route path="profile" element={<Profile />} /></Route></Route>
         <Route element={<RoleRoute role="teacher" />}><Route path="/teacher">{commonRoutes('teacher')}<Route path="proposals" element={<Proposals />} /></Route></Route>
         <Route element={<RoleRoute role="student" />}><Route path="/student">{commonRoutes('student')}<Route path="proposal" element={<Proposals />} /></Route></Route>
       </Route>

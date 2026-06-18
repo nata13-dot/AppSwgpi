@@ -22,13 +22,13 @@ function downloadBlob(response, filename) {
   URL.revokeObjectURL(url)
 }
 
-export default function Evaluations() {
+export default function Evaluations({ initialTab = 'evaluations', initialArchived = false }) {
   const { user } = useAuth()
   const role = roleFromUser(user)
   const canManage = role === 'admin' || Boolean(user?.is_evaluation_manager)
   const client = useQueryClient()
-  const [tab, setTab] = useState('evaluations')
-  const [archived, setArchived] = useState(false)
+  const [tab, setTab] = useState(initialTab)
+  const [archived, setArchived] = useState(initialArchived)
   const [selected, setSelected] = useState(null)
   const [scoreTarget, setScoreTarget] = useState(null)
   const [creating, setCreating] = useState(false)

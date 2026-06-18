@@ -15,6 +15,8 @@ const navigation = {
     ['Inicio', '', FiHome], ['Usuarios', 'users', FiUsers], ['Asesores', 'advisors', FiUserCheck],
     ['Proyectos', 'projects', FiFolder], ['Propuestas', 'proposals', FiCheckSquare],
     ['Entregables', 'deliverables', FiFileText], ['Evaluaciones', 'evaluations', FiCheckSquare],
+    ['Salas de evaluación', 'evaluation-rooms', FiCalendar], ['Evaluaciones archivadas', 'evaluations-archived', FiArchive],
+    ['Rúbricas', 'evaluation-rubric', FiCheckSquare], ['Gestores', 'evaluation-managers', FiUserCheck],
     ['Documentos de evaluación', 'evaluation-documents', FiFileText], ['Académico', 'academics', FiBookOpen],
     ['Semestres y periodos', 'semesters', FiCalendar], ['Repositorio', 'repository', FiArchive],
     ['Etiquetas', 'tags', FiTag], ['Avisos', 'notices', FiBell],
@@ -23,6 +25,7 @@ const navigation = {
   teacher: [
     ['Inicio', '', FiHome], ['Mis tesis', 'projects', FiFolder], ['Entregables', 'deliverables', FiFileText],
     ['Propuestas', 'proposals', FiCheckSquare], ['Evaluaciones', 'evaluations', FiCheckSquare],
+    ['Salas de evaluación', 'evaluation-rooms', FiCalendar], ['Evaluaciones archivadas', 'evaluations-archived', FiArchive],
     ['Documentos de evaluación', 'evaluation-documents', FiFileText],
     ['Repositorio', 'repository', FiArchive], ['Mi perfil', 'profile', FiUser],
   ],
