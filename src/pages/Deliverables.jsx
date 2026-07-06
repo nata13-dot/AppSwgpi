@@ -5,6 +5,7 @@ import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
 import { roleFromUser, useAuth } from '../hooks/useAuth'
 import { formatDate } from '../utils/formatters'
+import { downloadApiFile } from '../utils/downloads'
 import { Empty, ErrorState, Loading, Modal, PageHeader, StatusBadge } from '../components/common/Ui'
 
 export default function Deliverables() {
@@ -63,13 +64,7 @@ export default function Deliverables() {
   })
   const download = async (item) => {
     try {
-      const response = await api.get(`/deliverables/${item.id}/download`, { responseType: 'blob' })
-      const url = URL.createObjectURL(response.data)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = item.file_name || item.nombre_archivo || `entregable-${item.id}`
-      link.click()
-      URL.revokeObjectURL(url)
+      await downloadApiFile(`/deliverables/${item.id}/download`, item.file_name || item.nombre_archivo || `entregable-${item.id}`)
     } catch (error) { toast.error(apiError(error)) }
   }
 

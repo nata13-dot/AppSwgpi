@@ -1,13 +1,15 @@
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
 import { roleLabel, useAuth } from '../hooks/useAuth'
 import { ErrorState, Loading, PageHeader } from '../components/common/Ui'
+import { publicAssetUrl } from '../utils/formatters'
 
 export default function Profile() {
   const { refreshUser } = useAuth()
+  const client = useQueryClient()
   const query = useQuery({ queryKey: ['profile'], queryFn: () => api.get('/profile').then((r) => r.data.user || r.data) })
   const { register, handleSubmit, reset } = useForm()
   useEffect(() => { if (query.data) reset(query.data) }, [query.data, reset])
@@ -21,17 +23,24 @@ export default function Profile() {
       })
       return api.post('/profile', body)
     },
-    onSuccess: async () => { await refreshUser(); toast.success('Perfil actualizado.') },
+    onSuccess: async ({ data }) => {
+      const updatedUser = data.user || data
+      client.setQueryData(['profile'], updatedUser)
+      reset(updatedUser)
+      await refreshUser()
+      toast.success('Perfil actualizado.')
+    },
     onError: (error) => toast.error(apiError(error)),
   })
   if (query.isLoading) return <Loading />
   if (query.isError) return <ErrorState message={apiError(query.error)} onRetry={query.refetch} />
   const user = query.data
+  const profilePhoto = publicAssetUrl(user.photo_path || user.foto_ruta)
   return (
     <>
       <PageHeader eyebrow="Cuenta personal" title="Mi perfil" description="Mantén actualizados tus datos de contacto." />
       <section className="profile-layout">
-        <aside className="profile-card"><div className="profile-avatar">{user.nombres?.charAt(0)}</div><h2>{[user.nombres, user.apa, user.ama].filter(Boolean).join(' ')}</h2><span>{roleLabel(user)}</span><small>{user.id}</small></aside>
+        <aside className="profile-card"><div className={`profile-avatar ${profilePhoto ? 'has-photo' : ''}`}>{profilePhoto ? <img src={profilePhoto} alt={`Foto de ${user.nombres}`} /> : user.nombres?.charAt(0)}</div><h2>{[user.nombres, user.apa, user.ama].filter(Boolean).join(' ')}</h2><span>{roleLabel(user)}</span><small>{user.id}</small></aside>
         <form className="panel profile-form" onSubmit={handleSubmit((values) => mutation.mutate(values))}>
           <div className="form-grid">
             <label>Teléfonos<input {...register('telefonos')} /></label>

@@ -7,7 +7,7 @@ import {
 } from 'react-icons/fi'
 import { useQuery } from '@tanstack/react-query'
 import api from '../../services/api'
-import { fullName } from '../../utils/formatters'
+import { fullName, publicAssetUrl } from '../../utils/formatters'
 import { homeForUser, roleFromUser, roleLabel, useAuth } from '../../hooks/useAuth'
 
 const navigation = {
@@ -55,6 +55,7 @@ export default function AppLayout() {
   })
   const unread = notifications.data?.unread_count || 0
   const searchItems = useMemo(() => items.filter(([label]) => label.toLowerCase().includes(search.toLowerCase())), [items, search])
+  const profilePhoto = publicAssetUrl(user?.photo_path || user?.foto_ruta)
 
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light'
@@ -90,7 +91,7 @@ export default function AppLayout() {
           <button className="mobile-close" onClick={() => setOpen(false)}><FiX /></button>
         </div>
         <div className="user-summary">
-          <div className="avatar">{fullName(user).charAt(0)}</div>
+          <div className={`avatar ${profilePhoto ? 'has-photo' : ''}`}>{profilePhoto ? <img src={profilePhoto} alt="" /> : fullName(user).charAt(0)}</div>
           <div><strong>{fullName(user)}</strong><small>{roleLabel(user)}</small></div>
         </div>
         <nav>
@@ -116,7 +117,7 @@ export default function AppLayout() {
             <button aria-label="Cambiar tema" onClick={() => setDark((value) => !value)}>{dark ? <FiSun /> : <FiMoon />}</button>
             <button className="notification-button" aria-label={`${unread} notificaciones`} onClick={() => setNoticeOpen(!noticeOpen)}><FiBell />{unread > 0 && <span>{unread}</span>}</button>
             <button className="mini-profile" onClick={() => navigate(`${homeForUser(user)}/profile`)}>
-              <span>{fullName(user).charAt(0)}</span><div><strong>{user?.nombres}</strong><small>{roleLabel(user)}</small></div>
+              <span className={profilePhoto ? 'has-photo' : ''}>{profilePhoto ? <img src={profilePhoto} alt="" /> : fullName(user).charAt(0)}</span><div><strong>{user?.nombres}</strong><small>{roleLabel(user)}</small></div>
             </button>
           </div>
         </header>

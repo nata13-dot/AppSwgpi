@@ -52,6 +52,11 @@ api.interceptors.response.use(
 )
 
 export const apiError = (error) => {
+  if (!error?.response && !error?.request && error?.message) return error.message
+  if (error.code === 'ECONNABORTED') return 'La solicitud tardó demasiado. Revisa tu conexión e intenta de nuevo.'
+  if (error.request && !error.response) {
+    return 'No hubo respuesta de la API. En la app móvil puede deberse a conexión o CORS del servidor.'
+  }
   const data = error.response?.data
   if (data?.errors) return Object.values(data.errors).flat().join(' ')
   return data?.error || data?.message || 'No fue posible completar la solicitud.'

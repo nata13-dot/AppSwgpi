@@ -1,25 +1,34 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiArchive, FiCheckCircle, FiDownload, FiEye, FiPlus, FiRefreshCw } from 'react-icons/fi'
+import {
+  FiArchive, FiBarChart2, FiCheckCircle, FiClock, FiDownload, FiEye,
+  FiFileText, FiPlus, FiRefreshCw, FiUsers,
+} from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError, unwrapCollection } from '../services/api'
 import { roleFromUser, useAuth } from '../hooks/useAuth'
-import { confirmAction, Empty, ErrorState, Loading, Modal, PageHeader, StatusBadge } from '../components/common/Ui'
+import { confirmAction, Empty, ErrorState, Loading, Modal, PageHeader, SearchField, StatusBadge } from '../components/common/Ui'
 import { formatDate } from '../utils/formatters'
 import EvaluationRooms from './evaluations/EvaluationRooms'
 import RubricManager from './evaluations/RubricManager'
 import EvaluationManagers from './evaluations/EvaluationManagers'
+import { downloadApiFile } from '../utils/downloads'
 
 const emptyEvaluation = { project_id: '', evaluation_room_id: '', semestre: 5, fecha_exposicion: '' }
 const draftKey = (id) => `sgpi-score-draft:${id}`
-
-function downloadBlob(response, filename) {
-  const url = URL.createObjectURL(response.data)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
+const scoreTone = (evaluation) => {
+  if (!Number(evaluation?.evaluators_count || 0)) return 'unscored'
+  const score = Number(evaluation?.global_average || 0)
+  if (score <= 69) return 'low'
+  if (score <= 85) return 'medium'
+  return 'high'
+}
+const evaluationProgress = (evaluation) => {
+  const completed = Number(evaluation?.evaluators_count || 0)
+  const expected = Number(evaluation?.expected_evaluators_count || 0)
+  if (!completed) return { label: 'Sin evaluar', tone: 'unscored', percent: 0 }
+  if (evaluation?.is_completed || (expected > 0 && completed >= expected)) return { label: 'Evaluado', tone: 'evaluated', percent: 100 }
+  return { label: 'En evaluación', tone: 'in-progress', percent: expected ? Math.min(100, (completed / expected) * 100) : 0 }
 }
 
 export default function Evaluations({ initialTab = 'evaluations', initialArchived = false }) {
@@ -33,6 +42,9 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
   const [scoreTarget, setScoreTarget] = useState(null)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState(emptyEvaluation)
+  const [search, setSearch] = useState('')
+  const [semesterFilter, setSemesterFilter] = useState('')
+  const [progressFilter, setProgressFilter] = useState('all')
 
   const evaluationsQuery = useQuery({
     queryKey: ['evaluations', archived],
@@ -82,20 +94,61 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
   const report = async (evaluation, teachers = false) => {
     try {
       const suffix = teachers ? '?audience=teachers' : ''
-      const response = await api.get(`/evaluations/${evaluation.id}/report.pdf${suffix}`, { responseType: 'blob' })
-      downloadBlob(response, `reporte_evaluacion_${evaluation.id}${teachers ? '_docentes' : ''}.pdf`)
+      await downloadApiFile(`/evaluations/${evaluation.id}/report.pdf${suffix}`, `reporte_evaluacion_${evaluation.id}${teachers ? '_docentes' : ''}.pdf`)
     } catch (error) { toast.error(apiError(error)) }
   }
 
+  const filteredEvaluations = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase('es')
+    return (evaluationsQuery.data || []).filter((evaluation) => {
+      if (semesterFilter && Number(evaluation.semestre) !== Number(semesterFilter)) return false
+      if (progressFilter === 'completed' && !evaluation.is_completed) return false
+      if (progressFilter === 'pending' && evaluation.is_completed) return false
+      if (progressFilter === 'unscored' && Number(evaluation.evaluators_count || 0) > 0) return false
+      if (!term) return true
+      const haystack = [
+        evaluation.project?.title,
+        evaluation.room?.nombre,
+        evaluation.room?.salon,
+        ...(evaluation.project?.students || []).flatMap((student) => [student.id, student.nombres, student.apa, student.ama]),
+      ].filter(Boolean).join(' ').toLocaleLowerCase('es')
+      return haystack.includes(term)
+    })
+  }, [evaluationsQuery.data, progressFilter, search, semesterFilter])
+
+  const summary = useMemo(() => {
+    const scored = filteredEvaluations.filter((item) => Number(item.evaluators_count || 0) > 0)
+    const average = scored.length
+      ? scored.reduce((total, item) => total + Number(item.global_average || 0), 0) / scored.length
+      : 0
+    return {
+      total: filteredEvaluations.length,
+      completed: filteredEvaluations.filter((item) => item.is_completed).length,
+      pendingScores: filteredEvaluations.filter((item) => Number(item.evaluators_count || 0) < Number(item.expected_evaluators_count || 0)).length,
+      average,
+    }
+  }, [filteredEvaluations])
+
   const groups = useMemo(() => {
     const map = new Map()
-    for (const evaluation of evaluationsQuery.data || []) {
-      const roomKey = evaluation.room?.id || `none-${evaluation.semestre}`
-      if (!map.has(roomKey)) map.set(roomKey, { room: evaluation.room, semester: evaluation.semestre, evaluations: [] })
-      map.get(roomKey).evaluations.push(evaluation)
+    for (const evaluation of filteredEvaluations) {
+      const semester = evaluation.semestre || 'Sin semestre'
+      if (!map.has(semester)) map.set(semester, new Map())
+      const roomKey = evaluation.room?.id || `none-${semester}`
+      const semesterRooms = map.get(semester)
+      if (!semesterRooms.has(roomKey)) semesterRooms.set(roomKey, { room: evaluation.room, semester, evaluations: [] })
+      semesterRooms.get(roomKey).evaluations.push(evaluation)
     }
-    return [...map.values()].sort((a, b) => Number(a.semester) - Number(b.semester))
-  }, [evaluationsQuery.data])
+    return [...map.entries()]
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([semester, rooms]) => ({
+        semester,
+        rooms: [...rooms.values()].map((group) => ({
+          ...group,
+          evaluations: group.evaluations.sort((a, b) => Number(a.presentation_order || 0) - Number(b.presentation_order || 0)),
+        })),
+      }))
+  }, [filteredEvaluations])
 
   return <>
     <PageHeader eyebrow="Evaluación" title="Evaluaciones" description="Gestiona salas, secuencias, rúbricas, resultados y reportes con el mismo flujo operativo del sistema actual." actions={tab === 'evaluations' && canManage && <button className="btn-primary-app compact" onClick={() => setCreating(true)}><FiPlus /> Nueva evaluación</button>} />
@@ -109,7 +162,14 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
     {tab === 'rooms' && <EvaluationRooms canManage={canManage} />}
     {tab === 'rubric' && <RubricManager canManage={canManage} projects={projectsQuery.data || []} />}
     {tab === 'managers' && <EvaluationManagers />}
-    {tab === 'evaluations' && <section className="panel">
+    {tab === 'evaluations' && <>
+      <div className="stats-grid evaluation-stats">
+        <article className="stat-card"><span className="stat-icon"><FiFileText /></span><div><small>Evaluaciones visibles</small><strong>{summary.total}</strong></div></article>
+        <article className="stat-card"><span className="stat-icon color-1"><FiCheckCircle /></span><div><small>Finalizadas</small><strong>{summary.completed}</strong></div></article>
+        <article className="stat-card"><span className="stat-icon color-2"><FiUsers /></span><div><small>Rúbricas pendientes</small><strong>{summary.pendingScores}</strong></div></article>
+        <article className="stat-card"><span className="stat-icon color-3"><FiBarChart2 /></span><div><small>Promedio general</small><strong>{summary.average.toFixed(1)}%</strong></div></article>
+      </div>
+      <section className="panel">
       <div className="evaluation-toolbar">
         <div className="module-tabs compact-tabs">
           <button className={!archived ? 'active' : ''} onClick={() => setArchived(false)}>Activas</button>
@@ -117,22 +177,42 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
         </div>
         <button className="icon-text-button" onClick={() => evaluationsQuery.refetch()}><FiRefreshCw /> Actualizar</button>
       </div>
+      <div className="table-toolbar admin-toolbar evaluation-filters">
+        <SearchField value={search} onChange={setSearch} placeholder="Buscar proyecto, estudiante o sala..." />
+        <select value={semesterFilter} onChange={(event) => setSemesterFilter(event.target.value)}>
+          <option value="">Todos los semestres</option>
+          {[5, 6, 7, 8].map((semester) => <option value={semester} key={semester}>{semester}° semestre</option>)}
+        </select>
+        <select value={progressFilter} onChange={(event) => setProgressFilter(event.target.value)}>
+          <option value="all">Todo el avance</option>
+          <option value="pending">Pendientes</option>
+          <option value="completed">Finalizadas</option>
+          <option value="unscored">Sin calificaciones</option>
+        </select>
+      </div>
       {evaluationsQuery.isLoading ? <Loading /> : evaluationsQuery.isError ? <ErrorState message={apiError(evaluationsQuery.error)} onRetry={evaluationsQuery.refetch} /> : groups.length === 0 ? <Empty title={archived ? 'Sin evaluaciones archivadas' : 'Sin evaluaciones activas'} /> : (
-        <div className="evaluation-groups">{groups.map((group) => <section className="evaluation-room-group" key={group.room?.id || `s-${group.semester}`}>
-          <header>
-            <div><span className="eyebrow">Semestre {group.semester}</span><h2>{group.room?.nombre || 'Sin sala'}</h2><p>{group.room?.salon || 'Sin salón'}{group.room?.responsible_teacher ? ` · Responsable: ${[group.room.responsible_teacher.nombres, group.room.responsible_teacher.apa].filter(Boolean).join(' ')}` : ''}</p></div>
-            <div className="room-summary-badges"><span>{group.evaluations.length} proyectos</span><span>{group.evaluations.filter((item) => item.is_completed).length} completos</span></div>
-          </header>
-          <div className="evaluation-card-list">{group.evaluations.map((evaluation) => <article className={`evaluation-work-card ${evaluation.is_completed ? 'complete' : ''}`} key={evaluation.id}>
+        <div className="evaluation-semesters">{groups.map((semesterGroup) => <section className="evaluation-semester-section" key={semesterGroup.semester}>
+          <header className="semester-heading"><div><span className="eyebrow">Etapa académica</span><h2>Semestre {semesterGroup.semester}</h2></div><span>{semesterGroup.rooms.reduce((total, room) => total + room.evaluations.length, 0)} evaluaciones</span></header>
+          <div className="evaluation-groups">{semesterGroup.rooms.map((group) => <section className="evaluation-room-group" key={group.room?.id || `s-${group.semester}`}>
+            <header>
+              <div><span className="eyebrow">{group.room?.etapa || 'Evaluación'}</span><h2>{group.room?.nombre || 'Sin sala'}</h2><p>{group.room?.salon || 'Sin salón'}{group.room?.responsible_teacher ? ` · Responsable: ${[group.room.responsible_teacher.nombres, group.room.responsible_teacher.apa].filter(Boolean).join(' ')}` : ''}</p></div>
+              <div className="room-summary-badges"><span>{group.evaluations.length} proyectos</span><span>{group.evaluations.filter((item) => item.is_completed).length} completos</span></div>
+            </header>
+            <div className="evaluation-card-list">{group.evaluations.map((evaluation) => {
+              const progress = evaluationProgress(evaluation)
+              const tone = scoreTone(evaluation)
+              return <article className={`evaluation-work-card evaluation-${progress.tone} score-${tone} ${evaluation.is_completed ? 'complete' : ''}`} key={evaluation.id}>
             <div className="evaluation-order">{evaluation.presentation_order || '-'}</div>
             <div className="evaluation-main">
-              <div className="evaluation-title-row"><div><h3>{evaluation.project?.title || `Proyecto #${evaluation.project_id}`}</h3><small>{evaluation.project?.students?.map((student) => [student.nombres, student.apa].filter(Boolean).join(' ')).join(', ') || 'Sin integrantes'}</small></div><StatusBadge value={evaluation.is_completed ? 'finalizada' : evaluation.sequence_status || evaluation.estado} /></div>
+              <div className="evaluation-title-row"><div><h3>{evaluation.project?.title || `Proyecto #${evaluation.project_id}`}</h3><small>{evaluation.project?.students?.map((student) => [student.nombres, student.apa].filter(Boolean).join(' ')).join(', ') || 'Sin integrantes'}</small></div><div className="evaluation-status-stack"><span className={`evaluation-state-badge ${progress.tone}`}>{progress.label}</span><StatusBadge value={evaluation.is_completed ? 'finalizada' : evaluation.sequence_status || evaluation.estado} /></div></div>
               <div className="evaluation-metrics">
-                <span>Fecha <strong>{formatDate(evaluation.fecha_exposicion)}</strong></span>
-                <span>Promedio <strong>{Number(evaluation.global_average || 0).toFixed(1)}%</strong></span>
-                <span>Rúbricas <strong>{evaluation.evaluators_count}/{evaluation.expected_evaluators_count}</strong></span>
+                <span><FiClock /> Fecha <strong>{formatDate(evaluation.fecha_exposicion)}</strong></span>
+                <span className={`score-indicator ${tone}`}>Promedio <strong>{Number(evaluation.evaluators_count || 0) ? `${Number(evaluation.global_average || 0).toFixed(1)}%` : 'Sin calificar'}</strong><i><b style={{ width: Number(evaluation.evaluators_count || 0) ? `${Math.min(100, Number(evaluation.global_average || 0))}%` : '0%' }} /></i></span>
+                <span className="rubric-progress">Rúbricas <strong>{evaluation.evaluators_count}/{evaluation.expected_evaluators_count} docentes</strong><i><b style={{ width: `${progress.percent}%` }} /></i></span>
                 <span>Documentos <strong>{evaluation.document_readiness?.all_students_released ? 'Listos' : 'Pendientes'}</strong></span>
               </div>
+              {evaluation.current_teacher_has_scores && <p className="evaluation-context-note">Tu rúbrica ya fue registrada. Intentos utilizados: {evaluation.current_teacher_attempts}/{evaluation.max_attempts}.</p>}
+              {!evaluation.can_score_now && !evaluation.is_completed && <p className="evaluation-context-note warning">La evaluación aún no está habilitada para captura según la secuencia de la sala.</p>}
               <div className="row-actions evaluation-actions">
                 <button onClick={() => setSelected(evaluation)}><FiEye /> Detalle</button>
                 {evaluation.can_score_now && <button onClick={() => setScoreTarget(evaluation)}><FiCheckCircle /> {evaluation.current_teacher_has_scores ? 'Modificar rúbrica' : 'Evaluar'}</button>}
@@ -141,10 +221,12 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
                 {canManage && <button onClick={() => archiveEvaluation(evaluation)}><FiArchive /> {archived ? 'Restaurar' : 'Archivar'}</button>}
               </div>
             </div>
-          </article>)}</div>
+            </article>})}</div>
+          </section>)}</div>
         </section>)}</div>
       )}
-    </section>}
+      </section>
+    </>}
 
     <EvaluationDetail key={selected?.id || 'no-detail'} evaluation={selected} canManage={canManage} onClose={() => setSelected(null)} onAction={(endpoint, body) => action.mutate({ endpoint, body })} />
     <ScoreModal key={scoreTarget?.id || 'no-score'} evaluation={scoreTarget} criteriaPayload={criteriaQuery.data} onClose={() => setScoreTarget(null)} onSaved={() => { setScoreTarget(null); invalidate() }} />

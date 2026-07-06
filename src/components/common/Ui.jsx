@@ -83,6 +83,7 @@ export const confirmAction = async ({
   text = 'Esta operación no se puede deshacer.',
   confirmText = 'Sí, continuar',
 } = {}) => {
+  const darkMode = document.documentElement.dataset.theme === 'dark'
   const result = await Swal.fire({
     title,
     text,
@@ -92,6 +93,8 @@ export const confirmAction = async ({
     cancelButtonText: 'Cancelar',
     confirmButtonColor: '#1B396A',
     cancelButtonColor: '#6c757d',
+    background: darkMode ? '#172033' : '#ffffff',
+    color: darkMode ? '#edf2f7' : '#202733',
     reverseButtons: true,
   })
   return result.isConfirmed

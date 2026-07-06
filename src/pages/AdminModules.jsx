@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  FiCheckCircle, FiDownload, FiEdit2, FiKey, FiLink, FiPlus, FiRefreshCw,
-  FiSend, FiSlash, FiTrash2, FiUpload,
+  FiCheckCircle, FiDownload, FiEdit2, FiKey, FiPlus, FiRefreshCw,
+  FiSend, FiSlash, FiTrash2, FiUpload, FiUserCheck, FiUserX, FiUsers,
 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError, unwrapCollection } from '../services/api'
@@ -12,6 +12,7 @@ import {
   SearchField, StatusBadge, useDebounced,
 } from '../components/common/Ui'
 import { formatDate, fullName } from '../utils/formatters'
+import { downloadApiFile } from '../utils/downloads'
 
 const profileOptions = [
   { value: 1, label: 'Administrador' },
@@ -35,18 +36,14 @@ const advisorRoles = [
   { value: 'revisor_1', label: 'Revisor 1' },
   { value: 'revisor_2', label: 'Revisor 2' },
 ]
+const projectAdvisorRoles = advisorRoles.filter((role) => ['primario', 'secundario'].includes(role.value))
+const thesisAdvisorRoles = advisorRoles.filter((role) => ['asesor', 'revisor_1', 'revisor_2'].includes(role.value))
 
 const profileLabel = (id) => profileOptions.find((option) => Number(option.value) === Number(id))?.label || 'Usuario'
 const idsFromText = (value) => String(value || '').split(',').map((id) => id.trim()).filter(Boolean)
-const downloadBlob = (response, filename) => {
-  const url = URL.createObjectURL(response.data)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
-}
-
+const isThesisProject = (project) => Boolean(project?.is_thesis) || project?.tipo === 'tesis'
+const advisorRoleOf = (advisor) => advisor?.pivot?.rol || advisor?.pivot?.rol_asesor || 'asesor'
+const semesterOf = (project) => project?.semestre || project?.subject_group?.semestre || 'Sin semestre'
 export function UsersModule({ advisors = false }) {
   const client = useQueryClient()
   const [search, setSearch] = useState('')
@@ -166,8 +163,7 @@ export function UsersModule({ advisors = false }) {
   }
   const downloadTemplate = async () => {
     try {
-      const response = await api.get('/users-template.xls', { responseType: 'blob' })
-      downloadBlob(response, 'plantilla_usuarios.xls')
+      await downloadApiFile('/users-template.xls', 'plantilla_usuarios.xls')
     } catch (error) { toast.error(apiError(error)) }
   }
   const toggleVisible = () => {
@@ -208,6 +204,235 @@ export function UsersModule({ advisors = false }) {
     <ImportModal open={importOpen} title="Importar usuarios" file={importFile} setFile={setImportFile} onClose={() => setImportOpen(false)} onImport={() => importUsers.mutate()} loading={importUsers.isPending} />
     <CredentialsModal open={credentialOpen} selectedIds={selectedIds} onClose={() => setCredentialOpen(false)} onSent={() => { setCredentialOpen(false); setSelectedIds([]) }} />
   </>
+}
+
+export function AdvisorsModule() {
+  const client = useQueryClient()
+  const [viewMode, setViewMode] = useState('projects')
+  const [recordType, setRecordType] = useState('proyecto')
+  const [search, setSearch] = useState('')
+  const [semester, setSemester] = useState('')
+  const [coverage, setCoverage] = useState('all')
+  const [teacherId, setTeacherId] = useState('')
+  const [manageProject, setManageProject] = useState(null)
+  const debounced = useDebounced(search)
+  const queryParams = {
+    per_page: 100,
+    semestre: semester || undefined,
+    tipo_registro: recordType,
+  }
+  const projectsQuery = useQuery({
+    queryKey: ['advisor-projects', queryParams],
+    queryFn: () => api.get('/projects', { params: queryParams }).then((response) => response.data),
+  })
+  const staffQuery = useQuery({
+    queryKey: ['advisor-active-staff'],
+    queryFn: () => api.get('/users', { params: { perfil_ids: '1,2', status: 'active', compact: 1, per_page: 500 } }).then((response) => unwrapCollection(response.data)),
+  })
+  const rows = Array.isArray(projectsQuery.data?.data) ? projectsQuery.data.data : unwrapCollection(projectsQuery.data)
+  const requiredRoles = recordType === 'tesis' ? thesisAdvisorRoles : projectAdvisorRoles
+  const projectCoverage = (project) => requiredRoles.filter((role) => project.advisors?.some((advisor) => advisorRoleOf(advisor) === role.value)).length
+  const visibleRows = rows.filter((project) => {
+    const assigned = projectCoverage(project)
+    const term = debounced.trim().toLowerCase()
+    const searchable = [project.title, project.authors, project.company_name, ...(project.students || []).map(fullName), ...(project.advisors || []).flatMap((advisor) => [advisor.id, fullName(advisor)])].filter(Boolean).join(' ').toLowerCase()
+    if (term && !searchable.includes(term)) return false
+    if (teacherId && !project.advisors?.some((advisor) => String(advisor.id) === String(teacherId))) return false
+    if (coverage === 'complete') return assigned === requiredRoles.length
+    if (coverage === 'incomplete') return assigned < requiredRoles.length
+    return true
+  })
+  const activeStaffIds = new Set((staffQuery.data || []).map((person) => String(person.id)))
+  const teacherMap = new Map()
+  rows.forEach((project) => project.advisors?.forEach((advisor) => {
+    if (!activeStaffIds.has(String(advisor.id))) return
+    const key = String(advisor.id)
+    if (!teacherMap.has(key)) teacherMap.set(key, { ...advisor, projects: [] })
+    teacherMap.get(key).projects.push({
+      id: project.id,
+      title: project.title,
+      semester: semesterOf(project),
+      role: advisorRoleOf(advisor),
+      group: project.subject_group?.nombre || project.company_name || 'Sin grupo asociado',
+    })
+  }))
+  const teacherRows = [...teacherMap.values()].filter((teacher) => {
+    const term = debounced.trim().toLowerCase()
+    if (teacherId && String(teacher.id) !== String(teacherId)) return false
+    if (!term) return true
+    return [teacher.id, fullName(teacher), ...teacher.projects.map((project) => project.title)].join(' ').toLowerCase().includes(term)
+  }).sort((a, b) => fullName(a).localeCompare(fullName(b), 'es'))
+  const completeCount = rows.filter((project) => projectCoverage(project) === requiredRoles.length).length
+  const assignedCount = rows.reduce((total, project) => total + projectCoverage(project), 0)
+  const invalidate = () => {
+    client.invalidateQueries({ queryKey: ['advisor-projects'] })
+    client.invalidateQueries({ queryKey: ['projects-admin'] })
+  }
+
+  return <>
+    <PageHeader
+      eyebrow="Vinculación académica"
+      title="Gestión de asesores"
+      description="Consulta las asignaciones desde los proyectos o revisa la carga académica de cada docente activo."
+    />
+    <div className="stats-grid advisor-stats">
+      <article className="stat-card"><span className="stat-icon"><FiUsers /></span><div><small>{viewMode === 'teachers' ? 'Docentes con asignación' : recordType === 'tesis' ? 'Tesis visibles' : 'Proyectos visibles'}</small><strong>{viewMode === 'teachers' ? teacherRows.length : rows.length}</strong></div></article>
+      <article className="stat-card"><span className="stat-icon color-1"><FiUserCheck /></span><div><small>Roles cubiertos</small><strong>{assignedCount}</strong></div></article>
+      <article className="stat-card"><span className="stat-icon color-2"><FiUserX /></span><div><small>Con asignación incompleta</small><strong>{rows.length - completeCount}</strong></div></article>
+    </div>
+    <section className="panel">
+      <div className="advisor-control-row">
+        <div className="module-tabs compact-tabs" aria-label="Organizar asesores">
+          <button className={viewMode === 'projects' ? 'active' : ''} onClick={() => setViewMode('projects')}>Por proyectos</button>
+          <button className={viewMode === 'teachers' ? 'active' : ''} onClick={() => setViewMode('teachers')}>Por docentes</button>
+        </div>
+        <button className="icon-text-button" onClick={() => projectsQuery.refetch()}><FiRefreshCw /> Actualizar</button>
+      </div>
+      <div className="module-tabs compact-tabs advisor-record-tabs" aria-label="Tipo de registro">
+        <button className={recordType === 'proyecto' ? 'active' : ''} onClick={() => setRecordType('proyecto')}>Proyectos integradores</button>
+        <button className={recordType === 'tesis' ? 'active' : ''} onClick={() => setRecordType('tesis')}>Tesis</button>
+      </div>
+      <div className="table-toolbar admin-toolbar advisor-filters">
+        <SearchField value={search} onChange={setSearch} placeholder={viewMode === 'teachers' ? 'Buscar docente o proyecto asignado...' : 'Buscar proyecto, integrante o asesor...'} />
+        <select value={semester} onChange={(event) => setSemester(event.target.value)}>
+          <option value="">Todos los semestres</option>
+          {[5, 6, 7, 8, 9].map((value) => <option value={value} key={value}>{value}° semestre</option>)}
+        </select>
+        <select value={teacherId} onChange={(event) => setTeacherId(event.target.value)}>
+          <option value="">Todos los docentes activos</option>
+          {(staffQuery.data || []).map((person) => <option value={person.id} key={person.id}>{fullName(person)} ({person.id})</option>)}
+        </select>
+        {viewMode === 'projects' && <select value={coverage} onChange={(event) => setCoverage(event.target.value)}>
+          <option value="all">Toda la cobertura</option>
+          <option value="incomplete">Asignación incompleta</option>
+          <option value="complete">Asignación completa</option>
+        </select>}
+      </div>
+      {projectsQuery.isLoading || staffQuery.isLoading ? <Loading /> : projectsQuery.isError || staffQuery.isError ? <ErrorState message={apiError(projectsQuery.error || staffQuery.error)} onRetry={() => { projectsQuery.refetch(); staffQuery.refetch() }} /> : viewMode === 'teachers' ? teacherRows.length === 0 ? <Empty title="Sin docentes con proyectos para este filtro" /> : (
+        <div className="advisor-teacher-grid">{teacherRows.map((teacher) => <article className="advisor-teacher-card" key={teacher.id}>
+          <header><span className="advisor-teacher-avatar">{fullName(teacher).charAt(0).toUpperCase()}</span><div><h2>{fullName(teacher)}</h2><p>{teacher.id} · Perfil activo</p></div><strong>{teacher.projects.length}</strong></header>
+          <div className="teacher-project-list">{teacher.projects.map((project) => {
+            const role = advisorRoles.find((item) => item.value === project.role)?.label || project.role
+            return <div key={`${teacher.id}-${project.id}`}><span><strong>{project.title}</strong><small>Semestre {project.semester} · {project.group}</small></span><StatusBadge value={role} /></div>
+          })}</div>
+        </article>)}</div>
+      ) : visibleRows.length === 0 ? <Empty title="Sin proyectos para este filtro" /> : (
+        <div className="advisor-project-grid">{visibleRows.map((project) => {
+          const covered = projectCoverage(project)
+          return <article className={`advisor-project-card ${covered === requiredRoles.length ? 'complete' : ''}`} key={project.id}>
+            <header>
+              <div><span className="eyebrow">Semestre {semesterOf(project)}</span><h2>{project.title}</h2><p>{project.students?.map(fullName).join(', ') || project.authors || 'Sin integrantes asignados'}</p></div>
+              <span className="coverage-counter">{covered}/{requiredRoles.length}</span>
+            </header>
+            <div className="advisor-role-list">{requiredRoles.map((role) => {
+              const assigned = project.advisors?.find((advisor) => advisorRoleOf(advisor) === role.value)
+              return <div className={assigned ? 'advisor-role filled' : 'advisor-role missing'} key={role.value}>
+                <span>{role.label}</span>
+                <strong>{assigned ? fullName(assigned) : 'Sin asignar'}</strong>
+                <small>{assigned?.id || 'Requiere atención'}</small>
+              </div>
+            })}</div>
+            <footer><span>{project.subject_group?.nombre || project.company_name || 'Sin grupo asociado'}</span><button className="btn-primary-app compact" onClick={() => setManageProject(project)}><FiUserCheck /> Gestionar asesores</button></footer>
+          </article>
+        })}</div>
+      )}
+    </section>
+    <AdvisorAssignmentModal key={manageProject?.id || 'no-advisor-project'} project={manageProject} onClose={() => setManageProject(null)} onSaved={invalidate} />
+  </>
+}
+
+function AdvisorAssignmentModal({ project, onClose, onSaved }) {
+  const client = useQueryClient()
+  const thesis = isThesisProject(project)
+  const roles = thesis ? thesisAdvisorRoles : projectAdvisorRoles
+  const initialAssignments = () => Object.fromEntries(roles.map((role) => [
+    role.value,
+    project?.advisors?.find((advisor) => advisorRoleOf(advisor) === role.value)?.id || '',
+  ]))
+  const [draft, setDraft] = useState(initialAssignments)
+  const [baseline] = useState(initialAssignments)
+  const projectQuery = useQuery({
+    queryKey: ['project-detail', project?.id],
+    queryFn: () => api.get(`/projects/${project.id}`).then((response) => response.data),
+    enabled: Boolean(project),
+    initialData: project || undefined,
+  })
+  const staffQuery = useQuery({
+    queryKey: ['project-staff-options'],
+    queryFn: () => api.get('/users', { params: { perfil_ids: '1,2', status: 'active', compact: 1, per_page: 500 } }).then((response) => unwrapCollection(response.data)),
+    enabled: Boolean(project),
+  })
+  const currentProject = projectQuery.data || project
+  const hasChanges = roles.some((role) => (draft[role.value] || '') !== (baseline[role.value] || ''))
+  const selectedIds = Object.values(draft).filter(Boolean)
+  const mutation = useMutation({
+    mutationFn: () => api.put(`/projects/${project.id}/advisors`, { assignments: draft }),
+    onSuccess: ({ data }) => {
+      toast.success(data.message || 'Asignaciones actualizadas.')
+      client.invalidateQueries({ queryKey: ['project-detail', project?.id] })
+      onSaved()
+      onClose()
+    },
+    onError: (error) => toast.error(apiError(error)),
+  })
+  const save = async (event) => {
+    event.preventDefault()
+    if (!hasChanges) return
+    const assignedNames = roles.map((role) => {
+      const person = staffQuery.data?.find((item) => String(item.id) === String(draft[role.value]))
+      return `${role.label}: ${person ? fullName(person) : 'Sin asignar'}`
+    }).join('\n')
+    const confirmed = await confirmAction({
+      title: 'Confirmar cambios de asesores',
+      text: assignedNames,
+      confirmText: 'Sí, guardar cambios',
+    })
+    if (confirmed) mutation.mutate()
+  }
+  const close = async () => {
+    if (hasChanges) {
+      const discard = await confirmAction({
+        title: 'Descartar cambios',
+        text: 'Las selecciones todavía no se han guardado.',
+        confirmText: 'Sí, descartar',
+      })
+      if (!discard) return
+    }
+    onClose()
+  }
+
+  return <Modal open={Boolean(project)} title="Gestionar asesores" onClose={close}>
+    {projectQuery.isLoading ? <Loading /> : projectQuery.isError ? <ErrorState message={apiError(projectQuery.error)} onRetry={projectQuery.refetch} /> : <div className="modal-form advisor-assignment-modal">
+      <h3>{currentProject?.title}</h3>
+      <p className="review-comment">{thesis ? 'Selecciona al asesor de tesis y a sus revisores.' : 'Selecciona al asesor primario y secundario en una sola operación.'} Solo aparecen docentes y administradores activos.</p>
+      <form className="advisor-bulk-form" onSubmit={save}>
+        <div className="advisor-select-grid">{roles.map((role) => {
+          const selected = staffQuery.data?.find((person) => String(person.id) === String(draft[role.value]))
+          return <label className={`advisor-select-card ${selected ? 'filled' : 'missing'}`} key={role.value}>
+            <span>{role.label}</span>
+            <select value={draft[role.value] || ''} onChange={(event) => setDraft((current) => ({ ...current, [role.value]: event.target.value }))}>
+              <option value="">Sin asignar</option>
+              {staffQuery.data?.map((person) => <option
+                value={person.id}
+                key={person.id}
+                disabled={selectedIds.includes(String(person.id)) && String(draft[role.value]) !== String(person.id)}
+              >{fullName(person)} ({person.id})</option>)}
+            </select>
+            <small>{selected ? `Perfil activo · ${selected.id}` : 'Puesto disponible'}</small>
+          </label>
+        })}</div>
+        <div className="draft-change-summary">
+          <StatusBadge value={hasChanges ? 'cambios pendientes' : 'sin cambios'} />
+          <span>{hasChanges ? 'Revisa las selecciones antes de confirmar.' : 'Las asignaciones coinciden con la información guardada.'}</span>
+        </div>
+        <div className="modal-actions advisor-draft-actions">
+          <button type="button" onClick={close}>Cancelar</button>
+          <button type="button" className="icon-text-button" disabled={!hasChanges || mutation.isPending} onClick={() => setDraft({ ...baseline })}><FiRefreshCw /> Deshacer cambios</button>
+          <button className="btn-primary-app compact" disabled={!hasChanges || mutation.isPending}><FiCheckCircle /> {mutation.isPending ? 'Guardando...' : 'Confirmar cambios'}</button>
+        </div>
+      </form>
+    </div>}
+  </Modal>
 }
 
 function UserFormModal({ open, advisors, editing, form, setForm, onClose, onSave, saving }) {
@@ -268,17 +493,17 @@ export function ProjectsModule({ readOnly = false }) {
   const client = useQueryClient()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [thesisFilter, setThesisFilter] = useState('')
+  const [recordType, setRecordType] = useState('proyecto')
+  const [semester, setSemester] = useState('')
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(defaultProjectForm)
-  const [manageProject, setManageProject] = useState(null)
   const [importOpen, setImportOpen] = useState(false)
   const [importFile, setImportFile] = useState(null)
   const debounced = useDebounced(search)
   const endpoint = readOnly ? '/my-projects' : '/projects'
   const projectsQuery = useQuery({
-    queryKey: ['projects-admin', endpoint, page, debounced, thesisFilter],
-    queryFn: () => api.get(endpoint, { params: { page, q: debounced || undefined, per_page: 15, is_thesis: thesisFilter || undefined } }).then((response) => response.data),
+    queryKey: ['projects-admin', endpoint, page, debounced, recordType, semester],
+    queryFn: () => api.get(endpoint, { params: { page, q: debounced || undefined, per_page: 15, tipo_registro: recordType, semestre: semester || undefined } }).then((response) => response.data),
   })
   const groupsQuery = useQuery({
     queryKey: ['subject-groups-options'],
@@ -354,8 +579,7 @@ export function ProjectsModule({ readOnly = false }) {
   }
   const downloadTemplate = async () => {
     try {
-      const response = await api.get('/projects-template.xls', { responseType: 'blob' })
-      downloadBlob(response, 'plantilla_proyectos.xls')
+      await downloadApiFile('/projects-template.xls', 'plantilla_proyectos.xls')
     } catch (error) { toast.error(apiError(error)) }
   }
 
@@ -366,9 +590,13 @@ export function ProjectsModule({ readOnly = false }) {
       <button className="icon-text-button" onClick={() => setImportOpen(true)}><FiUpload /> Importar</button>
     </>} />
     <section className="panel">
+      <div className="module-tabs compact-tabs project-type-tabs">
+        <button className={recordType === 'proyecto' ? 'active' : ''} onClick={() => { setRecordType('proyecto'); setPage(1) }}>Proyectos integradores</button>
+        <button className={recordType === 'tesis' ? 'active' : ''} onClick={() => { setRecordType('tesis'); setPage(1) }}>Tesis</button>
+      </div>
       <div className="table-toolbar admin-toolbar">
         <SearchField value={search} onChange={(value) => { setSearch(value); setPage(1) }} placeholder="Buscar proyecto, empresa, asesor o estudiante..." />
-        <select value={thesisFilter} onChange={(event) => { setThesisFilter(event.target.value); setPage(1) }}><option value="">Todos</option><option value="0">Integradores</option><option value="1">Tesis</option></select>
+        <select value={semester} onChange={(event) => { setSemester(event.target.value); setPage(1) }}><option value="">Todos los semestres</option>{[5, 6, 7, 8, 9].map((value) => <option value={value} key={value}>{value}° semestre</option>)}</select>
         <button className="icon-text-button" onClick={() => projectsQuery.refetch()}><FiRefreshCw /> Actualizar</button>
       </div>
       {projectsQuery.isLoading ? <Loading /> : projectsQuery.isError ? <ErrorState message={apiError(projectsQuery.error)} onRetry={projectsQuery.refetch} /> : rows.length === 0 ? <Empty title="Sin proyectos" /> : <div className="table-responsive"><table className="data-table responsive-cards">
@@ -376,17 +604,19 @@ export function ProjectsModule({ readOnly = false }) {
         <tbody>{rows.map((project) => <tr key={project.id}>
           <td className="mobile-primary-cell" data-label="Proyecto"><strong>{project.title}</strong><small className="cell-subtitle">{project.company_name || 'Sin empresa'} · {formatDate(project.created_at)}</small></td>
           <td data-label="Integrantes">{project.students?.map(fullName).join(', ') || project.authors || 'Sin asignar'}</td>
-          <td data-label="Asesores">{project.advisors?.map((advisor) => `${fullName(advisor)} (${advisor.pivot?.rol || advisor.pivot?.rol_asesor || 'asesor'})`).join(', ') || 'Sin asesores'}</td>
+          <td data-label="Asesores"><div className="inline-role-list">{(isThesisProject(project) ? thesisAdvisorRoles : projectAdvisorRoles).map((role) => {
+            const assigned = project.advisors?.find((advisor) => advisorRoleOf(advisor) === role.value)
+            return <span className={assigned ? 'filled' : 'missing'} key={role.value}><small>{role.label}</small>{assigned ? fullName(assigned) : 'Sin asignar'}</span>
+          })}</div></td>
           <td data-label="Materias">{project.asignaturas?.map((subject) => subject.clave ? `${subject.clave} ${subject.nombre}` : subject.nombre).join(', ') || 'Sin materias'}</td>
           <td data-label="Grupo">{project.subject_group ? `${project.subject_group.semestre} ${project.subject_group.grupo} · ${project.subject_group.nombre}` : project.semestre || '-'}</td>
           <td data-label="Estado"><StatusBadge value={project.proposal_status || (project.activo ? 'activo' : 'inactivo')} /></td>
-          <td className="row-actions" data-label="Acciones">{!readOnly && <><button onClick={() => openProject(project)}><FiEdit2 /> Editar</button><button onClick={() => setManageProject(project)}><FiLink /> Relaciones</button><button className="danger" onClick={() => remove(project)}><FiTrash2 /> Eliminar</button></>}</td>
+          <td className="row-actions" data-label="Acciones">{!readOnly && <><button onClick={() => openProject(project)}><FiEdit2 /> Editar</button><button className="danger" onClick={() => remove(project)}><FiTrash2 /> Eliminar</button></>}</td>
         </tr>)}</tbody>
       </table></div>}
       <Pagination meta={projectsQuery.data} onPage={setPage} />
     </section>
     <ProjectFormModal open={Boolean(editing)} editing={editing} form={form} setForm={setForm} groups={groups} onClose={() => setEditing(null)} onSave={() => saveProject.mutate()} saving={saveProject.isPending} />
-    <ProjectRelationsModal project={manageProject} onClose={() => setManageProject(null)} onSaved={invalidate} />
     <ImportModal open={importOpen} title="Importar proyectos" file={importFile} setFile={setImportFile} onClose={() => setImportOpen(false)} onImport={() => importProjects.mutate()} loading={importProjects.isPending} />
   </>
 }
@@ -413,75 +643,6 @@ function ProjectFormModal({ open, editing, form, setForm, groups, onClose, onSav
       </div>
       <div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="btn-primary-app compact" disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</button></div>
     </form>
-  </Modal>
-}
-
-function ProjectRelationsModal({ project, onClose, onSaved }) {
-  const client = useQueryClient()
-  const [advisor, setAdvisor] = useState({ user_id: '', rol_asesor: 'primario', admin_password: '' })
-  const [adminPassword, setAdminPassword] = useState('')
-  const projectQuery = useQuery({
-    queryKey: ['project-detail', project?.id],
-    queryFn: () => api.get(`/projects/${project.id}`).then((response) => response.data),
-    enabled: Boolean(project),
-  })
-  const staffQuery = useQuery({
-    queryKey: ['project-staff-options'],
-    queryFn: () => api.get('/users', { params: { perfil_ids: '1,2', status: 'active', compact: 1, per_page: 500 } }).then((response) => unwrapCollection(response.data)),
-    enabled: Boolean(project),
-  })
-  const subjectsQuery = useQuery({
-    queryKey: ['subjects-options'],
-    queryFn: () => api.get('/asignaturas').then((response) => unwrapCollection(response.data)),
-    enabled: Boolean(project),
-  })
-  const [subjectIds, setSubjectIds] = useState(null)
-  const currentProject = projectQuery.data || project
-  const selectedSubjectIds = subjectIds ?? (currentProject?.asignaturas || []).map((subject) => Number(subject.id))
-  const refresh = () => {
-    client.invalidateQueries({ queryKey: ['project-detail', project?.id] })
-    client.invalidateQueries({ queryKey: ['projects-admin'] })
-    onSaved()
-  }
-  const relationMutation = useMutation({
-    mutationFn: ({ method = 'post', endpoint, body }) => method === 'delete' ? api.delete(endpoint, body) : api[method](endpoint, body),
-    onSuccess: ({ data }) => { toast.success(data.message || 'Relaciones actualizadas.'); refresh() },
-    onError: (error) => toast.error(apiError(error)),
-  })
-  const addAdvisor = (event) => {
-    event.preventDefault()
-    relationMutation.mutate({ endpoint: `/projects/${project.id}/advisors`, body: advisor })
-  }
-  const removeAdvisor = async (userId) => {
-    const password = adminPassword || window.prompt('Contraseña de administrador para remover asesor:')
-    if (!password) return
-    if (!await confirmAction({ title: 'Remover asesor', text: 'Se quitará su relación con este proyecto.', confirmText: 'Sí, remover' })) return
-    relationMutation.mutate({ method: 'delete', endpoint: `/projects/${project.id}/advisors/${userId}`, body: { data: { admin_password: password } } })
-  }
-  const syncSubjects = () => relationMutation.mutate({ endpoint: `/projects/${project.id}/asignaturas`, body: { asignatura_ids: selectedSubjectIds } })
-
-  return <Modal open={Boolean(project)} title="Relaciones del proyecto" onClose={onClose}>
-    {projectQuery.isLoading ? <Loading /> : projectQuery.isError ? <ErrorState message={apiError(projectQuery.error)} onRetry={projectQuery.refetch} /> : <div className="modal-form relations-modal">
-      <h3>{currentProject?.title}</h3>
-      <p className="review-comment">Gestiona asesores, comité de tesis y materias del proyecto. Las acciones de asesores requieren contraseña de administrador.</p>
-      <section className="selection-fieldset"><legend>Asesores actuales</legend>{currentProject?.advisors?.length ? currentProject.advisors.map((item) => <div className="relation-row" key={item.id}><span><strong>{fullName(item)}</strong><small>{item.pivot?.rol || item.pivot?.rol_asesor || 'asesor'}</small></span><button className="danger" onClick={() => removeAdvisor(item.id)}><FiTrash2 /> Remover</button></div>) : <Empty title="Sin asesores" />}</section>
-      <form onSubmit={addAdvisor} className="selection-fieldset"><legend>Asignar asesor o comité</legend>
-        <div className="form-grid">
-          <label>Persona<select required value={advisor.user_id} onChange={(event) => setAdvisor({ ...advisor, user_id: event.target.value })}><option value="">Selecciona</option>{staffQuery.data?.map((item) => <option key={item.id} value={item.id}>{fullName(item)} ({item.id})</option>)}</select></label>
-          <label>Rol<select value={advisor.rol_asesor} onChange={(event) => setAdvisor({ ...advisor, rol_asesor: event.target.value })}>{advisorRoles.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}</select></label>
-          <label className="full-field">Contraseña administrador<input required type="password" value={advisor.admin_password} onChange={(event) => setAdvisor({ ...advisor, admin_password: event.target.value })} /></label>
-        </div>
-        <button className="btn-primary-app compact" disabled={relationMutation.isPending}>Asignar asesor</button>
-      </form>
-      <section className="selection-fieldset"><legend>Materias / asignaturas</legend>
-        <div className="subject-chip-grid">{subjectsQuery.data?.map((subject) => <label className="selection-card" key={subject.id}><input type="checkbox" checked={selectedSubjectIds.includes(Number(subject.id))} onChange={(event) => setSubjectIds((ids) => {
-          const current = ids ?? selectedSubjectIds
-          return event.target.checked ? [...current, Number(subject.id)] : current.filter((id) => id !== Number(subject.id))
-        })} /><span>{subject.clave ? `${subject.clave} · ` : ''}{subject.nombre}</span></label>)}</div>
-        <button className="btn-primary-app compact" onClick={syncSubjects} disabled={relationMutation.isPending}>Guardar materias</button>
-      </section>
-      <label>Contraseña para remover asesores<input type="password" value={adminPassword} onChange={(event) => setAdminPassword(event.target.value)} /></label>
-    </div>}
   </Modal>
 }
 

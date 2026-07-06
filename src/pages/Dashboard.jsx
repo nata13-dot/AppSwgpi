@@ -32,7 +32,14 @@ export default function Dashboard() {
         <article className="panel">
           <div className="panel-heading"><div><span className="eyebrow">Seguimiento</span><h2>Estado de entregables</h2></div></div>
           {chartData.some((item) => item.value > 0) ? <div className="chart-wrap">
-            <ResponsiveContainer width="100%" height={260}><PieChart><Pie data={chartData} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={3}>{chartData.map((item, index) => <Cell key={item.name} fill={colors[index % colors.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer>
+            <div className="chart-canvas"><ResponsiveContainer
+              width="100%"
+              height="100%"
+              minWidth={1}
+              minHeight={190}
+              initialDimension={{ width: 320, height: 230 }}
+              debounce={80}
+            ><PieChart><Pie data={chartData} dataKey="value" nameKey="name" innerRadius="48%" outerRadius="72%" paddingAngle={3}>{chartData.map((item, index) => <Cell key={item.name} fill={colors[index % colors.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></div>
             <div className="chart-legend">{chartData.map((item, index) => <span key={item.name}><i style={{ background: colors[index % colors.length] }} />{item.name}<strong>{item.value}</strong></span>)}</div>
           </div> : <div className="chart-empty"><FiFileText /> Aún no hay entregables registrados.</div>}
         </article>
