@@ -6,6 +6,7 @@ import api, { apiError, unwrapCollection } from '../services/api'
 import { roleFromUser, useAuth } from '../hooks/useAuth'
 import { Empty, ErrorState, Loading, PageHeader, StatusBadge } from '../components/common/Ui'
 import { formatDate, fullName } from '../utils/formatters'
+import { downloadApiFile } from '../utils/downloads'
 
 export default function EvaluationDocuments() {
   const { user } = useAuth()
@@ -42,13 +43,7 @@ export default function EvaluationDocuments() {
   })
   const download = async (document) => {
     try {
-      const response = await api.get(`/repositorio/${document.id}/download`, { responseType: 'blob' })
-      const url = URL.createObjectURL(response.data)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = document.nombre || `documento-${document.id}`
-      link.click()
-      URL.revokeObjectURL(url)
+      await downloadApiFile(`/repositorio/${document.id}/download`, document.nombre_archivo || document.nombre || `documento-${document.id}`)
     } catch (error) { toast.error(apiError(error)) }
   }
   const loading = section === 'evaluations' ? evaluations.isLoading : thesis.isLoading

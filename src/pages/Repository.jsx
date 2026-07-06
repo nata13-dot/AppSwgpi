@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiDownload, FiFileText, FiPlus, FiSearch } from 'react-icons/fi'
 import { toast } from 'react-toastify'
-import api, { API_URL, apiError } from '../services/api'
+import api, { apiError } from '../services/api'
 import { formatDate } from '../utils/formatters'
 import { Empty, ErrorState, Loading, Modal, PageHeader, Pagination, StatusBadge, useDebounced } from '../components/common/Ui'
 import { roleFromUser, useAuth } from '../hooks/useAuth'
+import { downloadApiFile } from '../utils/downloads'
 
 export default function Repository({ publicView = false }) {
   const { user, isAuthenticated } = useAuth()
@@ -36,18 +37,8 @@ export default function Repository({ publicView = false }) {
     onError: (error) => toast.error(apiError(error)),
   })
   const download = async (document) => {
-    if (publicView || !isAuthenticated) {
-      window.location.assign(`${API_URL}/repositorio/${document.id}/download`)
-      return
-    }
     try {
-      const response = await api.get(`/repositorio/${document.id}/download`, { responseType: 'blob' })
-      const url = URL.createObjectURL(response.data)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = document.nombre || document.title || `documento-${document.id}`
-      link.click()
-      URL.revokeObjectURL(url)
+      await downloadApiFile(`/repositorio/${document.id}/download`, document.nombre_archivo || document.nombre || document.title || `documento-${document.id}`)
     } catch (error) { toast.error(apiError(error)) }
   }
   const payload = query.data

@@ -5,6 +5,7 @@ import { toast } from 'react-toastify'
 import api, { apiError, unwrapCollection } from '../../services/api'
 import { confirmAction, Empty, ErrorState, Loading, Modal, StatusBadge } from '../../components/common/Ui'
 import { formatDate, fullName } from '../../utils/formatters'
+import { downloadApiFile } from '../../utils/downloads'
 
 const emptyRoom = {
   nombre: '', salon: '', semestre: 5, responsible_teacher_id: '', fecha_evaluacion: '',
@@ -94,13 +95,7 @@ export default function EvaluationRooms({ canManage }) {
   }
   const report = async (room, teachersOnly = false) => {
     try {
-      const response = await api.get(`/evaluations/rooms/${room.id}/report.pdf${teachersOnly ? '?audience=teachers' : ''}`, { responseType: 'blob' })
-      const url = URL.createObjectURL(response.data)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `reporte_sala_${room.id}${teachersOnly ? '_docentes' : ''}.pdf`
-      link.click()
-      URL.revokeObjectURL(url)
+      await downloadApiFile(`/evaluations/rooms/${room.id}/report.pdf${teachersOnly ? '?audience=teachers' : ''}`, `reporte_sala_${room.id}${teachersOnly ? '_docentes' : ''}.pdf`)
     } catch (error) { toast.error(apiError(error)) }
   }
 
