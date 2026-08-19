@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { FiCheckCircle, FiClock, FiFileText, FiFolder, FiTrendingUp, FiUsers } from 'react-icons/fi'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import api, { apiError } from '../services/api'
-import { roleFromUser, useAuth } from '../hooks/useAuth'
+import { isProjectManagementRole, roleFromUser, useAuth } from '../hooks/useAuth'
 import { formatDate, fullName, statusLabel } from '../utils/formatters'
 import { ErrorState, Loading, PageHeader, StatusBadge } from '../components/common/Ui'
 
@@ -12,12 +12,13 @@ const colors = ['#1f6f5c', '#d9a62e', '#256d9b', '#b85c55', '#754f8f']
 export default function Dashboard() {
   const { user } = useAuth()
   const role = roleFromUser(user)
-  const endpoint = role === 'admin' ? '/dashboard/stats' : `/dashboard/${role}`
+  const managementRole = isProjectManagementRole(role)
+  const endpoint = managementRole ? '/dashboard/stats' : `/dashboard/${role}`
   const query = useQuery({ queryKey: ['dashboard', role], queryFn: () => api.get(endpoint).then((r) => r.data) })
   if (query.isLoading) return <Loading />
   if (query.isError) return <ErrorState message={apiError(query.error)} onRetry={query.refetch} />
   const data = query.data
-  const cards = role === 'admin'
+  const cards = managementRole
     ? [['Usuarios activos', data.stats.active_users, FiUsers], ['Proyectos activos', data.stats.active_projects, FiFolder], ['Entregables pendientes', data.stats.pending_deliverables, FiClock], ['Avance de entregas', `${data.stats.deliverable_completion_rate}%`, FiTrendingUp]]
     : [['Mis proyectos', data.stats.my_projects, FiFolder], ['Entregables pendientes', data.stats.pending_deliverables, FiClock], ['Entregables aprobados', data.stats.approved_deliverables ?? data.stats.completed_deliverables, FiCheckCircle], ['Avance general', `${data.stats.deliverable_completion_rate}%`, FiTrendingUp]]
   const chartData = Object.entries(data.charts?.deliverables_by_status || {}).map(([name, value]) => ({ name: statusLabel(name), value }))

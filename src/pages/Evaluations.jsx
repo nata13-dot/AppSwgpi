@@ -6,7 +6,7 @@ import {
 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError, unwrapCollection } from '../services/api'
-import { roleFromUser, useAuth } from '../hooks/useAuth'
+import { isProjectManagementRole, roleFromUser, useAuth } from '../hooks/useAuth'
 import { confirmAction, Empty, ErrorState, Loading, Modal, PageHeader, SearchField, StatusBadge } from '../components/common/Ui'
 import { formatDate } from '../utils/formatters'
 import EvaluationRooms from './evaluations/EvaluationRooms'
@@ -34,7 +34,7 @@ const evaluationProgress = (evaluation) => {
 export default function Evaluations({ initialTab = 'evaluations', initialArchived = false }) {
   const { user } = useAuth()
   const role = roleFromUser(user)
-  const canManage = role === 'admin' || Boolean(user?.is_evaluation_manager)
+  const canManage = isProjectManagementRole(role) || Boolean(user?.is_evaluation_manager)
   const client = useQueryClient()
   const [tab, setTab] = useState(initialTab)
   const [archived, setArchived] = useState(initialArchived)

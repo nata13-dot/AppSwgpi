@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiCheck, FiClock, FiSearch, FiSend, FiX } from 'react-icons/fi'
+import { FiClock, FiPlus, FiSearch, FiSend, FiTrash2, FiUserPlus } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
 import { roleFromUser, useAuth } from '../hooks/useAuth'
-import { Empty, ErrorState, Loading, Modal, PageHeader, StatusBadge } from '../components/common/Ui'
+import { confirmAction, Empty, ErrorState, Loading, Modal, PageHeader, StatusBadge } from '../components/common/Ui'
 import { formatDate, fullName } from '../utils/formatters'
 
 export default function Proposals() {
@@ -82,26 +82,35 @@ function TeacherReviews() {
 function ProposalConfiguration() {
   const client = useQueryClient()
   const [windowForm, setWindowForm] = useState({ subject_group_id: '', starts_at: '', ends_at: '', activo: true, notes: '' })
+  const [assignment, setAssignment] = useState({ subject_group_id: '', teacher_id: '' })
+  const [exception, setException] = useState({ subject_group_id: '', student_id: '', notes: '' })
+  const [studentSearch, setStudentSearch] = useState('')
   const query = useQuery({ queryKey: ['proposal-config'], queryFn: () => api.get('/proposal/config').then((response) => response.data) })
+  const students = useQuery({ queryKey: ['proposal-students', studentSearch], queryFn: () => api.get('/proposal/students/search', { params: { q: studentSearch } }).then((response) => response.data), enabled: studentSearch.trim().length >= 2 })
   const mutation = useMutation({
-    mutationFn: () => api.post('/proposal/windows', windowForm),
-    onSuccess: () => { toast.success('Ventana creada.'); client.invalidateQueries({ queryKey: ['proposal-config'] }) },
+    mutationFn: ({ method = 'post', endpoint, body }) => api[method](endpoint, body),
+    onSuccess: ({ data }) => { toast.success(data.message || 'Configuración actualizada.'); client.invalidateQueries({ queryKey: ['proposal-config'] }) },
     onError: (error) => toast.error(apiError(error)),
   })
   if (query.isLoading) return <Loading />
   if (query.isError) return <ErrorState message={apiError(query.error)} onRetry={query.refetch} />
   const data = query.data
+  const remove = async (title, endpoint) => {
+    if (await confirmAction({ title, text: 'El cambio se aplicará a la configuración de propuestas.' })) mutation.mutate({ method: 'delete', endpoint })
+  }
   return <>
-    <PageHeader eyebrow="Administración" title="Configuración de propuestas" description={`Materia predeterminada: ${data.default_subject?.nombre}. Define ventanas por grupo.`} />
+    <PageHeader eyebrow="Administración" title="Configuración de propuestas" description={`Materia predeterminada: ${data.default_subject?.nombre || 'sin configurar'}. Administra responsables, excepciones y ventanas por grupo.`} />
     <section className="proposal-config-grid">
-      <form className="panel proposal-form" onSubmit={(event) => { event.preventDefault(); mutation.mutate() }}><h2>Nueva ventana de registro</h2>
+      <form className="panel proposal-form" onSubmit={(event) => { event.preventDefault(); mutation.mutate({ endpoint: '/proposal/windows', body: windowForm }) }}><h2>Nueva ventana de registro</h2>
         <label>Grupo<select required value={windowForm.subject_group_id} onChange={(event) => setWindowForm({ ...windowForm, subject_group_id: Number(event.target.value) })}><option value="">Selecciona</option>{data.subject_groups.map((group) => <option key={group.id} value={group.id}>{group.semestre} {group.grupo} · {group.nombre}</option>)}</select></label>
         <label>Inicio<input required type="datetime-local" value={windowForm.starts_at} onChange={(event) => setWindowForm({ ...windowForm, starts_at: event.target.value })} /></label>
         <label>Fin<input required type="datetime-local" value={windowForm.ends_at} onChange={(event) => setWindowForm({ ...windowForm, ends_at: event.target.value })} /></label>
         <label>Notas<textarea rows="3" value={windowForm.notes} onChange={(event) => setWindowForm({ ...windowForm, notes: event.target.value })} /></label>
-        <button className="btn-primary-app compact"><FiClock /> Crear ventana</button>
+        <button className="btn-primary-app compact" disabled={mutation.isPending}><FiClock /> Crear ventana</button>
       </form>
-      <section className="panel"><h2>Grupos y ventanas</h2><div className="window-list">{data.subject_groups.map((group) => <article key={group.id}><strong>{group.semestre} {group.grupo} · {group.nombre}</strong>{group.registration_windows?.length ? group.registration_windows.map((window) => <span key={window.id}><StatusBadge value={window.activo ? 'activo' : 'inactivo'} /> {formatDate(window.starts_at)} a {formatDate(window.ends_at)}</span>) : <small>Sin ventanas registradas</small>}</article>)}</div></section>
+      <section className="panel"><h2>Grupos y ventanas</h2><div className="window-list">{data.subject_groups.map((group) => <article key={group.id}><strong>{group.semestre} {group.grupo} · {group.nombre}</strong>{group.registration_windows?.length ? group.registration_windows.map((window) => <span className="window-row" key={window.id}><span><StatusBadge value={window.activo ? 'activo' : 'inactivo'} /> {formatDate(window.starts_at)} a {formatDate(window.ends_at)}</span><button className="icon-action danger" title="Eliminar ventana" onClick={() => remove('Eliminar ventana', `/proposal/windows/${group.id}`)}><FiTrash2 /></button></span>) : <small>Sin ventanas registradas</small>}</article>)}</div></section>
     </section>
+    <section className="panel proposal-admin-section"><header className="panel-heading"><div><span className="eyebrow">Responsables</span><h2>Docentes por grupo</h2></div></header><form className="proposal-inline-form" onSubmit={(event) => { event.preventDefault(); mutation.mutate({ endpoint: '/proposal/assignments', body: { ...assignment, asignatura_id: data.default_subject.id, labor: `Revisión de propuesta: ${data.default_subject.nombre}`, activo: true } }) }}><label>Grupo<select required value={assignment.subject_group_id} onChange={(event) => setAssignment({ ...assignment, subject_group_id: Number(event.target.value) })}><option value="">Selecciona una carga</option>{data.subject_groups.map((group) => <option key={group.id} value={group.id}>{group.nombre} · {group.grupo}</option>)}</select></label><label>Docente<select required value={assignment.teacher_id} onChange={(event) => setAssignment({ ...assignment, teacher_id: event.target.value })}><option value="">Selecciona un docente</option>{data.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.id} · {fullName(teacher)}</option>)}</select></label><button className="btn-primary-app compact"><FiUserPlus /> Asignar</button></form><div className="assignment-grid">{data.subject_groups.map((group) => <article key={group.id}><strong>{group.nombre} · {group.grupo}</strong>{group.teacher_assignments?.length ? group.teacher_assignments.map((item) => <span key={item.id}>{fullName(item.teacher)}<button className="icon-action danger" onClick={() => remove('Quitar docente responsable', `/proposal/assignments/${item.id}`)}><FiTrash2 /></button></span>) : <small>Sin docente responsable</small>}</article>)}</div></section>
+    <section className="panel proposal-admin-section"><header className="panel-heading"><div><span className="eyebrow">Acceso excepcional</span><h2>Alumnos de otros grupos</h2></div></header><form className="proposal-inline-form exception-form" onSubmit={(event) => { event.preventDefault(); mutation.mutate({ endpoint: '/proposal/exceptions', body: exception }) }}><label>Buscar alumno<input value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)} placeholder="Matrícula o nombre" /></label><label>Alumno<select required value={exception.student_id} onChange={(event) => setException({ ...exception, student_id: event.target.value })}><option value="">Selecciona</option>{(students.data || []).map((student) => <option key={student.id} value={student.id}>{student.id} · {fullName(student)} ({student.semestre || '—'}{student.grupo || ''})</option>)}</select></label><label>Carga asignada<select required value={exception.subject_group_id} onChange={(event) => setException({ ...exception, subject_group_id: Number(event.target.value) })}><option value="">Selecciona</option>{data.subject_groups.map((group) => <option key={group.id} value={group.id}>{group.nombre} · {group.grupo}</option>)}</select></label><label>Nota<input value={exception.notes} onChange={(event) => setException({ ...exception, notes: event.target.value })} /></label><button className="btn-primary-app compact"><FiPlus /> Agregar</button></form>{data.exceptions?.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Materia</th><th>Carga</th><th>Alumno</th><th>Grupo alumno</th><th>Nota</th><th>Acción</th></tr></thead><tbody>{data.exceptions.map((item) => <tr key={item.id}><td data-label="Materia">{item.asignatura?.nombre || '—'}</td><td data-label="Carga">{item.subject_group?.nombre || '—'}</td><td data-label="Alumno" className="mobile-primary-cell">{item.student?.id} · {fullName(item.student)}</td><td data-label="Grupo alumno">{item.student?.semestre || '—'} {item.student?.grupo || ''}</td><td data-label="Nota">{item.notes || '—'}</td><td data-label="Acción" className="row-actions"><button className="danger" onClick={() => remove('Quitar excepción', `/proposal/exceptions/${item.id}`)}><FiTrash2 /> Quitar</button></td></tr>)}</tbody></table></div> : <Empty message="No hay alumnos con acceso excepcional." />}</section>
   </>
 }

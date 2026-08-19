@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { roleFromUser, useAuth } from '../../hooks/useAuth'
+import { activeProfileId, roleFromUser, useAuth } from '../../hooks/useAuth'
 
 export function ProtectedRoute() {
   const { isAuthenticated } = useAuth()
@@ -10,6 +10,11 @@ export function ProtectedRoute() {
 export function RoleRoute({ role }) {
   const { user } = useAuth()
   return roleFromUser(user) === role ? <Outlet /> : <Navigate to={`/${roleFromUser(user)}`} replace />
+}
+
+export function GeneralAdminRoute() {
+  const { user } = useAuth()
+  return activeProfileId(user) === 4 ? <Outlet /> : <Navigate to={`/${roleFromUser(user)}`} replace />
 }
 
 export function GuestRoute() {

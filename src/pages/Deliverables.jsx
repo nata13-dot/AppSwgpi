@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiDownload, FiFile, FiPlus, FiUpload } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
-import { roleFromUser, useAuth } from '../hooks/useAuth'
+import { isProjectManagementRole, roleFromUser, useAuth } from '../hooks/useAuth'
 import { formatDate } from '../utils/formatters'
 import { downloadApiFile } from '../utils/downloads'
 import { Empty, ErrorState, Loading, Modal, PageHeader, StatusBadge } from '../components/common/Ui'
@@ -11,6 +11,7 @@ import { Empty, ErrorState, Loading, Modal, PageHeader, StatusBadge } from '../c
 export default function Deliverables() {
   const { user } = useAuth()
   const role = roleFromUser(user)
+  const canManage = isProjectManagementRole(role)
   const endpoint = role === 'student' ? '/my-deliverables' : role === 'teacher' ? '/teacher/deliverables-matrix' : '/deliverables'
   const queryClient = useQueryClient()
   const [selected, setSelected] = useState(null)
@@ -40,7 +41,7 @@ export default function Deliverables() {
       const [projects, competencies] = await Promise.all([api.get('/projects', { params: { per_page: 100 } }), api.get('/competencias', { params: { per_page: 100 } })])
       return { projects: projects.data.data || [], competencies: competencies.data.data || [] }
     },
-    enabled: role === 'admin' && creating,
+    enabled: canManage && creating,
   })
 
   const upload = useMutation({
@@ -70,7 +71,7 @@ export default function Deliverables() {
 
   return (
     <>
-      <PageHeader eyebrow="Seguimiento" title={role === 'student' ? 'Mis entregables' : 'Entregables'} description={role === 'student' ? 'Sube tus avances y consulta la retroalimentación.' : 'Revisa archivos, estados y calificaciones de los proyectos.'} actions={role === 'admin' && <button className="btn-primary-app compact" onClick={() => setCreating(true)}><FiPlus /> Nuevo entregable</button>} />
+      <PageHeader eyebrow="Seguimiento" title={role === 'student' ? 'Mis entregables' : 'Entregables'} description={role === 'student' ? 'Sube tus avances y consulta la retroalimentación.' : 'Revisa archivos, estados y calificaciones de los proyectos.'} actions={canManage && <button className="btn-primary-app compact" onClick={() => setCreating(true)}><FiPlus /> Nuevo entregable</button>} />
       <section className="panel">
         {role === 'student' && <input ref={fileInput} hidden type="file" accept=".pdf,.doc,.docx" onChange={(event) => {
           const file = event.target.files[0]
