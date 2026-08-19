@@ -18,6 +18,9 @@ const profileOptions = [
   { value: 1, label: 'Administrador' },
   { value: 2, label: 'Docente' },
   { value: 3, label: 'Estudiante' },
+  { value: 5, label: 'Jefe de Carrera' },
+  { value: 6, label: 'Asistente de Jefe de Carrera' },
+  { value: 7, label: 'Coordinador de Proyectos' },
 ]
 const semesterOptions = [5, 6, 7, 8, 9].map((value) => ({ value, label: `${value}° semestre` }))
 const defaultUserForm = {
@@ -81,7 +84,7 @@ export function UsersModule({ advisors = false }) {
   }
 
   const saveUser = useMutation({
-    mutationFn: () => {
+    mutationFn: ({ admin_password } = {}) => {
       const editingExisting = editing && !editing.__new
       const payload = {
         ...form,
@@ -91,7 +94,7 @@ export function UsersModule({ advisors = false }) {
       }
       if (editingExisting) {
         delete payload.id
-        delete payload.perfil_id
+        if (admin_password) payload.admin_password = admin_password
         if (!payload.password) {
           delete payload.password
           delete payload.password_confirmation
@@ -148,17 +151,25 @@ export function UsersModule({ advisors = false }) {
     })
     setEditing(user)
   }
-  const adminPasswordFor = (user) => Number(user.perfil_id) === 1 ? window.prompt('Confirma con tu contraseña de administrador:') : null
+  const isProtectedAuthority = (user) => [1, 5].includes(Number(user.perfil_id))
+  const adminPasswordFor = (user) => isProtectedAuthority(user) ? window.prompt('Confirma con tu contraseña de Administrador General:') : null
+  const saveCurrentUser = () => {
+    const changesProtectedAuthority = editing && !editing.__new && isProtectedAuthority(editing)
+      && Number(form.perfil_id) !== Number(editing.perfil_id)
+    const admin_password = changesProtectedAuthority ? adminPasswordFor(editing) : null
+    if (changesProtectedAuthority && !admin_password) return
+    saveUser.mutate({ admin_password })
+  }
   const toggleUser = async (user) => {
     if (!await confirmAction({ title: user.activo ? 'Desactivar usuario' : 'Reactivar usuario', text: `${fullName(user)} (${user.id})`, confirmText: 'Sí, continuar' })) return
     const admin_password = adminPasswordFor(user)
-    if (Number(user.perfil_id) === 1 && !admin_password) return
+    if (isProtectedAuthority(user) && !admin_password) return
     userAction.mutate({ endpoint: `/users/${user.id}/toggle-active`, body: { admin_password } })
   }
   const deleteUser = async (user) => {
     if (!await confirmAction({ title: 'Desactivar usuario', text: 'El usuario quedará inactivo y se conservará su historial.', confirmText: 'Sí, desactivar' })) return
     const admin_password = adminPasswordFor(user)
-    if (Number(user.perfil_id) === 1 && !admin_password) return
+    if (isProtectedAuthority(user) && !admin_password) return
     userAction.mutate({ endpoint: `/users/${user.id}`, method: 'delete', body: { admin_password } })
   }
   const downloadTemplate = async () => {
@@ -195,12 +206,12 @@ export function UsersModule({ advisors = false }) {
           <td data-label="Grupo">{Number(user.perfil_id) === 3 ? `${user.semestre || '-'} ${user.grupo || ''}` : 'No aplica'}</td>
           <td data-label="Proyectos">{user.advising_projects_count ?? user.student_projects_count ?? 0}</td>
           <td data-label="Estado"><StatusBadge value={user.activo ? 'activo' : 'inactivo'} /></td>
-          <td className="row-actions" data-label="Acciones"><button onClick={() => openUser(user)}><FiEdit2 /> Editar</button><button onClick={() => toggleUser(user)}>{user.activo ? <FiSlash /> : <FiCheckCircle />} {user.activo ? 'Desactivar' : 'Activar'}</button><button className="danger" onClick={() => deleteUser(user)}><FiTrash2 /> Baja</button></td>
+          <td className="row-actions" data-label="Acciones"><button onClick={() => openUser(user)}><FiEdit2 /> Editar</button><button className={user.activo ? 'active-state' : 'inactive-state'} title={user.activo ? 'Clic para desactivar' : 'Clic para activar'} aria-label={user.activo ? 'Usuario activo; desactivar' : 'Usuario inactivo; activar'} onClick={() => toggleUser(user)}>{user.activo ? <FiCheckCircle /> : <FiSlash />} {user.activo ? 'Activo' : 'Inactivo'}</button><button className="danger" onClick={() => deleteUser(user)}><FiTrash2 /> Baja</button></td>
         </tr>)}</tbody>
       </table></div>}
       <Pagination meta={usersQuery.data} onPage={setPage} />
     </section>
-    <UserFormModal open={Boolean(editing)} advisors={advisors} editing={editing} form={form} setForm={setForm} onClose={() => setEditing(null)} onSave={() => saveUser.mutate()} saving={saveUser.isPending} />
+    <UserFormModal open={Boolean(editing)} advisors={advisors} editing={editing} form={form} setForm={setForm} onClose={() => setEditing(null)} onSave={saveCurrentUser} saving={saveUser.isPending} />
     <ImportModal open={importOpen} title="Importar usuarios" file={importFile} setFile={setImportFile} onClose={() => setImportOpen(false)} onImport={() => importUsers.mutate()} loading={importUsers.isPending} />
     <CredentialsModal open={credentialOpen} selectedIds={selectedIds} onClose={() => setCredentialOpen(false)} onSent={() => { setCredentialOpen(false); setSelectedIds([]) }} />
   </>
@@ -441,7 +452,7 @@ function UserFormModal({ open, advisors, editing, form, setForm, onClose, onSave
     <form className="modal-form" onSubmit={(event) => { event.preventDefault(); onSave() }}>
       <div className="form-grid">
         <label>No. control / nómina<input required disabled={!editing?.__new} value={form.id || ''} onChange={(event) => setForm({ ...form, id: event.target.value })} /></label>
-        <label>Perfil<select required disabled={!editing?.__new} value={form.perfil_id} onChange={(event) => setForm({ ...form, perfil_id: event.target.value })}>{profileOptions.filter((option) => !advisors || Number(option.value) !== 3).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label>Perfil<select required value={form.perfil_id} onChange={(event) => setForm({ ...form, perfil_id: event.target.value })}>{profileOptions.filter((option) => !advisors || Number(option.value) !== 3).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label>Nombre(s)<input required value={form.nombres || ''} onChange={(event) => setForm({ ...form, nombres: event.target.value })} /></label>
         <label>Apellido paterno<input value={form.apa || ''} onChange={(event) => setForm({ ...form, apa: event.target.value })} /></label>
         <label>Apellido materno<input value={form.ama || ''} onChange={(event) => setForm({ ...form, ama: event.target.value })} /></label>
