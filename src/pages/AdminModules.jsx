@@ -28,9 +28,9 @@ const defaultUserForm = {
   grupo: '', telefonos: '', direccion: '', password: '', password_confirmation: '',
 }
 const defaultProjectForm = {
-  title: '', description: '', subject_group_id: '', semestre: 5, year: new Date().getFullYear(),
+  title: '', description: '', modalidad: 'proyecto_integrador', subject_group_id: '', semestre: 5, year: new Date().getFullYear(),
   student_ids: '', company_name: '', company_giro: '', company_contact_name: '',
-  company_contact_position: '', company_address: '', is_thesis: false,
+  company_contact_position: '', company_address: '', company_rfc: '', request_company_registration: true, is_thesis: false,
 }
 const advisorRoles = [
   { value: 'primario', label: 'Asesor primario' },
@@ -577,6 +577,7 @@ export function ProjectsModule({ readOnly = false }) {
       semestre: project.semestre || project.subject_group?.semestre || 5,
       student_ids: project.students?.map((student) => student.id).join(', ') || '',
       company_name: project.company_name || '',
+      company_rfc: project.company_rfc || '',
       company_giro: project.company_giro || '',
       company_contact_name: project.company_contact_name || '',
       company_contact_position: project.company_contact_position || '',
@@ -633,6 +634,11 @@ export function ProjectsModule({ readOnly = false }) {
 }
 
 function ProjectFormModal({ open, editing, form, setForm, groups, onClose, onSave, saving }) {
+  const companies = useQuery({ queryKey: ['project-company-suggestions', form.company_name], queryFn: () => api.get('/companies', { params: { q: form.company_name } }).then((response) => response.data), enabled: open && String(form.company_name || '').trim().length >= 2 })
+  const selectCompany = (id) => {
+    const company = (companies.data || []).find((item) => String(item.id) === String(id))
+    if (company) setForm({ ...form, company_id: company.id, company_name: company.nombre, company_rfc: company.rfc || '', company_giro: company.giro || '', company_contact_name: company.contacto_nombre || '', company_contact_position: company.contacto_cargo || '', company_address: company.direccion || '', request_company_registration: false })
+  }
   return <Modal open={open} title={editing?.__new ? 'Nuevo proyecto' : 'Editar proyecto'} onClose={onClose}>
     <form className="modal-form" onSubmit={(event) => { event.preventDefault(); onSave() }}>
       <div className="form-grid">
@@ -644,9 +650,12 @@ function ProjectFormModal({ open, editing, form, setForm, groups, onClose, onSav
         }}><option value="">Selecciona</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.semestre} {group.grupo} · {group.nombre}</option>)}</select></label>
         <label>Semestre<select value={form.semestre || 5} onChange={(event) => setForm({ ...form, semestre: event.target.value })}>{semesterOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label>Año<input type="number" min="2000" max="2100" value={form.year || ''} onChange={(event) => setForm({ ...form, year: event.target.value })} /></label>
+        <label>Modalidad<select required value={form.modalidad || 'proyecto_integrador'} onChange={(event) => setForm({ ...form, modalidad: event.target.value })}><option value="dual">Modalidad Dual</option><option value="proyecto_integrador">Proyecto integrador</option><option value="caso_integrador">Caso integrador</option></select></label>
         <label className="switch-field"><input type="checkbox" checked={Boolean(form.is_thesis)} onChange={(event) => setForm({ ...form, is_thesis: event.target.checked })} /><span>Proyecto de tesis</span></label>
         <label className="full-field">Matrículas de integrantes<input required value={form.student_ids || ''} onChange={(event) => setForm({ ...form, student_ids: event.target.value })} placeholder="Separadas por coma" /></label>
-        <label>Empresa<input required value={form.company_name || ''} onChange={(event) => setForm({ ...form, company_name: event.target.value })} /></label>
+        <label>Empresa registrada<select value={form.company_id || ''} onChange={(event) => selectCompany(event.target.value)}><option value="">Nueva empresa</option>{(companies.data || []).filter((company) => company.estado_validacion === 'aprobada').map((company) => <option key={company.id} value={company.id}>{company.nombre} · {company.rfc || 'sin RFC histórico'}</option>)}</select></label>
+        <label>Empresa<input required value={form.company_name || ''} onChange={(event) => setForm({ ...form, company_id: '', company_name: event.target.value, request_company_registration: true })} /></label>
+        <label>RFC<input required maxLength="13" value={form.company_rfc || ''} onChange={(event) => setForm({ ...form, company_rfc: event.target.value.toUpperCase() })} /></label>
         <label>Giro<input required value={form.company_giro || ''} onChange={(event) => setForm({ ...form, company_giro: event.target.value })} /></label>
         <label>Contacto<input required value={form.company_contact_name || ''} onChange={(event) => setForm({ ...form, company_contact_name: event.target.value })} /></label>
         <label>Cargo<input required value={form.company_contact_position || ''} onChange={(event) => setForm({ ...form, company_contact_position: event.target.value })} /></label>

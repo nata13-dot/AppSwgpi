@@ -11,8 +11,32 @@ npm install
 npm run dev
 ```
 
-La API debe estar disponible en `http://localhost:8000/api`. Para usar otra URL,
-modifica `VITE_API_URL` en `.env`.
+Por defecto, el frontend utiliza la API en línea:
+`https://apiswgpi-production-0e59.up.railway.app/api`. Para usar otra URL en un
+entorno controlado, modifica `VITE_API_URL` en `.env`.
+
+## APK Android distribuible
+
+La compilación móvil utiliza `.env.production`, por lo que nunca debe apuntar a
+`127.0.0.1` o `localhost`: esas direcciones representan al propio teléfono. Para
+preparar y firmar una APK release:
+
+```bash
+npm run android:release:linux
+```
+
+En Windows utiliza:
+
+```powershell
+npm run android:release:windows
+```
+
+El artefacto queda en `android/app/build/outputs/apk/release/app-release.apk` y
+se firma con la configuración local de `android/app/keystore.properties`.
+Conserva siempre el mismo keystore para futuras actualizaciones e incrementa
+`versionCode`. Si un dispositivo tiene una compilación debug o una APK firmada
+con otra llave usando `mx.edu.itssmt.sgpi`, debe desinstalarla antes de instalar
+la release oficial.
 
 ## Verificación
 

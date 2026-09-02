@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:mobile": "vite build --mode production && cap sync android",
+    "android:release:linux": "npm run build:mobile && cd android && ./gradlew assembleRelease",
+    "android:release:windows": "npm run build:mobile && cd android && gradlew.bat assembleRelease",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
     "@hookform/resolvers": "^5.2.2",
     "@reduxjs/toolkit": "^2.11.2",
     "@tanstack/react-query": "^5.90.21",
