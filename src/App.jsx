@@ -20,10 +20,13 @@ const Proposals = lazy(() => import('./pages/Proposals'))
 const Evaluations = lazy(() => import('./pages/Evaluations'))
 const StudentEvaluations = lazy(() => import('./pages/StudentEvaluations'))
 const EvaluationDocuments = lazy(() => import('./pages/EvaluationDocuments'))
+const CourseEnrollment = lazy(() => import('./pages/CourseEnrollment'))
+const Companies = lazy(() => import('./pages/Companies'))
 
 const commonRoutes = (role) => <>
   <Route index element={<Dashboard />} />
   <Route path="deliverables" element={<Deliverables />} />
+  <Route path="course-enrollment" element={<CourseEnrollment />} />
   <Route path="evaluations" element={role === 'student' ? <StudentEvaluations /> : <Evaluations />} />
   {role !== 'student' && <Route path="evaluation-rooms" element={<Evaluations initialTab="rooms" />} />}
   {role !== 'student' && <Route path="evaluations-archived" element={<Evaluations initialArchived />} />}
@@ -39,6 +42,8 @@ const managementRoutes = (includeAcademics = false) => <>
   <Route path="projects" element={<ProjectsModule />} />
   <Route path="proposals" element={<Proposals />} />
   <Route path="deliverables" element={<Deliverables />} />
+  <Route path="course-enrollment" element={<CourseEnrollment />} />
+  <Route path="companies" element={<Companies />} />
   <Route path="evaluations" element={<Evaluations />} />
   <Route path="evaluation-rooms" element={<Evaluations initialTab="rooms" />} />
   <Route path="evaluations-archived" element={<Evaluations initialArchived />} />
@@ -74,6 +79,8 @@ export default function App() {
             <Route path="projects" element={<ProjectsModule />} />
             <Route path="proposals" element={<Proposals />} />
             <Route path="deliverables" element={<Deliverables />} />
+            <Route path="course-enrollment" element={<CourseEnrollment />} />
+            <Route path="companies" element={<Companies />} />
             <Route path="evaluations" element={<Evaluations />} />
             <Route path="evaluation-rooms" element={<Evaluations initialTab="rooms" />} />
             <Route path="evaluations-archived" element={<Evaluations initialArchived />} />

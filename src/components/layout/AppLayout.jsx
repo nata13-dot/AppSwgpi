@@ -1,15 +1,16 @@
-import { createElement, Fragment, useEffect, useMemo, useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { createElement, useEffect, useMemo, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  FiArchive, FiBell, FiBookOpen, FiCheckSquare, FiChevronLeft, FiFileText,
+  FiArchive, FiBell, FiBookOpen, FiCheckSquare, FiChevronDown, FiChevronLeft, FiFileText,
   FiFolder, FiHome, FiLogOut, FiMenu, FiMoon, FiSearch, FiSettings, FiSun, FiTag,
   FiUser, FiUserCheck, FiUsers, FiX, FiCalendar, FiActivity, FiDatabase, FiGrid,
-  FiShield, FiUpload,
+  FiShield, FiUpload, FiKey,
 } from 'react-icons/fi'
 import { useQuery } from '@tanstack/react-query'
 import api from '../../services/api'
 import { fullName, publicAssetUrl } from '../../utils/formatters'
 import { activeProfileId, homeForUser, roleFromUser, roleLabel, useAuth } from '../../hooks/useAuth'
+import { registerBackHandler } from '../../utils/backNavigation'
 
 const navigation = {
   admin: [
@@ -17,65 +18,88 @@ const navigation = {
     ['Operaciones', 'operations', FiActivity, 'Gobierno institucional'], ['Carreras y accesos', 'careers', FiGrid, 'Gobierno institucional'],
     ['Auditoría', 'audit', FiShield, 'Seguridad y continuidad'], ['Integridad', 'integrity', FiCheckSquare, 'Seguridad y continuidad'], ['Respaldos', 'backups', FiDatabase, 'Seguridad y continuidad'],
     ['Usuarios', 'users', FiUsers, 'Personas'], ['Asesores', 'advisors', FiUserCheck, 'Personas'],
-    ['Proyectos', 'projects', FiFolder, 'Proyectos y tesis'], ['Propuestas', 'proposals', FiCheckSquare, 'Proyectos y tesis'],
-    ['Evaluaciones', 'evaluations', FiCheckSquare, 'Proyectos y tesis'], ['Salas de evaluación', 'evaluation-rooms', FiCalendar, 'Proyectos y tesis'],
-    ['Evaluaciones archivadas', 'evaluations-archived', FiArchive, 'Proyectos y tesis'], ['Rúbricas', 'evaluation-rubric', FiCheckSquare, 'Proyectos y tesis'],
-    ['Gestores', 'evaluation-managers', FiUserCheck, 'Proyectos y tesis'], ['Documentos de evaluación', 'evaluation-documents', FiFileText, 'Proyectos y tesis'],
-    ['Académico', 'academics', FiBookOpen, 'Académico'], ['Semestres y periodos', 'semesters', FiCalendar, 'Académico'], ['Entregables', 'deliverables', FiFileText, 'Académico'],
-    ['Etiquetas', 'tags', FiTag, 'Sistema'], ['Avisos', 'notices', FiBell, 'Sistema'], ['Ajustes', 'settings', FiSettings, 'Sistema'],
-    ['Módulos de carrera', 'career-modules', FiGrid, 'Sistema'], ['Carga inicial', 'career-setup', FiUpload, 'Sistema'], ['Repositorio', 'repository', FiArchive, 'Sistema'],
+    ['Gestionar proyectos', 'projects', FiFolder, 'Proyectos y tesis', 'proyectos'], ['Propuestas', 'proposals', FiCheckSquare, 'Proyectos y tesis', 'proyectos'],
+    ['Evaluaciones', 'evaluations', FiCheckSquare, 'Proyectos y tesis', 'evaluaciones'], ['Salas y turnos', 'evaluation-rooms', FiCalendar, 'Proyectos y tesis', 'evaluaciones'],
+    ['Evaluaciones previas', 'evaluations-archived', FiArchive, 'Proyectos y tesis', 'evaluaciones'], ['Evidencias', 'evaluation-documents', FiFileText, 'Proyectos y tesis', 'evaluaciones'],
+    ['Asignaturas y competencias', 'academics', FiBookOpen, 'Académico', 'academico'], ['Semestres y periodos', 'semesters', FiCalendar, 'Académico', 'academico'], ['Entregables', 'deliverables', FiFileText, 'Académico', 'entregables'],
+    ['Autoregistro de materias', 'course-enrollment', FiKey, 'Académico', 'academico'], ['Empresas', 'companies', FiDatabase, 'Proyectos y tesis', 'proyectos'],
+    ['Etiquetas', 'tags', FiTag, 'Sistema', 'repositorio'], ['Avisos', 'notices', FiBell, 'Sistema', 'configuracion'], ['Ajustes', 'settings', FiSettings, 'Sistema', 'configuracion'],
+    ['Módulos de carrera', 'career-modules', FiGrid, 'Sistema'], ['Carga inicial', 'career-setup', FiUpload, 'Sistema', 'academico'], ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'],
     ['Mi perfil', 'profile', FiUser, 'Cuenta'],
   ],
   teacher: [
-    ['Inicio', '', FiHome], ['Mis tesis', 'projects', FiFolder], ['Entregables', 'deliverables', FiFileText],
-    ['Propuestas', 'proposals', FiCheckSquare], ['Evaluaciones', 'evaluations', FiCheckSquare],
-    ['Salas de evaluación', 'evaluation-rooms', FiCalendar], ['Evaluaciones archivadas', 'evaluations-archived', FiArchive],
-    ['Documentos de evaluación', 'evaluation-documents', FiFileText],
-    ['Repositorio', 'repository', FiArchive], ['Mi perfil', 'profile', FiUser],
+    ['Inicio', '', FiHome, 'Docente'], ['Mis proyectos', 'projects', FiFolder, 'Proyectos y tesis', 'proyectos'],
+    ['Revisar propuestas', 'proposals', FiCheckSquare, 'Proyectos y tesis', 'proyectos'], ['Evaluaciones', 'evaluations', FiCheckSquare, 'Proyectos y tesis', 'evaluaciones'],
+    ['Salas y turnos', 'evaluation-rooms', FiCalendar, 'Proyectos y tesis', 'evaluaciones'], ['Evaluaciones previas', 'evaluations-archived', FiArchive, 'Proyectos y tesis', 'evaluaciones'],
+    ['Evidencias', 'evaluation-documents', FiFileText, 'Proyectos y tesis', 'evaluaciones'], ['Entregables', 'deliverables', FiFileText, 'Académico', 'entregables'],
+    ['Claves de autoregistro', 'course-enrollment', FiKey, 'Académico', 'academico'],
+    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
   ],
   assistant: [
-    ['Inicio', '', FiHome], ['Asesores', 'advisors', FiUserCheck], ['Proyectos', 'projects', FiFolder],
-    ['Propuestas', 'proposals', FiCheckSquare], ['Entregables', 'deliverables', FiFileText],
-    ['Evaluaciones', 'evaluations', FiCheckSquare], ['Salas de evaluación', 'evaluation-rooms', FiCalendar],
-    ['Evaluaciones archivadas', 'evaluations-archived', FiArchive], ['Rúbricas', 'evaluation-rubric', FiCheckSquare],
-    ['Documentos de evaluación', 'evaluation-documents', FiFileText], ['Académico', 'academics', FiBookOpen],
-    ['Semestres y periodos', 'semesters', FiCalendar], ['Repositorio', 'repository', FiArchive],
-    ['Mi perfil', 'profile', FiUser],
+    ['Inicio', '', FiHome, 'Administración'], ['Asesores', 'advisors', FiUserCheck, 'Personas', 'proyectos'], ['Gestionar proyectos', 'projects', FiFolder, 'Proyectos y tesis', 'proyectos'],
+    ['Propuestas', 'proposals', FiCheckSquare, 'Proyectos y tesis', 'proyectos'], ['Evaluaciones', 'evaluations', FiCheckSquare, 'Proyectos y tesis', 'evaluaciones'],
+    ['Salas y turnos', 'evaluation-rooms', FiCalendar, 'Proyectos y tesis', 'evaluaciones'], ['Evaluaciones previas', 'evaluations-archived', FiArchive, 'Proyectos y tesis', 'evaluaciones'],
+    ['Evidencias', 'evaluation-documents', FiFileText, 'Proyectos y tesis', 'evaluaciones'], ['Asignaturas y competencias', 'academics', FiBookOpen, 'Académico', 'academico'],
+    ['Semestres y periodos', 'semesters', FiCalendar, 'Académico', 'academico'], ['Entregables', 'deliverables', FiFileText, 'Académico', 'entregables'],
+    ['Autoregistro de materias', 'course-enrollment', FiKey, 'Académico', 'academico'], ['Empresas', 'companies', FiDatabase, 'Proyectos y tesis', 'proyectos'],
+    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
   ],
   coordinator: [
-    ['Inicio', '', FiHome], ['Asesores', 'advisors', FiUserCheck], ['Proyectos', 'projects', FiFolder],
-    ['Propuestas', 'proposals', FiCheckSquare], ['Entregables', 'deliverables', FiFileText],
-    ['Evaluaciones', 'evaluations', FiCheckSquare], ['Salas de evaluación', 'evaluation-rooms', FiCalendar],
-    ['Evaluaciones archivadas', 'evaluations-archived', FiArchive], ['Rúbricas', 'evaluation-rubric', FiCheckSquare],
-    ['Documentos de evaluación', 'evaluation-documents', FiFileText], ['Repositorio', 'repository', FiArchive],
-    ['Mi perfil', 'profile', FiUser],
+    ['Inicio', '', FiHome, 'Administración'], ['Asesores', 'advisors', FiUserCheck, 'Personas', 'proyectos'], ['Gestionar proyectos', 'projects', FiFolder, 'Proyectos y tesis', 'proyectos'],
+    ['Propuestas', 'proposals', FiCheckSquare, 'Proyectos y tesis', 'proyectos'], ['Entregables', 'deliverables', FiFileText, 'Proyectos y tesis', 'entregables'],
+    ['Empresas', 'companies', FiDatabase, 'Proyectos y tesis', 'proyectos'],
+    ['Evaluaciones', 'evaluations', FiCheckSquare, 'Proyectos y tesis', 'evaluaciones'], ['Salas y turnos', 'evaluation-rooms', FiCalendar, 'Proyectos y tesis', 'evaluaciones'],
+    ['Evaluaciones previas', 'evaluations-archived', FiArchive, 'Proyectos y tesis', 'evaluaciones'], ['Evidencias', 'evaluation-documents', FiFileText, 'Proyectos y tesis', 'evaluaciones'],
+    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
   ],
   student: [
-    ['Inicio', '', FiHome], ['Registrar tesis', 'proposal', FiFolder], ['Mis entregables', 'deliverables', FiFileText],
-    ['Evaluación', 'evaluations', FiCheckSquare], ['Documentos de evaluación', 'evaluation-documents', FiFileText],
-    ['Repositorio', 'repository', FiArchive], ['Mi perfil', 'profile', FiUser],
+    ['Inicio', '', FiHome, 'Estudiante'], ['Registrar propuesta', 'proposal', FiFolder, 'Proyectos y tesis', 'proyectos'],
+    ['Mis evaluaciones', 'evaluations', FiCheckSquare, 'Proyectos y tesis', 'evaluaciones'],
+    ['Evidencias', 'evaluation-documents', FiFileText, 'Proyectos y tesis', 'evaluaciones'], ['Mis entregables', 'deliverables', FiFileText, 'Académico', 'entregables'],
+    ['Autoregistro de materias', 'course-enrollment', FiKey, 'Académico', 'academico'],
+    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
   ],
 }
 const institutionalPaths = ['operations', 'careers', 'audit', 'integrity', 'backups', 'users']
+const groupIcons = { 'Gobierno institucional': FiGrid, 'Seguridad y continuidad': FiShield, Personas: FiUsers, 'Proyectos y tesis': FiFolder, Académico: FiBookOpen, Sistema: FiSettings }
 
 export default function AppLayout() {
   const { user, logout, switchCareer } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const role = roleFromUser(user)
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [noticeOpen, setNoticeOpen] = useState(false)
   const [careerOpen, setCareerOpen] = useState(false)
+  const [expandedGroups, setExpandedGroups] = useState({})
   const [switchingCareer, setSwitchingCareer] = useState(false)
   const [search, setSearch] = useState('')
   const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
   const base = `/${role}`
   const canGovernUsers = activeProfileId(user) === 4
-  const items = useMemo(
-    () => navigation[role].filter(([, path]) => canGovernUsers || !institutionalPaths.includes(path)),
-    [canGovernUsers, role],
-  )
+  const modules = useQuery({
+    queryKey: ['navigation-career-modules', user?.active_career?.id],
+    queryFn: () => api.get('/career/modules').then((response) => response.data.modules || []),
+    staleTime: 60_000,
+  })
+  const enabledModules = useMemo(() => new Set((modules.data || []).filter((module) => module.habilitado).map((module) => module.modulo)), [modules.data])
+  const items = useMemo(() => navigation[role].filter(([, path, , , module]) => {
+    if (!canGovernUsers && institutionalPaths.includes(path)) return false
+    return !module || !modules.data || enabledModules.has(module)
+  }), [canGovernUsers, enabledModules, modules.data, role])
+  const groupedItems = useMemo(() => items.reduce((result, item) => {
+    const category = item[3]
+    if (!category || ['Administración', 'Docente', 'Estudiante', 'Cuenta'].includes(category)) {
+      result.push({ key: `item:${item[1]}`, item })
+      return result
+    }
+    const current = result[result.length - 1]
+    if (current?.category === category) current.items.push(item)
+    else result.push({ key: `group:${category}`, category, items: [item] })
+    return result
+  }, []), [items])
   const careers = useQuery({
     queryKey: ['auth-careers', user?.id],
     queryFn: () => api.get('/auth/careers').then((response) => response.data.careers || []),
@@ -108,6 +132,15 @@ export default function AppLayout() {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [])
+  useEffect(() => {
+    if (!searchOpen && !noticeOpen && !careerOpen && !open) return undefined
+    return registerBackHandler(() => {
+      if (searchOpen) setSearchOpen(false)
+      else if (noticeOpen) setNoticeOpen(false)
+      else if (careerOpen) setCareerOpen(false)
+      else setOpen(false)
+    })
+  }, [careerOpen, noticeOpen, open, searchOpen])
 
   const signout = async () => {
     await logout()
@@ -139,10 +172,19 @@ export default function AppLayout() {
         </div>
         <nav>
           <span className="nav-caption">{roleLabel(user)}</span>
-          {items.map(([label, path, Icon, category], index) => <Fragment key={label}>
-            {category && (index === 0 || items[index - 1][3] !== category) && <span className="nav-group-label">{category}</span>}
-            <NavLink end={!path} to={path ? `${base}/${path}` : base} title={label} onClick={() => setOpen(false)}>{createElement(Icon)}<span>{label}</span></NavLink>
-          </Fragment>)}
+          {groupedItems.map((entry) => {
+            if (entry.item) {
+              const [label, path, Icon] = entry.item
+              return <NavLink key={entry.key} end={!path} to={path ? `${base}/${path}` : base} title={label} onClick={() => setOpen(false)}>{createElement(Icon)}<span>{label}</span></NavLink>
+            }
+            const GroupIcon = groupIcons[entry.category] || FiGrid
+            const active = entry.items.some(([, path]) => path && location.pathname === `${base}/${path}`)
+            const expanded = active || Boolean(expandedGroups[entry.category])
+            return <section className={`react-nav-group ${expanded ? 'open' : ''}`} key={entry.key}>
+              <button type="button" className="react-nav-group-toggle" onClick={() => setExpandedGroups((current) => ({ ...current, [entry.category]: !expanded }))}>{createElement(GroupIcon)}<span>{entry.category}</span><FiChevronDown className="nav-chevron" /></button>
+              {expanded && <div>{entry.items.map(([label, path, Icon]) => <NavLink key={path} to={`${base}/${path}`} title={label} onClick={() => setOpen(false)}>{createElement(Icon)}<span>{label}</span></NavLink>)}</div>}
+            </section>
+          })}
         </nav>
         <div className="sidebar-footer">
           <button onClick={signout}><FiLogOut /><span>Cerrar sesión</span></button>

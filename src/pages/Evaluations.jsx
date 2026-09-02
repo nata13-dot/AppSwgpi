@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   FiArchive, FiBarChart2, FiCheckCircle, FiClock, FiDownload, FiEye,
-  FiFileText, FiPlus, FiRefreshCw, FiUsers,
+  FiChevronDown, FiChevronRight, FiFileText, FiPlus, FiRefreshCw, FiUsers,
 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError, unwrapCollection } from '../services/api'
 import { isProjectManagementRole, roleFromUser, useAuth } from '../hooks/useAuth'
 import { confirmAction, Empty, ErrorState, Loading, Modal, PageHeader, SearchField, StatusBadge } from '../components/common/Ui'
-import { formatDate } from '../utils/formatters'
+import { formatDate, roomDisplayName } from '../utils/formatters'
 import EvaluationRooms from './evaluations/EvaluationRooms'
 import RubricManager from './evaluations/RubricManager'
 import EvaluationManagers from './evaluations/EvaluationManagers'
@@ -27,7 +27,8 @@ const evaluationProgress = (evaluation) => {
   const completed = Number(evaluation?.evaluators_count || 0)
   const expected = Number(evaluation?.expected_evaluators_count || 0)
   if (!completed) return { label: 'Sin evaluar', tone: 'unscored', percent: 0 }
-  if (evaluation?.is_completed || (expected > 0 && completed >= expected)) return { label: 'Evaluado', tone: 'evaluated', percent: 100 }
+  if (evaluation?.is_completed) return { label: 'Evaluado', tone: 'evaluated', percent: 100 }
+  if (expected > 0 && completed >= expected) return { label: 'Rúbricas completas', tone: 'in-progress', percent: 100 }
   return { label: 'En evaluación', tone: 'in-progress', percent: expected ? Math.min(100, (completed / expected) * 100) : 0 }
 }
 
@@ -45,6 +46,7 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
   const [search, setSearch] = useState('')
   const [semesterFilter, setSemesterFilter] = useState('')
   const [progressFilter, setProgressFilter] = useState('all')
+  const [expandedRooms, setExpandedRooms] = useState(() => new Set())
 
   const evaluationsQuery = useQuery({
     queryKey: ['evaluations', archived],
@@ -108,7 +110,7 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
       if (!term) return true
       const haystack = [
         evaluation.project?.title,
-        evaluation.room?.nombre,
+        evaluation.room ? roomDisplayName(evaluation.room) : null,
         evaluation.room?.salon,
         ...(evaluation.project?.students || []).flatMap((student) => [student.id, student.nombres, student.apa, student.ama]),
       ].filter(Boolean).join(' ').toLocaleLowerCase('es')
@@ -150,6 +152,15 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
       }))
   }, [filteredEvaluations])
 
+  const roomKeys = useMemo(() => groups.flatMap((semesterGroup) => semesterGroup.rooms.map((group) => String(group.room?.id || `s-${group.semester}`))), [groups])
+  const toggleRoom = (roomKey) => setExpandedRooms((current) => {
+    const next = new Set(current)
+    if (next.has(roomKey)) next.delete(roomKey)
+    else next.add(roomKey)
+    return next
+  })
+  const allRoomsExpanded = roomKeys.length > 0 && roomKeys.every((roomKey) => expandedRooms.has(roomKey))
+
   return <>
     <PageHeader eyebrow="Evaluación" title="Evaluaciones" description="Gestiona salas, secuencias, rúbricas, resultados y reportes con el mismo flujo operativo del sistema actual." actions={tab === 'evaluations' && canManage && <button className="btn-primary-app compact" onClick={() => setCreating(true)}><FiPlus /> Nueva evaluación</button>} />
     <div className="module-tabs">
@@ -175,7 +186,10 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
           <button className={!archived ? 'active' : ''} onClick={() => setArchived(false)}>Activas</button>
           <button className={archived ? 'active' : ''} onClick={() => setArchived(true)}>Archivadas</button>
         </div>
-        <button className="icon-text-button" onClick={() => evaluationsQuery.refetch()}><FiRefreshCw /> Actualizar</button>
+        <div className="evaluation-toolbar-actions">
+          <button className="icon-text-button" onClick={() => setExpandedRooms(allRoomsExpanded ? new Set() : new Set(roomKeys))}>{allRoomsExpanded ? <FiChevronDown /> : <FiChevronRight />} {allRoomsExpanded ? 'Contraer salas' : 'Mostrar evaluaciones'}</button>
+          <button className="icon-text-button" onClick={() => evaluationsQuery.refetch()}><FiRefreshCw /> Actualizar</button>
+        </div>
       </div>
       <div className="table-toolbar admin-toolbar evaluation-filters">
         <SearchField value={search} onChange={setSearch} placeholder="Buscar proyecto, estudiante o sala..." />
@@ -193,36 +207,10 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
       {evaluationsQuery.isLoading ? <Loading /> : evaluationsQuery.isError ? <ErrorState message={apiError(evaluationsQuery.error)} onRetry={evaluationsQuery.refetch} /> : groups.length === 0 ? <Empty title={archived ? 'Sin evaluaciones archivadas' : 'Sin evaluaciones activas'} /> : (
         <div className="evaluation-semesters">{groups.map((semesterGroup) => <section className="evaluation-semester-section" key={semesterGroup.semester}>
           <header className="semester-heading"><div><span className="eyebrow">Etapa académica</span><h2>Semestre {semesterGroup.semester}</h2></div><span>{semesterGroup.rooms.reduce((total, room) => total + room.evaluations.length, 0)} evaluaciones</span></header>
-          <div className="evaluation-groups">{semesterGroup.rooms.map((group) => <section className="evaluation-room-group" key={group.room?.id || `s-${group.semester}`}>
-            <header>
-              <div><span className="eyebrow">{group.room?.etapa || 'Evaluación'}</span><h2>{group.room?.nombre || 'Sin sala'}</h2><p>{group.room?.salon || 'Sin salón'}{group.room?.responsible_teacher ? ` · Responsable: ${[group.room.responsible_teacher.nombres, group.room.responsible_teacher.apa].filter(Boolean).join(' ')}` : ''}</p></div>
-              <div className="room-summary-badges"><span>{group.evaluations.length} proyectos</span><span>{group.evaluations.filter((item) => item.is_completed).length} completos</span></div>
-            </header>
-            <div className="evaluation-card-list">{group.evaluations.map((evaluation) => {
-              const progress = evaluationProgress(evaluation)
-              const tone = scoreTone(evaluation)
-              return <article className={`evaluation-work-card evaluation-${progress.tone} score-${tone} ${evaluation.is_completed ? 'complete' : ''}`} key={evaluation.id}>
-            <div className="evaluation-order">{evaluation.presentation_order || '-'}</div>
-            <div className="evaluation-main">
-              <div className="evaluation-title-row"><div><h3>{evaluation.project?.title || `Proyecto #${evaluation.project_id}`}</h3><small>{evaluation.project?.students?.map((student) => [student.nombres, student.apa].filter(Boolean).join(' ')).join(', ') || 'Sin integrantes'}</small></div><div className="evaluation-status-stack"><span className={`evaluation-state-badge ${progress.tone}`}>{progress.label}</span><StatusBadge value={evaluation.is_completed ? 'finalizada' : evaluation.sequence_status || evaluation.estado} /></div></div>
-              <div className="evaluation-metrics">
-                <span><FiClock /> Fecha <strong>{formatDate(evaluation.fecha_exposicion)}</strong></span>
-                <span className={`score-indicator ${tone}`}>Promedio <strong>{Number(evaluation.evaluators_count || 0) ? `${Number(evaluation.global_average || 0).toFixed(1)}%` : 'Sin calificar'}</strong><i><b style={{ width: Number(evaluation.evaluators_count || 0) ? `${Math.min(100, Number(evaluation.global_average || 0))}%` : '0%' }} /></i></span>
-                <span className="rubric-progress">Rúbricas <strong>{evaluation.evaluators_count}/{evaluation.expected_evaluators_count} docentes</strong><i><b style={{ width: `${progress.percent}%` }} /></i></span>
-                <span>Documentos <strong>{evaluation.document_readiness?.all_students_released ? 'Listos' : 'Pendientes'}</strong></span>
-              </div>
-              {evaluation.current_teacher_has_scores && <p className="evaluation-context-note">Tu rúbrica ya fue registrada. Intentos utilizados: {evaluation.current_teacher_attempts}/{evaluation.max_attempts}.</p>}
-              {!evaluation.can_score_now && !evaluation.is_completed && <p className="evaluation-context-note warning">La evaluación aún no está habilitada para captura según la secuencia de la sala.</p>}
-              <div className="row-actions evaluation-actions">
-                <button onClick={() => setSelected(evaluation)}><FiEye /> Detalle</button>
-                {evaluation.can_score_now && <button onClick={() => setScoreTarget(evaluation)}><FiCheckCircle /> {evaluation.current_teacher_has_scores ? 'Modificar rúbrica' : 'Evaluar'}</button>}
-                <button onClick={() => report(evaluation)}><FiDownload /> PDF</button>
-                <button onClick={() => report(evaluation, true)}><FiDownload /> PDF docentes</button>
-                {canManage && <button onClick={() => archiveEvaluation(evaluation)}><FiArchive /> {archived ? 'Restaurar' : 'Archivar'}</button>}
-              </div>
-            </div>
-            </article>})}</div>
-          </section>)}</div>
+          <div className="evaluation-groups">{semesterGroup.rooms.map((group) => {
+            const roomKey = String(group.room?.id || `s-${group.semester}`)
+            return <EvaluationRoomSummary key={roomKey} group={group} expanded={expandedRooms.has(roomKey)} onToggle={() => toggleRoom(roomKey)} canManage={canManage} archived={archived} onSelect={setSelected} onScore={setScoreTarget} onReport={report} onArchive={archiveEvaluation} />
+          })}</div>
         </section>)}</div>
       )}
       </section>
@@ -236,12 +224,58 @@ export default function Evaluations({ initialTab = 'evaluations', initialArchive
           const project = projectsQuery.data?.find((item) => String(item.id) === event.target.value)
           setForm({ ...form, project_id: event.target.value, semestre: project?.presentation_semester || project?.semestre || form.semestre })
         }}><option value="">Selecciona</option>{projectsQuery.data?.map((project) => <option value={project.id} key={project.id}>{project.title}</option>)}</select></label>
-        <label>Sala<select value={form.evaluation_room_id} onChange={(event) => setForm({ ...form, evaluation_room_id: event.target.value })}><option value="">Sin sala</option>{roomsQuery.data?.map((room) => <option value={room.id} key={room.id}>{room.nombre} · S{room.semestre}</option>)}</select></label>
+        <label>Sala<select required value={form.evaluation_room_id} onChange={(event) => {
+          const room = roomsQuery.data?.find((item) => String(item.id) === event.target.value)
+          setForm({ ...form, evaluation_room_id: event.target.value, semestre: room?.semestre || form.semestre })
+        }}><option value="">Selecciona una sala</option>{roomsQuery.data?.filter((room) => !room.sequence_locked).map((room) => <option value={room.id} key={room.id}>{roomDisplayName(room)}</option>)}</select></label>
         <label>Semestre<select value={form.semestre} onChange={(event) => setForm({ ...form, semestre: event.target.value })}>{[5, 6, 7, 8].map((semester) => <option key={semester}>{semester}</option>)}</select></label>
         <label className="full-field">Fecha de exposición<input type="datetime-local" value={form.fecha_exposicion} onChange={(event) => setForm({ ...form, fecha_exposicion: event.target.value })} /></label>
       </div><div className="modal-actions"><button type="button" onClick={() => setCreating(false)}>Cancelar</button><button className="btn-primary-app compact" disabled={createEvaluation.isPending}>Crear evaluación</button></div></form>
     </Modal>
   </>
+}
+
+function EvaluationRoomSummary({ group, expanded, onToggle, canManage, archived, onSelect, onScore, onReport, onArchive }) {
+  const completed = group.evaluations.filter((item) => item.is_completed).length
+  const available = group.evaluations.filter((item) => item.can_score_now).length
+  return <section className={`evaluation-room-group ${expanded ? 'expanded' : 'collapsed'}`}>
+    <button type="button" className="evaluation-room-summary" onClick={onToggle} aria-expanded={expanded}>
+      <span className="room-toggle-icon">{expanded ? <FiChevronDown /> : <FiChevronRight />}</span>
+      <span className="room-summary-copy"><span className="eyebrow">{group.room?.etapa || 'Evaluación'}</span><strong>{roomDisplayName(group.room)}</strong><small>{group.room?.salon || 'Sin salón'}{group.room?.responsible_teacher ? ` · Responsable: ${[group.room.responsible_teacher.nombres, group.room.responsible_teacher.apa].filter(Boolean).join(' ')}` : ''}</small></span>
+      <span className="room-summary-badges"><span>{group.evaluations.length} proyectos</span><span>{completed} completos</span>{available > 0 && <span className="available">{available} para evaluar ahora</span>}</span>
+      <span className="room-toggle-label">{expanded ? 'Ocultar' : 'Ver evaluaciones'}</span>
+    </button>
+    {expanded && <div className="evaluation-card-list">{group.evaluations.map((evaluation) => <EvaluationWorkCard key={evaluation.id} evaluation={evaluation} canManage={canManage} archived={archived} onSelect={onSelect} onScore={onScore} onReport={onReport} onArchive={onArchive} />)}</div>}
+  </section>
+}
+
+function EvaluationWorkCard({ evaluation, canManage, archived, onSelect, onScore, onReport, onArchive }) {
+  const progress = evaluationProgress(evaluation)
+  const tone = scoreTone(evaluation)
+  const blockedReason = evaluation.score_block_reason || 'La evaluación todavía no está habilitada para este usuario o turno.'
+  return <article className={`evaluation-work-card evaluation-${progress.tone} score-${tone} ${evaluation.is_completed ? 'complete' : ''}`}>
+    <div className="evaluation-order">{evaluation.presentation_order || '-'}</div>
+    <div className="evaluation-main">
+      <div className="evaluation-title-row"><div><h3>{evaluation.project?.title || `Proyecto #${evaluation.project_id}`}</h3><small>{evaluation.project?.students?.map((student) => [student.nombres, student.apa].filter(Boolean).join(' ')).join(', ') || 'Sin integrantes'}</small></div><div className="evaluation-status-stack"><span className={`evaluation-state-badge ${progress.tone}`}>{progress.label}</span><StatusBadge value={evaluation.is_completed ? 'finalizada' : evaluation.sequence_status || evaluation.estado} /></div></div>
+      <div className="evaluation-primary-action">
+        {evaluation.can_score_now ? <button className="btn-primary-app" onClick={() => onScore(evaluation)}><FiCheckCircle /> {evaluation.current_teacher_has_scores ? 'Continuar o modificar evaluación' : 'Realizar evaluación'}</button> : evaluation.is_completed ? <button onClick={() => onSelect(evaluation)}><FiEye /> Consultar evaluación finalizada</button> : <button disabled title={blockedReason}><FiClock /> Evaluación no disponible</button>}
+        {!evaluation.can_score_now && !evaluation.is_completed && <span>{blockedReason}</span>}
+      </div>
+      <div className="evaluation-metrics">
+        <span><FiClock /> Fecha <strong>{formatDate(evaluation.fecha_exposicion)}</strong></span>
+        <span className={`score-indicator ${tone}`}>Promedio <strong>{Number(evaluation.evaluators_count || 0) ? `${Number(evaluation.global_average || 0).toFixed(1)}%` : 'Sin calificar'}</strong><i><b style={{ width: Number(evaluation.evaluators_count || 0) ? `${Math.min(100, Number(evaluation.global_average || 0))}%` : '0%' }} /></i></span>
+        <span className="rubric-progress">Rúbricas <strong>{evaluation.evaluators_count}/{evaluation.expected_evaluators_count} docentes</strong><i><b style={{ width: `${progress.percent}%` }} /></i></span>
+        <span>Documentos <strong>{evaluation.document_readiness?.all_students_released ? 'Listos' : 'Pendientes'}</strong></span>
+      </div>
+      {evaluation.current_teacher_has_scores && <p className="evaluation-context-note">Tu rúbrica ya fue registrada. Intentos utilizados: {evaluation.current_teacher_attempts}/{evaluation.max_attempts}.</p>}
+      <div className="row-actions evaluation-actions secondary-actions">
+        <button onClick={() => onSelect(evaluation)}><FiEye /> Detalle</button>
+        <button onClick={() => onReport(evaluation)}><FiDownload /> PDF</button>
+        <button onClick={() => onReport(evaluation, true)}><FiDownload /> PDF docentes</button>
+        {canManage && <button onClick={() => onArchive(evaluation)}><FiArchive /> {archived ? 'Restaurar' : 'Archivar'}</button>}
+      </div>
+    </div>
+  </article>
 }
 
 function ScoreModal({ evaluation, criteriaPayload, onClose, onSaved }) {
@@ -318,11 +352,17 @@ function EvaluationDetail({ evaluation, canManage, onClose, onAction }) {
       <h3>{evaluation?.project?.title}</h3>
       <div className="evaluation-metrics"><span>Promedio <strong>{evaluation?.global_average || 0}%</strong></span><span>Evaluadores <strong>{evaluation?.evaluators_count}/{evaluation?.expected_evaluators_count}</strong></span><span>Resultado <strong>{evaluation?.resultado || 'pendiente'}</strong></span></div>
       {evaluation?.titulation_apt_summary?.applies && <div className="review-comment"><strong>Apto para titulación:</strong> {evaluation.titulation_apt_summary.label}</div>}
-      {(evaluation?.teacher_breakdown || []).length === 0 ? <Empty title="Sin rúbricas registradas" /> : evaluation.teacher_breakdown.map((teacher) => <article className="teacher-score-card" key={teacher.teacher_id}>
-        <header><strong>{teacher.teacher_name}</strong><StatusBadge value={`${teacher.average}%`} /></header>
-        {teacher.general_comment && <p><strong>Comentario general:</strong> {teacher.general_comment}</p>}
-        {teacher.can_view_score_detail ? <div>{teacher.scores.map((score) => <div className="criterion-result" key={score.criterio}><strong>{score.criterio_label}</strong><span>{score.score_mode === 'numeric' ? `${score.puntaje}/${score.puntaje_max}` : score.nivel_label}</span><p>{score.comentario || 'Sin comentario.'}</p></div>)}</div> : <p className="privacy-note">El desglose de este docente es privado.</p>}
-      </article>)}
+      {(evaluation?.teacher_breakdown || []).length === 0 ? <Empty title="Sin rúbricas registradas" /> : evaluation.teacher_breakdown.map((teacher) => {
+        const scores = teacher.scores || []
+        return <article className="teacher-score-card" key={teacher.teacher_id}>
+          <header><strong>{teacher.teacher_name}</strong><StatusBadge value={`${teacher.average}%`} /></header>
+          <p className="general-evaluation-comment"><strong>Comentario general</strong><span>{teacher.general_comment || 'Sin comentario general.'}</span></p>
+          {teacher.can_view_score_detail ? <details className="rubric-breakdown-disclosure">
+            <summary>Ver desglose de rúbrica ({scores.length} preguntas)</summary>
+            <div>{scores.map((score) => <div className="criterion-result" key={score.criterio}><strong>{score.criterio_label}</strong><span>{score.score_mode === 'numeric' ? `${score.puntaje}/${score.puntaje_max}` : score.nivel_label}</span>{score.comentario?.trim() && <p><strong>Comentario:</strong> {score.comentario}</p>}</div>)}</div>
+          </details> : <p className="privacy-note">El desglose de este docente es privado.</p>}
+        </article>
+      })}
       <section className="feedback-box"><h3>Retroalimentación de sala</h3><p>{evaluation?.room_feedback || 'Sin retroalimentación registrada.'}</p>
         {(canManage || evaluation?.is_room_responsible) && <><textarea rows="3" value={feedback} onChange={(event) => setFeedback(event.target.value)} /><button className="btn-primary-app compact" onClick={() => onAction(`/evaluations/${evaluation.id}/feedback`, { room_feedback: feedback })}>Guardar retroalimentación</button></>}
       </section>

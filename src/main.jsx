@@ -11,6 +11,7 @@ import App from './App'
 import { store } from './store/store'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import SystemPreferences from './components/layout/SystemPreferences'
+import NativeBackButton from './components/layout/NativeBackButton'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
@@ -21,6 +22,7 @@ createRoot(document.getElementById('root')).render(
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
+          <NativeBackButton />
           <ErrorBoundary>
             <SystemPreferences />
             <App />

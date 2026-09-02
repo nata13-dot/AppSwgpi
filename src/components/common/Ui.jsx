@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { FiAlertCircle, FiChevronLeft, FiChevronRight, FiInbox, FiSearch } from 'react-icons/fi'
 import Swal from 'sweetalert2'
 import { statusLabel, statusTone } from '../../utils/formatters'
+import { registerBackHandler } from '../../utils/backNavigation'
 
 /* eslint-disable react-refresh/only-export-components */
 
@@ -63,10 +64,15 @@ export function Pagination({ meta, onPage }) {
 
 export function Modal({ open, title, children, onClose }) {
   useEffect(() => {
+    if (!open) return undefined
     const close = (event) => event.key === 'Escape' && onClose()
     document.addEventListener('keydown', close)
     return () => document.removeEventListener('keydown', close)
-  }, [onClose])
+  }, [onClose, open])
+  useEffect(() => {
+    if (!open) return undefined
+    return registerBackHandler(onClose)
+  }, [onClose, open])
   if (!open) return null
   return (
     <div className="modal-backdrop-custom" role="presentation" onMouseDown={onClose}>
