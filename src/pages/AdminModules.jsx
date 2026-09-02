@@ -220,7 +220,7 @@ export function UsersModule({ advisors = false }) {
 export function AdvisorsModule() {
   const client = useQueryClient()
   const [viewMode, setViewMode] = useState('projects')
-  const [recordType, setRecordType] = useState('proyecto_integrador')
+  const [recordType, setRecordType] = useState('proyecto')
   const [search, setSearch] = useState('')
   const [semester, setSemester] = useState('')
   const [coverage, setCoverage] = useState('all')
