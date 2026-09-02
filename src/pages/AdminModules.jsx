@@ -220,7 +220,7 @@ export function UsersModule({ advisors = false }) {
 export function AdvisorsModule() {
   const client = useQueryClient()
   const [viewMode, setViewMode] = useState('projects')
-  const [recordType, setRecordType] = useState('proyecto')
+  const [recordType, setRecordType] = useState('proyecto_integrador')
   const [search, setSearch] = useState('')
   const [semester, setSemester] = useState('')
   const [coverage, setCoverage] = useState('all')
@@ -514,7 +514,7 @@ export function ProjectsModule({ readOnly = false }) {
   const endpoint = readOnly ? '/my-projects' : '/projects'
   const projectsQuery = useQuery({
     queryKey: ['projects-admin', endpoint, page, debounced, recordType, semester],
-    queryFn: () => api.get(endpoint, { params: { page, q: debounced || undefined, per_page: 15, tipo_registro: recordType, semestre: semester || undefined } }).then((response) => response.data),
+    queryFn: () => api.get(endpoint, { params: { page, q: debounced || undefined, per_page: 15, tipo_registro: recordType === 'tesis' ? 'tesis' : 'proyecto', modalidad: recordType === 'tesis' ? undefined : recordType, semestre: semester || undefined } }).then((response) => response.data),
   })
   const groupsQuery = useQuery({
     queryKey: ['subject-groups-options'],
@@ -566,7 +566,7 @@ export function ProjectsModule({ readOnly = false }) {
 
   const openProject = (project = null) => {
     if (!project) {
-      setForm(defaultProjectForm)
+      setForm({ ...defaultProjectForm, modalidad: recordType === 'tesis' ? 'proyecto_integrador' : recordType, is_thesis: recordType === 'tesis' })
       setEditing({ __new: true })
       return
     }
@@ -603,7 +603,9 @@ export function ProjectsModule({ readOnly = false }) {
     </>} />
     <section className="panel">
       <div className="module-tabs compact-tabs project-type-tabs">
-        <button className={recordType === 'proyecto' ? 'active' : ''} onClick={() => { setRecordType('proyecto'); setPage(1) }}>Proyectos integradores</button>
+        <button className={recordType === 'proyecto_integrador' ? 'active' : ''} onClick={() => { setRecordType('proyecto_integrador'); setPage(1) }}>Proyecto integrador</button>
+        <button className={recordType === 'dual' ? 'active' : ''} onClick={() => { setRecordType('dual'); setPage(1) }}>Modalidad Dual</button>
+        <button className={recordType === 'caso_integrador' ? 'active' : ''} onClick={() => { setRecordType('caso_integrador'); setPage(1) }}>Caso integrador</button>
         <button className={recordType === 'tesis' ? 'active' : ''} onClick={() => { setRecordType('tesis'); setPage(1) }}>Tesis</button>
       </div>
       <div className="table-toolbar admin-toolbar">
@@ -614,7 +616,7 @@ export function ProjectsModule({ readOnly = false }) {
       {projectsQuery.isLoading ? <Loading /> : projectsQuery.isError ? <ErrorState message={apiError(projectsQuery.error)} onRetry={projectsQuery.refetch} /> : rows.length === 0 ? <Empty title="Sin proyectos" /> : <div className="table-responsive"><table className="data-table responsive-cards">
         <thead><tr><th>Proyecto</th><th>Integrantes</th><th>Asesores</th><th>Materias</th><th>Grupo</th><th>Estado</th><th>Acciones</th></tr></thead>
         <tbody>{rows.map((project) => <tr key={project.id}>
-          <td className="mobile-primary-cell" data-label="Proyecto"><strong>{project.title}</strong><small className="cell-subtitle">{project.company_name || 'Sin empresa'} · {formatDate(project.created_at)}</small></td>
+          <td className="mobile-primary-cell" data-label="Proyecto"><strong>{project.title}</strong><small className="cell-subtitle">{{ dual: 'Modalidad Dual', proyecto_integrador: 'Proyecto integrador', caso_integrador: 'Caso integrador' }[project.modalidad] || 'Proyecto integrador'} · {project.company_name || 'Sin empresa'} · {formatDate(project.created_at)}</small></td>
           <td data-label="Integrantes">{project.students?.map(fullName).join(', ') || project.authors || 'Sin asignar'}</td>
           <td data-label="Asesores"><div className="inline-role-list">{(isThesisProject(project) ? thesisAdvisorRoles : projectAdvisorRoles).map((role) => {
             const assigned = project.advisors?.find((advisor) => advisorRoleOf(advisor) === role.value)
