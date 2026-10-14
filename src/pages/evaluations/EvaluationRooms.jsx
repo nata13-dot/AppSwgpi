@@ -8,7 +8,7 @@ import { formatDate, fullName, roomDisplayName } from '../../utils/formatters'
 import { downloadApiFile } from '../../utils/downloads'
 
 const emptyRoom = {
-  nombre: '', salon: '', semestre: 5, responsible_teacher_id: '', fecha_evaluacion: '',
+  nombre: '', salon: '', salon_id: '', semestre: 5, responsible_teacher_id: '', fecha_evaluacion: '',
   fecha_fin_evaluacion: '', teacher_evaluation_minutes: 15, project_presentation_minutes: 20,
   max_attempts: 1, teacher_ids: [], project_ids: [], project_order: {},
 }
@@ -32,10 +32,11 @@ export default function EvaluationRooms({ canManage }) {
     queryFn: () => api.get('/evaluations/rooms', { params: { archived: archived ? 1 : 0 } }).then((response) => response.data),
     refetchInterval: archived ? false : 5_000,
   })
+  const catalogQuery = useQuery({ queryKey: ['academic-catalog'], queryFn: () => api.get('/academic-operations/catalog').then(r => r.data), enabled: canManage })
   const projectsQuery = useQuery({ queryKey: ['evaluation-projects'], queryFn: () => api.get('/evaluations/projects').then((response) => unwrapCollection(response.data)), enabled: canManage })
   const teachersQuery = useQuery({
     queryKey: ['evaluation-staff'],
-    queryFn: () => api.get('/users', { params: { perfil_ids: '1,2', status: 'active', compact: 1, per_page: 500 } }).then((response) => unwrapCollection(response.data)),
+    queryFn: () => api.get('/users', { params: { perfil_ids: '1,2,5,6,7', status: 'active', compact: 1, per_page: 500 } }).then((response) => unwrapCollection(response.data)),
     enabled: canManage,
   })
   const refresh = () => { client.invalidateQueries({ queryKey: ['evaluation-rooms'] }); client.invalidateQueries({ queryKey: ['evaluations'] }); client.invalidateQueries({ queryKey: ['evaluation-projects'] }) }
@@ -156,9 +157,9 @@ export default function EvaluationRooms({ canManage }) {
     <Modal open={Boolean(editing)} title={editing?.__new ? 'Crear sala de evaluación' : 'Editar sala de evaluación'} onClose={() => setEditing(null)}>
       <form className="modal-form room-form" onSubmit={save}><div className="form-grid">
         <label>Nombre<input required value={form.nombre} onChange={(event) => setForm({ ...form, nombre: event.target.value })} /></label>
-        <label>Salón<input value={form.salon} onChange={(event) => setForm({ ...form, salon: event.target.value })} /></label>
+        <label>Salón<select required value={form.salon_id || ''} onChange={(event) => setForm({ ...form, salon_id: Number(event.target.value) })}><option value="">Selecciona un salón</option>{catalogQuery.data?.rooms?.map(room => <option key={room.id} value={room.id}>{room.nombre}</option>)}</select></label>
         <label>Semestre<select value={form.semestre} onChange={(event) => setForm({ ...form, semestre: event.target.value, project_ids: [], project_order: {} })}>{[5, 6, 7, 8].map((semester) => <option key={semester}>{semester}</option>)}</select></label>
-        <label>Intentos máximos<input type="number" min="1" max="10" value={form.max_attempts} onChange={(event) => setForm({ ...form, max_attempts: event.target.value })} /></label>
+        <p>Un resultado por evaluador. Los reintentos requieren autorización y una nueva evaluación.</p>
         <label>Inicio<input required type="datetime-local" min={editing?.__new ? nextMinuteInput() : undefined} value={form.fecha_evaluacion} onChange={(event) => {
           const start = event.target.value
           const end = form.fecha_fin_evaluacion || (start ? toLocalInput(new Date(new Date(start).getTime() + 3_600_000)) : '')

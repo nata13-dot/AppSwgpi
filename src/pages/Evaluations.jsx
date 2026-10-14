@@ -258,7 +258,7 @@ function EvaluationWorkCard({ evaluation, canManage, archived, onSelect, onScore
     <div className="evaluation-main">
       <div className="evaluation-title-row"><div><h3>{evaluation.project?.title || `Proyecto #${evaluation.project_id}`}</h3><small>{evaluation.project?.students?.map((student) => [student.nombres, student.apa].filter(Boolean).join(' ')).join(', ') || 'Sin integrantes'}</small></div><div className="evaluation-status-stack"><span className={`evaluation-state-badge ${progress.tone}`}>{progress.label}</span><StatusBadge value={evaluation.is_completed ? 'finalizada' : evaluation.sequence_status || evaluation.estado} /></div></div>
       <div className="evaluation-primary-action">
-        {evaluation.can_score_now ? <button className="btn-primary-app" onClick={() => onScore(evaluation)}><FiCheckCircle /> {evaluation.current_teacher_has_scores ? 'Continuar o modificar evaluación' : 'Realizar evaluación'}</button> : evaluation.is_completed ? <button onClick={() => onSelect(evaluation)}><FiEye /> Consultar evaluación finalizada</button> : <button disabled title={blockedReason}><FiClock /> Evaluación no disponible</button>}
+        {evaluation.can_score_now ? <button className="btn-primary-app" onClick={() => onScore(evaluation)}><FiCheckCircle /> Realizar evaluación</button> : evaluation.is_completed ? <button onClick={() => onSelect(evaluation)}><FiEye /> Consultar evaluación finalizada</button> : <button disabled title={blockedReason}><FiClock /> Evaluación no disponible</button>}
         {!evaluation.can_score_now && !evaluation.is_completed && <span>{blockedReason}</span>}
       </div>
       <div className="evaluation-metrics">
@@ -287,9 +287,9 @@ function ScoreModal({ evaluation, criteriaPayload, onClose, onSaved }) {
     general_comment: initialDraft.general_comment || '',
     apto_titulacion: initialDraft.apto_titulacion ?? (evaluation?.current_teacher_apto_titulacion === true ? '1' : evaluation?.current_teacher_apto_titulacion === false ? '0' : ''),
   }))
-  const criteria = (criteriaPayload?.criteria || []).filter((criterion) => Number(criterion.semestre) === Number(evaluation?.semestre) && (!criterion.project_id || Number(criterion.project_id) === Number(evaluation?.project_id)))
+  const criteria = (evaluation?.criteria || criteriaPayload?.criteria || []).filter((criterion) => Number(criterion.semestre) === Number(evaluation?.semestre) && (!criterion.project_id || Number(criterion.project_id) === Number(evaluation?.project_id)))
   const levels = criteriaPayload?.levels || []
-  const mode = criteriaPayload?.score_modes?.[String(evaluation?.semestre)] || 'levels'
+  const mode = evaluation?.score_mode || criteriaPayload?.score_modes?.[String(evaluation?.semestre)] || 'levels'
   const scoreOptions = mode === 'numeric'
     ? ['totalmente_en_desacuerdo', 'en_desacuerdo', 'neutral', 'de_acuerdo', 'totalmente_de_acuerdo'].map((key, index) => ({ key, label: `${index + 1} punto${index ? 's' : ''}` }))
     : levels.map((level) => ({ key: level.key, label: `${level.label} (${level.puntaje} pts)` }))
@@ -305,15 +305,10 @@ function ScoreModal({ evaluation, criteriaPayload, onClose, onSaved }) {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      let confirm_update = false
-      if (evaluation.current_teacher_has_scores) {
-        confirm_update = await confirmAction({ title: 'Modificar evaluación existente', text: `Oportunidades usadas: ${evaluation.current_teacher_attempts}/${evaluation.max_attempts}.`, confirmText: 'Sí, modificar' })
-        if (!confirm_update) throw new Error('cancelled')
-      }
+      if (evaluation.current_teacher_has_scores) throw new Error('Solicita un nuevo intento autorizado; el resultado registrado se conserva.')
       const body = {
         scores: criteria.map((criterion) => ({ criterio: criterion.key, nivel: form.scores[criterion.key], comentario: form.comments[criterion.key] || null })),
         general_comment: form.general_comment || null,
-        confirm_update,
       }
       if (form.apto_titulacion !== '') body.apto_titulacion = form.apto_titulacion === '1'
       return api.post(`/evaluations/${evaluation.id}/score`, body)
@@ -338,7 +333,7 @@ function ScoreModal({ evaluation, criteriaPayload, onClose, onSaved }) {
         <textarea rows="2" placeholder="Comentario opcional" value={form.comments[criterion.key] || ''} onChange={(event) => setForm({ ...form, comments: { ...form.comments, [criterion.key]: event.target.value } })} />
       </fieldset>)}
       <label>Comentario general<textarea rows="3" value={form.general_comment} onChange={(event) => setForm({ ...form, general_comment: event.target.value })} /></label>
-      {Number(evaluation?.semestre) === 8 && <label>Apto para titulación<select value={form.apto_titulacion} onChange={(event) => setForm({ ...form, apto_titulacion: event.target.value })}><option value="">Sin respuesta</option><option value="1">Sí</option><option value="0">No</option></select></label>}
+      {Number(evaluation?.semestre) === 8 && <label>Recomendación del proyecto (sin efecto de egreso)<select value={form.apto_titulacion} onChange={(event) => setForm({ ...form, apto_titulacion: event.target.value })}><option value="">Sin respuesta</option><option value="1">Sí</option><option value="0">No</option></select></label>}
       <small className="draft-note">El progreso se guarda automáticamente en este navegador.</small>
       <div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="btn-primary-app compact" disabled={mutation.isPending || criteria.length === 0}>Guardar rúbrica</button></div>
     </form>
@@ -351,7 +346,7 @@ function EvaluationDetail({ evaluation, canManage, onClose, onAction }) {
     <div className="modal-form evaluation-detail">
       <h3>{evaluation?.project?.title}</h3>
       <div className="evaluation-metrics"><span>Promedio <strong>{evaluation?.global_average || 0}%</strong></span><span>Evaluadores <strong>{evaluation?.evaluators_count}/{evaluation?.expected_evaluators_count}</strong></span><span>Resultado <strong>{evaluation?.resultado || 'pendiente'}</strong></span></div>
-      {evaluation?.titulation_apt_summary?.applies && <div className="review-comment"><strong>Apto para titulación:</strong> {evaluation.titulation_apt_summary.label}</div>}
+      {evaluation?.titulation_apt_summary?.applies && <div className="review-comment"><strong>Recomendación del proyecto (sin efecto de egreso):</strong> {evaluation.titulation_apt_summary.label}</div>}
       {(evaluation?.teacher_breakdown || []).length === 0 ? <Empty title="Sin rúbricas registradas" /> : evaluation.teacher_breakdown.map((teacher) => {
         const scores = teacher.scores || []
         return <article className="teacher-score-card" key={teacher.teacher_id}>

@@ -25,7 +25,7 @@ const navigation = {
     ['Autoregistro de materias', 'course-enrollment', FiKey, 'Académico', 'academico'], ['Empresas', 'companies', FiDatabase, 'Proyectos y tesis', 'proyectos'],
     ['Etiquetas', 'tags', FiTag, 'Sistema', 'repositorio'], ['Avisos', 'notices', FiBell, 'Sistema', 'configuracion'], ['Ajustes', 'settings', FiSettings, 'Sistema', 'configuracion'],
     ['Módulos de carrera', 'career-modules', FiGrid, 'Sistema'], ['Carga inicial', 'career-setup', FiUpload, 'Sistema', 'academico'], ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'],
-    ['Mi perfil', 'profile', FiUser, 'Cuenta'],
+    ['Seguimiento y residencias', 'academic-workflows', FiBookOpen, 'Académico'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
   ],
   teacher: [
     ['Inicio', '', FiHome, 'Docente'], ['Mis proyectos', 'projects', FiFolder, 'Proyectos y tesis', 'proyectos'],
@@ -33,7 +33,7 @@ const navigation = {
     ['Salas y turnos', 'evaluation-rooms', FiCalendar, 'Proyectos y tesis', 'evaluaciones'], ['Evaluaciones previas', 'evaluations-archived', FiArchive, 'Proyectos y tesis', 'evaluaciones'],
     ['Evidencias', 'evaluation-documents', FiFileText, 'Proyectos y tesis', 'evaluaciones'], ['Entregables', 'deliverables', FiFileText, 'Académico', 'entregables'],
     ['Claves de autoregistro', 'course-enrollment', FiKey, 'Académico', 'academico'],
-    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
+    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Seguimiento y residencias', 'academic-workflows', FiBookOpen, 'Académico'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
   ],
   assistant: [
     ['Inicio', '', FiHome, 'Administración'], ['Asesores', 'advisors', FiUserCheck, 'Personas', 'proyectos'], ['Gestionar proyectos', 'projects', FiFolder, 'Proyectos y tesis', 'proyectos'],
@@ -42,7 +42,7 @@ const navigation = {
     ['Evidencias', 'evaluation-documents', FiFileText, 'Proyectos y tesis', 'evaluaciones'], ['Asignaturas y competencias', 'academics', FiBookOpen, 'Académico', 'academico'],
     ['Semestres y periodos', 'semesters', FiCalendar, 'Académico', 'academico'], ['Entregables', 'deliverables', FiFileText, 'Académico', 'entregables'],
     ['Autoregistro de materias', 'course-enrollment', FiKey, 'Académico', 'academico'], ['Empresas', 'companies', FiDatabase, 'Proyectos y tesis', 'proyectos'],
-    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
+    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Seguimiento y residencias', 'academic-workflows', FiBookOpen, 'Académico'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
   ],
   coordinator: [
     ['Inicio', '', FiHome, 'Administración'], ['Asesores', 'advisors', FiUserCheck, 'Personas', 'proyectos'], ['Gestionar proyectos', 'projects', FiFolder, 'Proyectos y tesis', 'proyectos'],
@@ -50,14 +50,14 @@ const navigation = {
     ['Empresas', 'companies', FiDatabase, 'Proyectos y tesis', 'proyectos'],
     ['Evaluaciones', 'evaluations', FiCheckSquare, 'Proyectos y tesis', 'evaluaciones'], ['Salas y turnos', 'evaluation-rooms', FiCalendar, 'Proyectos y tesis', 'evaluaciones'],
     ['Evaluaciones previas', 'evaluations-archived', FiArchive, 'Proyectos y tesis', 'evaluaciones'], ['Evidencias', 'evaluation-documents', FiFileText, 'Proyectos y tesis', 'evaluaciones'],
-    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
+    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Seguimiento y residencias', 'academic-workflows', FiBookOpen, 'Académico'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
   ],
   student: [
     ['Inicio', '', FiHome, 'Estudiante'], ['Registrar propuesta', 'proposal', FiFolder, 'Proyectos y tesis', 'proyectos'],
     ['Mis evaluaciones', 'evaluations', FiCheckSquare, 'Proyectos y tesis', 'evaluaciones'],
     ['Evidencias', 'evaluation-documents', FiFileText, 'Proyectos y tesis', 'evaluaciones'], ['Mis entregables', 'deliverables', FiFileText, 'Académico', 'entregables'],
     ['Autoregistro de materias', 'course-enrollment', FiKey, 'Académico', 'academico'],
-    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
+    ['Repositorio', 'repository', FiArchive, 'Sistema', 'repositorio'], ['Seguimiento y residencias', 'academic-workflows', FiBookOpen, 'Académico'], ['Mi perfil', 'profile', FiUser, 'Cuenta'],
   ],
 }
 const institutionalPaths = ['operations', 'careers', 'audit', 'integrity', 'backups', 'users']
