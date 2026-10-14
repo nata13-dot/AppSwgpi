@@ -15,6 +15,7 @@ const Repository = lazy(() => import('./pages/Repository'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Academics = lazy(() => import('./pages/Academics'))
 const SystemManagement = lazy(() => import('./pages/SystemManagement'))
+const AcademicWorkflows = lazy(() => import('./pages/AcademicWorkflows'))
 const Semesters = lazy(() => import('./pages/Semesters'))
 const Proposals = lazy(() => import('./pages/Proposals'))
 const Evaluations = lazy(() => import('./pages/Evaluations'))
@@ -32,6 +33,7 @@ const commonRoutes = (role) => <>
   {role !== 'student' && <Route path="evaluations-archived" element={<Evaluations initialArchived />} />}
   <Route path="evaluation-documents" element={<EvaluationDocuments />} />
   <Route path="repository" element={<Repository />} />
+  <Route path="academic-workflows" element={<AcademicWorkflows />} />
   <Route path="profile" element={<Profile />} />
   {role !== 'student' && <Route path="projects" element={<ProjectsModule readOnly={role === 'teacher'} />} />}
 </>
@@ -52,6 +54,7 @@ const managementRoutes = (includeAcademics = false) => <>
   {includeAcademics && <Route path="academics" element={<Academics />} />}
   {includeAcademics && <Route path="semesters" element={<Semesters />} />}
   <Route path="repository" element={<Repository />} />
+  <Route path="academic-workflows" element={<AcademicWorkflows />} />
   <Route path="profile" element={<Profile />} />
 </>
 
@@ -95,7 +98,8 @@ export default function App() {
             <Route path="settings" element={<SystemManagement key="settings" />} />
             <Route path="career-modules" element={<CareerModulesPage />} />
             <Route path="career-setup" element={<CareerSetupPage />} />
-            <Route path="profile" element={<Profile />} />
+            <Route path="academic-workflows" element={<AcademicWorkflows />} />
+  <Route path="profile" element={<Profile />} />
           </Route>
         </Route>
         <Route element={<RoleRoute role="teacher" />}><Route path="/teacher">{commonRoutes('teacher')}<Route path="proposals" element={<Proposals />} /></Route></Route>

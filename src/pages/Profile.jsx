@@ -17,6 +17,7 @@ export default function Profile() {
     mutationFn: (values) => {
       const body = new FormData()
       Object.entries(values).forEach(([key, value]) => {
+        if (['semestre', 'grupo'].includes(key)) return
         if (key === 'photo') {
           if (value?.[0]) body.append('photo', value[0])
         } else if (value !== undefined && value !== null && value !== '') body.append(key, value)
@@ -45,7 +46,7 @@ export default function Profile() {
           <div className="form-grid">
             <label>Teléfonos<input {...register('telefonos')} /></label>
             <label>Fotografía<input type="file" accept=".jpg,.jpeg,.png,.webp" {...register('photo')} /></label>
-            {Number(user.perfil_id) === 3 && <><label>Semestre<select {...register('semestre')}><option value="">Selecciona</option>{[5,6,7,8,9].map((semester) => <option key={semester} value={semester}>{semester}°</option>)}</select></label><label>Grupo<input {...register('grupo')} /></label></>}
+            {Number(user.perfil_id) === 3 && <><label>Semestre<select disabled {...register('semestre')}><option value="">Selecciona</option>{[5,6,7,8,9].map((semester) => <option key={semester} value={semester}>{semester}°</option>)}</select></label><label>Grupo<input disabled {...register('grupo')} /></label></>}
             <label className="full-field">Dirección<input {...register('direccion')} /></label>
             <h3 className="full-field profile-section-title">Cambiar contraseña</h3>
             <label>Contraseña actual<input type="password" {...register('current_password')} /></label>
