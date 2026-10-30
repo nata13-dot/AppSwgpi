@@ -1,61 +1,77 @@
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { FiCamera, FiSave } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
-import { roleLabel, useAuth } from '../hooks/useAuth'
-import { ErrorState, Loading, PageHeader } from '../components/common/Ui'
-import { publicAssetUrl } from '../utils/formatters'
+import { useAuth } from '../hooks/useAuth'
+import { roleLabel, viewAs } from '../lib/permissions'
+import { fullName, publicAssetUrl } from '../utils/formatters'
+import { Button, Card, ErrorState, Field, Loading, Page } from '../components/ui'
 
+/** Perfil propio (Frontend_Swgpi/pages/profile.php): foto, teléfono, especialidad y contraseña. */
 export default function Profile() {
-  const { refreshUser } = useAuth()
-  const client = useQueryClient()
-  const query = useQuery({ queryKey: ['profile'], queryFn: () => api.get('/profile').then((r) => r.data.user || r.data) })
-  const { register, handleSubmit, reset } = useForm()
-  useEffect(() => { if (query.data) reset(query.data) }, [query.data, reset])
-  const mutation = useMutation({
-    mutationFn: (values) => {
-      const body = new FormData()
-      Object.entries(values).forEach(([key, value]) => {
-        if (['semestre', 'grupo'].includes(key)) return
-        if (key === 'photo') {
-          if (value?.[0]) body.append('photo', value[0])
-        } else if (value !== undefined && value !== null && value !== '') body.append(key, value)
-      })
-      return api.post('/profile', body)
-    },
-    onSuccess: async ({ data }) => {
-      const updatedUser = data.user || data
-      client.setQueryData(['profile'], updatedUser)
-      reset(updatedUser)
-      await refreshUser()
-      toast.success('Perfil actualizado.')
-    },
-    onError: (error) => toast.error(apiError(error)),
-  })
-  if (query.isLoading) return <Loading />
-  if (query.isError) return <ErrorState message={apiError(query.error)} onRetry={query.refetch} />
-  const user = query.data
-  const profilePhoto = publicAssetUrl(user.photo_path || user.foto_ruta)
+  const { user, refreshUser } = useAuth()
+  const query = useQuery({ queryKey: ['profile'], queryFn: () => api.get('/profile').then((response) => response.data), gcTime: 0 })
   return (
-    <>
-      <PageHeader eyebrow="Cuenta personal" title="Mi perfil" description="Mantén actualizados tus datos de contacto." />
-      <section className="profile-layout">
-        <aside className="profile-card"><div className={`profile-avatar ${profilePhoto ? 'has-photo' : ''}`}>{profilePhoto ? <img src={profilePhoto} alt={`Foto de ${user.nombres}`} /> : user.nombres?.charAt(0)}</div><h2>{[user.nombres, user.apa, user.ama].filter(Boolean).join(' ')}</h2><span>{roleLabel(user)}</span><small>{user.id}</small></aside>
-        <form className="panel profile-form" onSubmit={handleSubmit((values) => mutation.mutate(values))}>
-          <div className="form-grid">
-            <label>Teléfonos<input {...register('telefonos')} /></label>
-            <label>Fotografía<input type="file" accept=".jpg,.jpeg,.png,.webp" {...register('photo')} /></label>
-            {Number(user.perfil_id) === 3 && <><label>Semestre<select disabled {...register('semestre')}><option value="">Selecciona</option>{[5,6,7,8,9].map((semester) => <option key={semester} value={semester}>{semester}°</option>)}</select></label><label>Grupo<input disabled {...register('grupo')} /></label></>}
-            <label className="full-field">Dirección<input {...register('direccion')} /></label>
-            <h3 className="full-field profile-section-title">Cambiar contraseña</h3>
-            <label>Contraseña actual<input type="password" {...register('current_password')} /></label>
-            <label>Nueva contraseña<input type="password" minLength="6" {...register('password')} /></label>
-            <label>Confirmar contraseña<input type="password" {...register('password_confirmation')} /></label>
-          </div>
-          <button className="btn-primary-app compact" disabled={mutation.isPending}>Guardar cambios</button>
-        </form>
-      </section>
-    </>
+    <Page title="Mi perfil" subtitle={`${roleLabel(user)}${user?.active_career ? ` · ${user.active_career.nombre_corto}` : ''}`}>
+      {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : <ProfileForm profile={query.data} readOnly={Boolean(viewAs(user))} onSaved={async () => { await refreshUser(); query.refetch() }} />}
+    </Page>
+  )
+}
+
+function ProfileForm({ profile, readOnly, onSaved }) {
+  const student = Number(profile.perfil_id) === 3
+  const [form, setForm] = useState({ telefonos: profile.telefonos || '', especialidad: profile.especialidad || '', current_password: '', password: '', password_confirmation: '' })
+  const [photo, setPhoto] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const preview = photo ? URL.createObjectURL(photo) : publicAssetUrl(profile.photo_path)
+  const set = (key) => (event) => setForm({ ...form, [key]: event.target.value })
+  const submit = async (event) => {
+    event.preventDefault()
+    const body = new FormData()
+    body.append('telefonos', form.telefonos)
+    if (!student) body.append('especialidad', form.especialidad)
+    ;['current_password', 'password', 'password_confirmation'].forEach((key) => form[key].trim() && body.append(key, form[key]))
+    if (photo) body.append('photo', photo)
+    setSaving(true)
+    try {
+      await api.post('/profile', body)
+      toast.success('Perfil actualizado')
+      setPhoto(null)
+      setForm({ ...form, current_password: '', password: '', password_confirmation: '' })
+      await onSaved()
+    } catch (error) { toast.error(apiError(error)) } finally { setSaving(false) }
+  }
+  return (
+    <form className="stack" onSubmit={submit}>
+      <Card>
+        <div className="profile-head">
+          <label className="profile-photo" title="Cambiar foto">
+            {preview ? <img src={preview} alt="" /> : <span>{(profile.nombres || '?').charAt(0)}</span>}
+            <i><FiCamera /></i>
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={readOnly} onChange={(event) => event.target.files[0] && setPhoto(event.target.files[0])} />
+          </label>
+          <div><h2>{fullName(profile)}</h2><p className="muted">{profile.id} · {profile.email}</p>{photo && <small className="text-success">Nueva foto lista para guardar</small>}</div>
+        </div>
+      </Card>
+      <Card title="Datos personales" subtitle="El nombre y el correo los actualiza la jefatura.">
+        <div className="form-grid">
+          <Field label="Nombre"><input className="control" disabled value={profile.nombres || ''} /></Field>
+          <Field label="Apellidos"><input className="control" disabled value={[profile.apa, profile.ama].filter(Boolean).join(' ')} /></Field>
+          <Field label="Correo"><input className="control" disabled value={profile.email || ''} /></Field>
+          {student && <Field label="Semestre y grupo"><input className="control" disabled value={`${profile.semestre || '–'}° ${profile.grupo || ''}`} /></Field>}
+          <Field label="Teléfono"><input className="control" type="tel" disabled={readOnly} value={form.telefonos} onChange={set('telefonos')} /></Field>
+          {!student && <Field label="Especialidad"><input className="control" disabled={readOnly} value={form.especialidad} onChange={set('especialidad')} /></Field>}
+        </div>
+      </Card>
+      <Card title="Cambiar contraseña" subtitle="Déjalo vacío para conservar tu contraseña actual.">
+        <div className="form-grid three">
+          <Field label="Contraseña actual"><input className="control" type="password" autoComplete="current-password" disabled={readOnly} value={form.current_password} onChange={set('current_password')} /></Field>
+          <Field label="Nueva contraseña"><input className="control" type="password" autoComplete="new-password" disabled={readOnly} value={form.password} onChange={set('password')} /></Field>
+          <Field label="Confirmar contraseña"><input className="control" type="password" autoComplete="new-password" disabled={readOnly} value={form.password_confirmation} onChange={set('password_confirmation')} /></Field>
+        </div>
+      </Card>
+      {!readOnly && <div className="form-actions sticky-actions"><Button type="submit" icon={FiSave} loading={saving}>Guardar cambios</Button></div>}
+    </form>
   )
 }

@@ -12,7 +12,7 @@ npm run dev
 ```
 
 Por defecto, el frontend utiliza la API en línea:
-`https://apiswgpi-production-0e59.up.railway.app/api`. Para usar otra URL en un
+`https://api.swgpi.online/api`. Para usar otra URL en un
 entorno controlado, modifica `VITE_API_URL` en `.env`.
 
 ## APK Android distribuible

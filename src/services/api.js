@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-export const API_URL = import.meta.env.VITE_API_URL || 'https://apiswgpi-production-0e59.up.railway.app/api'
+export const API_URL = import.meta.env.VITE_API_URL || 'https://api.swgpi.online/api'
 
 const api = axios.create({
   baseURL: API_URL,
@@ -45,7 +45,13 @@ api.interceptors.response.use(
         storage.removeItem('auth_token')
         storage.removeItem('auth_user')
       }
+      sessionStorage.removeItem('auth_view_origin')
       if (window.location.pathname !== '/login') window.location.assign('/login?expired=1')
+    }
+
+    // Contraseña temporal (matrícula o número de empleado): la API sólo permite cambiarla.
+    if (error.response?.status === 428 && error.response.data?.requires_password_change && window.location.pathname !== '/change-password') {
+      window.location.assign('/change-password')
     }
     return Promise.reject(error)
   },

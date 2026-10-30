@@ -1,16 +1,47 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { FiCheck, FiX } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
-import { Empty, ErrorState, Loading, PageHeader, StatusBadge } from '../components/common/Ui'
+import { Badge, Button, Card, Chips, DataTable, Empty, ErrorState, Loading, Page, promptText, SearchInput, useDebounced } from '../components/ui'
 
+const TONES = { pendiente: 'warning', aprobada: 'success', rechazada: 'danger' }
+
+/** Directorio de empresas propuestas en los proyectos: la coordinación valida antes de incorporarlas al catálogo. */
 export default function Companies() {
-  const [status, setStatus] = useState('pendiente')
   const client = useQueryClient()
-  const query = useQuery({ queryKey: ['companies', status], queryFn: () => api.get('/companies', { params: { status } }).then((response) => response.data) })
-  const review = useMutation({ mutationFn: ({ company, next }) => api.put(`/companies/${company.id}/review`, { status: next }), onSuccess: ({ data }) => { toast.success(data.message); client.invalidateQueries({ queryKey: ['companies'] }) }, onError: (error) => toast.error(apiError(error)) })
-  return <><PageHeader eyebrow="Vinculación" title="Directorio de empresas" description="Valida los datos propuestos antes de incorporarlos al catálogo institucional." />
-    <section className="panel"><div className="module-tabs compact-tabs">{['pendiente', 'aprobada', 'rechazada'].map((item) => <button key={item} className={status === item ? 'active' : ''} onClick={() => setStatus(item)}>{item}</button>)}</div>
-      {query.isLoading ? <Loading /> : query.isError ? <ErrorState message={apiError(query.error)} onRetry={query.refetch} /> : !query.data?.length ? <Empty title="Sin empresas" /> : <div className="table-responsive"><table className="data-table"><thead><tr><th>Empresa</th><th>RFC</th><th>Giro</th><th>Contacto</th><th>Dirección</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{query.data.map((company) => <tr key={company.id}><td><strong>{company.nombre}</strong><small>{company.projects_count} proyecto(s)</small></td><td>{company.rfc || 'Histórico sin RFC'}</td><td>{company.giro}</td><td>{company.contacto_nombre}<small>{company.contacto_cargo}</small></td><td>{company.direccion}</td><td><StatusBadge value={company.estado_validacion} /></td><td>{status === 'pendiente' && <><button onClick={() => review.mutate({ company, next: 'aprobada' })}>Aprobar</button><button className="danger" onClick={() => review.mutate({ company, next: 'rechazada' })}>Rechazar</button></>}</td></tr>)}</tbody></table></div>}
-    </section></>
+  const [status, setStatus] = useState('pendiente')
+  const [search, setSearch] = useState('')
+  const debounced = useDebounced(search)
+  const query = useQuery({ queryKey: ['companies', status, debounced], queryFn: () => api.get('/companies', { params: { status, q: debounced.trim() || undefined } }).then((response) => (Array.isArray(response.data) ? response.data : response.data.data || [])) })
+  const review = async (company, next) => {
+    const comment = next === 'rechazada' ? await promptText({ title: 'Motivo del rechazo', placeholder: 'Qué debe corregirse', required: false, confirmText: 'Rechazar' }) : ''
+    if (comment === null) return
+    try {
+      const { data } = await api.put(`/companies/${company.id}/review`, { status: next, comment: comment || null })
+      toast.success(data.message || 'Empresa revisada.')
+      client.invalidateQueries({ queryKey: ['companies'] })
+    } catch (error) { toast.error(apiError(error)) }
+  }
+  return (
+    <Page eyebrow="Vinculación" title="Directorio de empresas" subtitle="Valida los datos propuestos antes de incorporarlos al catálogo institucional.">
+      <div className="toolbar">
+        <SearchInput value={search} onChange={setSearch} placeholder="Nombre o RFC" />
+        <Chips options={[{ value: 'pendiente', label: 'Pendientes' }, { value: 'aprobada', label: 'Aprobadas' }, { value: 'rechazada', label: 'Rechazadas' }]} value={status} onChange={setStatus} />
+      </div>
+      <Card flush>
+        {query.isLoading ? <div className="card-pad"><Loading /></div> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
+          <DataTable rows={query.data} empty={<Empty title="Sin empresas" message="No hay empresas en este estado." />}
+            columns={[
+              { key: 'nombre', label: 'Empresa', primary: true, render: (company) => <span className="cell-main"><strong>{company.nombre}</strong><small>{company.projects_count} proyecto(s) · {company.rfc || 'Histórico sin RFC'}</small></span> },
+              { key: 'giro', label: 'Giro', render: (company) => company.giro || '—' },
+              { key: 'contacto', label: 'Contacto', render: (company) => <span className="cell-main"><strong>{company.contacto_nombre || '—'}</strong><small>{company.contacto_cargo}</small></span> },
+              { key: 'direccion', label: 'Dirección', hideOnMobile: true, render: (company) => <small>{company.direccion || '—'}</small> },
+              { key: 'estado', label: 'Estado', render: (company) => <Badge tone={TONES[company.estado_validacion]}>{company.estado_validacion}</Badge> },
+            ]}
+            actions={status === 'pendiente' ? (company) => <><Button size="sm" variant="success" icon={FiCheck} onClick={() => review(company, 'aprobada')}>Aprobar</Button><Button size="sm" variant="ghost-danger" icon={FiX} onClick={() => review(company, 'rechazada')}>Rechazar</Button></> : undefined} />
+        )}
+      </Card>
+    </Page>
+  )
 }

@@ -2,7 +2,7 @@ export const fullName = (user) => [user?.nombres, user?.apa, user?.ama].filter(B
 export const publicAssetUrl = (path) => {
   if (!path) return ''
   if (/^(https?:|data:|blob:)/i.test(path)) return path
-  const apiBase = (import.meta.env.VITE_API_URL || 'https://apiswgpi-production-0e59.up.railway.app/api').replace(/\/api\/?$/, '')
+  const apiBase = (import.meta.env.VITE_API_URL || 'https://api.swgpi.online/api').replace(/\/api\/?$/, '')
   return `${apiBase}/storage/${String(path).replace(/^\/?(storage\/)?/, '')}`
 }
 export const formatDate = (value) => {
@@ -21,11 +21,26 @@ export const roomDisplayIdentifier = (room) => {
   return `${labels[semester] || `${semester}to`}-${half}-${year}`
 }
 export const roomDisplayName = (room) => room?.display_name || `${room?.nombre || 'Sin sala'} · ${roomDisplayIdentifier(room)}`
-export const statusLabel = (value = '') => value.replaceAll('_', ' ').replace(/^\w/, (char) => char.toUpperCase())
+const STATUS_LABELS = {
+  borrador: 'Borrador', pendiente: 'Pendiente', en_revision: 'En revisión', enviado: 'Enviado', revisado: 'Revisado',
+  aprobado: 'Aprobado', publicado: 'Publicado', cerrado: 'Cerrado', finalizado: 'Finalizado', archivado: 'Archivado',
+  requiere_cambios: 'Requiere cambios', rechazado: 'Rechazado', activo: 'Activo', inactivo: 'Inactivo', vencido: 'Vencido',
+  completado: 'Completado', en_progreso: 'En progreso', programada: 'Programada', en_curso: 'En curso',
+}
+export const statusLabel = (value = '') => STATUS_LABELS[value] || String(value || '').replaceAll('_', ' ').replace(/^\w/, (char) => char.toUpperCase())
 export const statusTone = (value = '') => {
   const state = value.toLowerCase()
   if (['aprobado', 'activo', 'publicado', 'revisado', 'completado'].includes(state)) return 'success'
   if (['rechazado', 'reprobado', 'inactivo', 'vencido'].includes(state)) return 'danger'
-  if (['enviado', 'requiere_cambios', 'en_revision'].includes(state)) return 'warning'
+  if (['enviado', 'requiere_cambios', 'en_revision', 'pendiente'].includes(state)) return 'warning'
   return 'neutral'
 }
+export const formatDateTime = (value) => {
+  if (!value) return 'Sin fecha'
+  const date = new Date(String(value).replace(' ', 'T'))
+  if (Number.isNaN(date.getTime())) return 'Fecha no disponible'
+  return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+export const percent = (value, total) => (Number(total) > 0 ? Math.round((Number(value || 0) / Number(total)) * 100) : 0)
+/** Colecciones de Laravel que llegan como objeto ({0: …}) o como arreglo. */
+export const asList = (value) => (Array.isArray(value) ? value : value && typeof value === 'object' ? Object.values(value) : [])

@@ -1,114 +1,120 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Link, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/layout/AppLayout'
-import { GeneralAdminRoute, GuestRoute, ProtectedRoute, RoleRoute } from './components/auth/RouteGuards'
-import { Loading } from './components/common/Ui'
-import { AdvisorsModule, ProjectsModule, UsersModule } from './pages/AdminModules'
-import { AuditPage, BackupsPage, CareersPage, IntegrityPage, OperationsPage } from './pages/InstitutionalAdministration'
-import { CareerModulesPage, CareerSetupPage } from './pages/CareerConfiguration'
+import { GuestRoute, ProtectedRoute, Require } from './components/auth/RouteGuards'
+import { Loading } from './components/ui'
+import { useAuth } from './hooks/useAuth'
+import { canManageAcademics, canViewUsers, homePath, isAdmin, mustChangePassword, isGeneralAdmin, isManagementStaff, isTeacher } from './lib/permissions'
 
 const Login = lazy(() => import('./pages/auth/Login'))
 const PasswordRecovery = lazy(() => import('./pages/auth/PasswordRecovery'))
+const ChangePassword = lazy(() => import('./pages/auth/ChangePassword'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
-const Deliverables = lazy(() => import('./pages/Deliverables'))
-const Repository = lazy(() => import('./pages/Repository'))
-const Profile = lazy(() => import('./pages/Profile'))
-const Academics = lazy(() => import('./pages/Academics'))
-const SystemManagement = lazy(() => import('./pages/SystemManagement'))
-const AcademicWorkflows = lazy(() => import('./pages/AcademicWorkflows'))
-const Semesters = lazy(() => import('./pages/Semesters'))
-const Proposals = lazy(() => import('./pages/Proposals'))
-const Evaluations = lazy(() => import('./pages/Evaluations'))
-const StudentEvaluations = lazy(() => import('./pages/StudentEvaluations'))
+const GeneralPanel = lazy(() => import('./pages/admin/GeneralPanel'))
+const Users = lazy(() => import('./pages/users/Users'))
+const Projects = lazy(() => import('./pages/projects/Projects'))
+const Rooms = lazy(() => import('./pages/rooms/Rooms'))
 const EvaluationDocuments = lazy(() => import('./pages/EvaluationDocuments'))
-const CourseEnrollment = lazy(() => import('./pages/CourseEnrollment'))
+const AcademicWorkflows = lazy(() => import('./pages/AcademicWorkflows'))
+const Subjects = lazy(() => import('./pages/Subjects'))
+const Deliverables = lazy(() => import('./pages/Deliverables'))
+const Proposals = lazy(() => import('./pages/Proposals'))
+const Advisors = lazy(() => import('./pages/Advisors'))
+const Institutional = (name) => lazy(() => import('./pages/admin/Institutional').then((module) => ({ default: module[name] })))
+const Careers = Institutional('CareersPage')
+const Operations = Institutional('OperationsPage')
+const Audit = Institutional('AuditPage')
+const Integrity = Institutional('IntegrityPage')
+const Backups = Institutional('BackupsPage')
+const SystemPage = (name) => lazy(() => import('./pages/admin/SystemPages').then((module) => ({ default: module[name] })))
+const CareerPage = (name) => lazy(() => import('./pages/admin/CareerPages').then((module) => ({ default: module[name] })))
+const SettingsPage = SystemPage('SettingsPage')
+const NoticesPage = SystemPage('NoticesPage')
+const TagsPage = SystemPage('TagsPage')
+const CareerModules = CareerPage('CareerModulesPage')
+const CareerSetup = CareerPage('CareerSetupPage')
+const Profile = lazy(() => import('./pages/Profile'))
 const Companies = lazy(() => import('./pages/Companies'))
+const Repository = lazy(() => import('./pages/Repository'))
+const RepositoryDetail = lazy(() => import('./pages/Repository').then((module) => ({ default: module.RepositoryDetail })))
+const Evaluations = lazy(() => import('./pages/evaluations/Evaluations'))
+const ArchivedEvaluations = lazy(() => import('./pages/evaluations/Evaluations').then(({ default: EvaluationsPage }) => ({ default: function ArchivedEvaluationsPage() { return <EvaluationsPage archived /> } })))
 
-const commonRoutes = (role) => <>
-  <Route index element={<Dashboard />} />
-  <Route path="deliverables" element={<Deliverables />} />
-  <Route path="course-enrollment" element={<CourseEnrollment />} />
-  <Route path="evaluations" element={role === 'student' ? <StudentEvaluations /> : <Evaluations />} />
-  {role !== 'student' && <Route path="evaluation-rooms" element={<Evaluations initialTab="rooms" />} />}
-  {role !== 'student' && <Route path="evaluations-archived" element={<Evaluations initialArchived />} />}
-  <Route path="evaluation-documents" element={<EvaluationDocuments />} />
-  <Route path="repository" element={<Repository />} />
-  <Route path="academic-workflows" element={<AcademicWorkflows />} />
-  <Route path="profile" element={<Profile />} />
-  {role !== 'student' && <Route path="projects" element={<ProjectsModule readOnly={role === 'teacher'} />} />}
-</>
+/**
+ * Rutas planas, una por pantalla del front de PHP. Cada una se protege con el mismo permiso que usa la
+ * página PHP equivalente (lib/permissions.js); la API vuelve a validarlo.
+ */
+const staffOrTeacher = (user) => isManagementStaff(user) || isTeacher(user)
 
-const managementRoutes = (includeAcademics = false) => <>
-  <Route index element={<Dashboard />} />
-  <Route path="advisors" element={<AdvisorsModule />} />
-  <Route path="projects" element={<ProjectsModule />} />
-  <Route path="proposals" element={<Proposals />} />
-  <Route path="deliverables" element={<Deliverables />} />
-  <Route path="course-enrollment" element={<CourseEnrollment />} />
-  <Route path="companies" element={<Companies />} />
-  <Route path="evaluations" element={<Evaluations />} />
-  <Route path="evaluation-rooms" element={<Evaluations initialTab="rooms" />} />
-  <Route path="evaluations-archived" element={<Evaluations initialArchived />} />
-  <Route path="evaluation-rubric" element={<Evaluations initialTab="rubric" />} />
-  <Route path="evaluation-documents" element={<EvaluationDocuments />} />
-  {includeAcademics && <Route path="academics" element={<Academics />} />}
-  {includeAcademics && <Route path="semesters" element={<Semesters />} />}
-  <Route path="repository" element={<Repository />} />
-  <Route path="academic-workflows" element={<AcademicWorkflows />} />
-  <Route path="profile" element={<Profile />} />
-</>
+const routes = [
+  ['/dashboard', Dashboard],
+  ['/general', GeneralPanel, isGeneralAdmin],
+  ['/careers', Careers, isGeneralAdmin],
+  ['/operations', Operations, isGeneralAdmin],
+  ['/audit', Audit, isGeneralAdmin],
+  ['/integrity', Integrity, isGeneralAdmin],
+  ['/backups', Backups, isGeneralAdmin],
+  ['/users', Users, canViewUsers],
+  ['/projects', Projects, staffOrTeacher],
+  ['/evaluations', Evaluations, staffOrTeacher],
+  ['/evaluation-rooms', Rooms, staffOrTeacher],
+  ['/evaluation-documents', EvaluationDocuments],
+  ['/academic-workflows', AcademicWorkflows],
+  ['/semesters', AcademicWorkflows, canManageAcademics],
+  ['/subjects', Subjects, canManageAcademics],
+  ['/deliverables', Deliverables],
+  ['/proposals', Proposals],
+  ['/advisors', Advisors, isManagementStaff],
+  ['/settings', SettingsPage, isAdmin],
+  ['/notices', NoticesPage, isAdmin],
+  ['/tags', TagsPage, isAdmin],
+  ['/career-modules', CareerModules, isAdmin],
+  ['/career-setup', CareerSetup, isAdmin],
+  ['/evaluations-archived', ArchivedEvaluations, staffOrTeacher],
+  ['/companies', Companies, isManagementStaff],
+  ['/profile', Profile],
+]
+
+/** El repositorio es público: con sesión se muestra dentro del sistema y sin ella en una página abierta. */
+function PublicOrApp() {
+  const { isAuthenticated, user } = useAuth()
+  if (isAuthenticated && !mustChangePassword(user)) return <AppLayout />
+  return (
+    <div className="public-shell">
+      <header className="public-bar"><Link to="/login" className="public-brand"><img src="/images/itssmt.webp" alt="" /><strong>SGPI ITSSMT</strong></Link><Link className="btn-app primary sm" to="/login">Iniciar sesión</Link></header>
+      <main className="content-app"><Outlet /></main>
+    </div>
+  )
+}
+
+function Home() {
+  const { user } = useAuth()
+  return <Navigate to={homePath(user)} replace />
+}
 
 export default function App() {
-  return <Suspense fallback={<Loading />}><Routes>
-    <Route element={<GuestRoute />}>
-      <Route path="/login" element={<Login />} />
-      <Route path="/forgot-password" element={<PasswordRecovery />} />
-    </Route>
-    <Route path="/repository" element={<Repository publicView />} />
-    <Route element={<ProtectedRoute />}>
-      <Route element={<AppLayout />}>
-        <Route element={<RoleRoute role="admin" />}>
-          <Route path="/admin">
-            <Route index element={<Dashboard />} />
-            <Route element={<GeneralAdminRoute />}>
-              <Route path="operations" element={<OperationsPage />} />
-              <Route path="careers" element={<CareersPage />} />
-              <Route path="audit" element={<AuditPage />} />
-              <Route path="integrity" element={<IntegrityPage />} />
-              <Route path="backups" element={<BackupsPage />} />
-              <Route path="users" element={<UsersModule />} />
-            </Route>
-            <Route path="advisors" element={<AdvisorsModule />} />
-            <Route path="projects" element={<ProjectsModule />} />
-            <Route path="proposals" element={<Proposals />} />
-            <Route path="deliverables" element={<Deliverables />} />
-            <Route path="course-enrollment" element={<CourseEnrollment />} />
-            <Route path="companies" element={<Companies />} />
-            <Route path="evaluations" element={<Evaluations />} />
-            <Route path="evaluation-rooms" element={<Evaluations initialTab="rooms" />} />
-            <Route path="evaluations-archived" element={<Evaluations initialArchived />} />
-            <Route path="evaluation-rubric" element={<Evaluations initialTab="rubric" />} />
-            <Route path="evaluation-managers" element={<Evaluations initialTab="managers" />} />
-            <Route path="evaluation-documents" element={<EvaluationDocuments />} />
-            <Route path="academics" element={<Academics />} />
-            <Route path="semesters" element={<Semesters />} />
-            <Route path="repository" element={<Repository />} />
-            <Route path="tags" element={<SystemManagement key="tags" initialTab="tags" />} />
-            <Route path="notices" element={<SystemManagement key="notices" initialTab="notices" />} />
-            <Route path="settings" element={<SystemManagement key="settings" />} />
-            <Route path="career-modules" element={<CareerModulesPage />} />
-            <Route path="career-setup" element={<CareerSetupPage />} />
-            <Route path="academic-workflows" element={<AcademicWorkflows />} />
-  <Route path="profile" element={<Profile />} />
+  return (
+    <Suspense fallback={<div className="center-page"><Loading /></div>}>
+      <Routes>
+        <Route element={<GuestRoute />}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<PasswordRecovery />} />
+        </Route>
+        <Route path="/change-password" element={<ChangePassword />} />
+        <Route element={<PublicOrApp />}>
+          <Route path="/repository" element={<Repository />} />
+          <Route path="/repository/:id" element={<RepositoryDetail />} />
+        </Route>
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Home />} />
+            {routes.map(([path, Component, allow]) => (
+              <Route key={path} path={path} element={allow ? <Require allow={allow}><Component /></Require> : <Component />} />
+            ))}
           </Route>
         </Route>
-        <Route element={<RoleRoute role="teacher" />}><Route path="/teacher">{commonRoutes('teacher')}<Route path="proposals" element={<Proposals />} /></Route></Route>
-        <Route element={<RoleRoute role="student" />}><Route path="/student">{commonRoutes('student')}<Route path="proposal" element={<Proposals />} /></Route></Route>
-        <Route element={<RoleRoute role="assistant" />}><Route path="/assistant">{managementRoutes(true)}</Route></Route>
-        <Route element={<RoleRoute role="coordinator" />}><Route path="/coordinator">{managementRoutes(false)}</Route></Route>
-      </Route>
-    </Route>
-    <Route path="/" element={<Navigate to="/login" replace />} />
-    <Route path="*" element={<Navigate to="/" replace />} />
-  </Routes></Suspense>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
+  )
 }

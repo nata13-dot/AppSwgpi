@@ -1,24 +1,20 @@
 import { useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import api from '../services/api'
+import axios from 'axios'
+import api, { API_URL } from '../services/api'
 import { clearCredentials, setCredentials, setUser } from '../store/store'
+import { activeProfileId } from '../lib/permissions'
 
-export const activeProfileId = (user) => Number(user?.active_profile_id ?? user?.perfil_id)
-export const roleFromUser = (user) => ({
-  1: 'admin', 2: 'teacher', 3: 'student', 4: 'admin', 5: 'admin', 6: 'assistant', 7: 'coordinator',
-})[activeProfileId(user)] || 'student'
-export const roleLabel = (user) => ({
-  1: 'Administrador',
-  2: 'Docente',
-  3: 'Estudiante',
-  4: 'Administrador general',
-  5: 'Jefe de Carrera',
-  6: 'Asistente de Jefe de Carrera',
-  7: 'Coordinador de Proyectos',
-})[activeProfileId(user)] || 'Usuario'
-export const isProjectManagementRole = (role) => ['admin', 'assistant', 'coordinator'].includes(role)
-export const isAcademicManagementRole = (role) => ['admin', 'assistant'].includes(role)
-export const homeForUser = (user) => `/${roleFromUser(user)}`
+/*
+ * Sesión original del administrador general mientras simula un nivel. Vive sólo en sessionStorage:
+ * al cerrar la pestaña o la app se pierde y hay que volver a iniciar sesión, igual que en el front de PHP.
+ */
+const VIEW_ORIGIN_KEY = 'auth_view_origin'
+const readOrigin = () => {
+  try { return JSON.parse(sessionStorage.getItem(VIEW_ORIGIN_KEY) || 'null') } catch { return null }
+}
+const withToken = (token) => ({ headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } })
+const fetchMe = (token) => axios.get(`${API_URL}/auth/me`, withToken(token)).then((response) => response.data.user)
 
 export function useAuth() {
   const dispatch = useDispatch()
@@ -26,6 +22,7 @@ export function useAuth() {
 
   const login = useCallback(async ({ id, password, remember }) => {
     const { data } = await api.post('/auth/login', { id, password, remember })
+    sessionStorage.removeItem(VIEW_ORIGIN_KEY)
     dispatch(setCredentials({ token: data.access_token, user: data.user, remember }))
     return data.user
   }, [dispatch])
@@ -37,7 +34,14 @@ export function useAuth() {
   }, [dispatch])
 
   const logout = useCallback(async () => {
-    try { await api.post('/auth/logout') } finally { dispatch(clearCredentials()) }
+    const origin = readOrigin()
+    try {
+      await api.post('/auth/logout')
+      if (origin?.token) await axios.post(`${API_URL}/auth/logout`, null, withToken(origin.token)).catch(() => {})
+    } finally {
+      sessionStorage.removeItem(VIEW_ORIGIN_KEY)
+      dispatch(clearCredentials())
+    }
   }, [dispatch])
 
   const switchCareer = useCallback(async (careerId) => {
@@ -48,5 +52,49 @@ export function useAuth() {
     return data.user
   }, [auth.remember, dispatch])
 
-  return { ...auth, isAuthenticated: Boolean(auth.token), login, logout, refreshUser, switchCareer }
+  /** Abre (o cambia) una simulación de sólo lectura con los permisos de otro nivel, en la carrera activa. */
+  const startLevelView = useCallback(async (profileId, careerId = auth.user?.active_career?.id) => {
+    const origin = readOrigin()
+    const adminToken = origin?.token || auth.token
+    const { data } = await axios.post(`${API_URL}/admin/view-level`, { carrera_id: careerId, perfil_id: Number(profileId) }, withToken(adminToken))
+    const user = await fetchMe(data.access_token)
+    // Debe ser una simulación del mismo administrador y del nivel pedido.
+    if (!user?.view_as || String(user.view_as.by_id) !== String(user.id) || Number(user.view_as.simulated_profile) !== Number(profileId)) {
+      throw new Error('No fue posible verificar la simulación.')
+    }
+    if (origin) await api.post('/auth/logout').catch(() => {})
+    else sessionStorage.setItem(VIEW_ORIGIN_KEY, JSON.stringify({ token: auth.token, remember: auth.remember }))
+    dispatch(setCredentials({ token: data.access_token, user, remember: false }))
+    return user
+  }, [auth.remember, auth.token, auth.user?.active_career?.id, dispatch])
+
+  /** Cierra la simulación y restaura la sesión del administrador general. */
+  const exitLevelView = useCallback(async () => {
+    const origin = readOrigin()
+    await api.post('/auth/logout').catch(() => {})
+    sessionStorage.removeItem(VIEW_ORIGIN_KEY)
+    if (!origin?.token) {
+      dispatch(clearCredentials())
+      throw new Error('La sesión del administrador ya no está disponible. Inicia sesión de nuevo.')
+    }
+    try {
+      const user = await fetchMe(origin.token)
+      dispatch(setCredentials({ token: origin.token, user, remember: origin.remember }))
+      return user
+    } catch {
+      dispatch(clearCredentials())
+      throw new Error('La sesión del administrador expiró. Inicia sesión de nuevo.')
+    }
+  }, [dispatch])
+
+  const markPasswordChanged = useCallback(() => {
+    dispatch(setUser({ ...auth.user, must_change_password: false }))
+  }, [auth.user, dispatch])
+
+  return {
+    ...auth,
+    isAuthenticated: Boolean(auth.token),
+    profileId: activeProfileId(auth.user),
+    login, logout, refreshUser, switchCareer, startLevelView, exitLevelView, markPasswordChanged,
+  }
 }

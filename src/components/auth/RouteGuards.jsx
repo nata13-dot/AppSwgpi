@@ -1,23 +1,23 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { activeProfileId, roleFromUser, useAuth } from '../../hooks/useAuth'
+import { useAuth } from '../../hooks/useAuth'
+import { homePath, mustChangePassword } from '../../lib/permissions'
 
 export function ProtectedRoute() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const location = useLocation()
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace state={{ from: location }} />
+  if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: location }} />
+  if (mustChangePassword(user)) return <Navigate to="/change-password" replace />
+  return <Outlet />
 }
 
-export function RoleRoute({ role }) {
+/** Permite la ruta sólo si `allow(user)` es verdadero; si no, regresa al inicio del perfil. */
+export function Require({ allow, children }) {
   const { user } = useAuth()
-  return roleFromUser(user) === role ? <Outlet /> : <Navigate to={`/${roleFromUser(user)}`} replace />
-}
-
-export function GeneralAdminRoute() {
-  const { user } = useAuth()
-  return activeProfileId(user) === 4 ? <Outlet /> : <Navigate to={`/${roleFromUser(user)}`} replace />
+  if (!allow(user)) return <Navigate to={homePath(user)} replace />
+  return children ?? <Outlet />
 }
 
 export function GuestRoute() {
   const { isAuthenticated, user } = useAuth()
-  return isAuthenticated ? <Navigate to={`/${roleFromUser(user)}`} replace /> : <Outlet />
+  return isAuthenticated ? <Navigate to={homePath(user)} replace /> : <Outlet />
 }

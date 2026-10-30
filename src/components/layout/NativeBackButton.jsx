@@ -6,13 +6,13 @@ import { toast } from 'react-toastify'
 import Swal from 'sweetalert2'
 import { handleRegisteredBack } from '../../utils/backNavigation'
 
-const roleRoots = new Set(['admin', 'teacher', 'student', 'assistant', 'coordinator'])
+const roots = new Set(['/dashboard', '/general', '/login', '/change-password'])
 
+/** Pantalla inicial a la que regresa "atrás": el inicio de la sesión o, sin sesión, el login. */
 function homeForPath(pathname) {
-  const segment = pathname.split('/').filter(Boolean)[0]
-  if (roleRoots.has(segment)) return `/${segment}`
-  if (pathname === '/forgot-password') return '/login'
-  return '/login'
+  if (roots.has(pathname)) return pathname
+  const authenticated = Boolean(localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'))
+  return authenticated ? '/dashboard' : '/login'
 }
 
 export default function NativeBackButton() {

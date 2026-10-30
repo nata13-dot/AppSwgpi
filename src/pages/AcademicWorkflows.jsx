@@ -1,21 +1,28 @@
 import { useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { mountAcademicConsole } from '../shared/academicConsole'
+import { downloadApiFile } from '../utils/downloads'
+import { Page } from '../components/ui'
 
-export default function AcademicWorkflows({ initialTab = 'periods' }) {
+/**
+ * Seguimiento académico (Frontend_Swgpi/pages/academic-workflows.php): periodos, promoción y grupos, matrícula,
+ * autorizaciones, residencias y conciliación. La consola es el mismo módulo que usa el front de PHP.
+ */
+export default function AcademicWorkflows() {
   const root = useRef(null)
   const { user } = useAuth()
+  const [params] = useSearchParams()
+  const initialTab = params.get('tab') || 'periods'
   useEffect(() => mountAcademicConsole(root.current, async (method, url, data) => {
-    if (method === 'DOWNLOAD') {
-      const response = await api.get(url, { responseType: 'blob' })
-      const href = URL.createObjectURL(response.data)
-      const anchor = document.createElement('a'); anchor.href = href; anchor.download = data.name; anchor.click()
-      setTimeout(() => URL.revokeObjectURL(href), 1000)
-      return
-    }
+    if (method === 'DOWNLOAD') return downloadApiFile(url, data.name)
     const response = await api.request({ method, url, data })
     return response.data
   }, user, initialTab), [user, initialTab])
-  return <><h1>Seguimiento académico</h1><div ref={root} /></>
+  return (
+    <Page title="Seguimiento académico" subtitle="Periodos, semestres y grupos, matrícula, autorizaciones y residencias.">
+      <div ref={root} className="academic-console" />
+    </Page>
+  )
 }

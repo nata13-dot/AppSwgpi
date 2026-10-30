@@ -83,6 +83,14 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
     const preview = await request('GET', `/semester-management/periods/${period.id}/promotion-preview`)
     content.replaceChildren(); const p = panel(`Promoción a ${period.nombre}`, content)
     p.append(el('p', 'Resuelve todos los movimientos. Noveno permanece en seguimiento; no se declara egreso.'))
+    // Al cambiar de mitad de año cambia la paridad (6° A → 7° A): se crean los grupos destino que falten.
+    if (manager && preview.movements.some(m => !m.group_id && m.action === 'avance')) {
+      button('Generar grupos destino que faltan', async () => {
+        const result = await request('POST', `/semester-management/periods/${period.id}/generate-groups`)
+        status.textContent = result.created?.length ? `Grupos creados: ${result.created.join(', ')}` : result.message
+        await promotion(period)
+      }, p)
+    }
     const [f, done] = form(p, manager ? 'Confirmar lote' : 'Sólo preparación: requiere jefatura o administrador', async () => {
       const movements = rows.map(r => ({ student_id: r.student, action: r.action.value, group_id: r.group.value ? Number(r.group.value) : null, reason: r.reason.value }))
       await request('POST', `/semester-management/periods/${period.id}/promote`, { operation_id: operationId, snapshot: preview.snapshot, movements })

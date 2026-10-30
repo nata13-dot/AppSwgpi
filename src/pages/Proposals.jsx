@@ -1,123 +1,255 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiClock, FiPlus, FiSearch, FiSend, FiTrash2, FiUserPlus } from 'react-icons/fi'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { FiCheck, FiEdit3, FiPlus, FiRefreshCw, FiSend, FiTrash2, FiUserPlus, FiX } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
-import { roleFromUser, useAuth } from '../hooks/useAuth'
-import { confirmAction, Empty, ErrorState, Loading, Modal, PageHeader, StatusBadge } from '../components/common/Ui'
-import { formatDate, fullName } from '../utils/formatters'
+import { useAuth } from '../hooks/useAuth'
+import { isStudent, isTeacher, viewAs } from '../lib/permissions'
+import { formatDateTime, fullName } from '../utils/formatters'
+import { Badge, Button, Card, confirmAction, Empty, ErrorState, Field, IconButton, Loading, Page, promptText, SearchInput, useDebounced } from '../components/ui'
 
-export default function Proposals() {
+export default function ProposalsPage() {
   const { user } = useAuth()
-  const role = roleFromUser(user)
-  if (role === 'student') return <StudentProposal />
-  if (role === 'teacher') return <TeacherReviews />
-  return <ProposalConfiguration />
+  if (isStudent(user)) return <ProposalRegister />
+  if (isTeacher(user)) return <ProposalReview />
+  return <ProposalConfig />
 }
 
-function StudentProposal() {
-  const client = useQueryClient()
-  const [form, setForm] = useState({ title: '', description: '', modalidad: 'proyecto_integrador', company_id: '', company_name: '', company_rfc: '', company_giro: '', company_contact_name: '', company_contact_position: '', company_address: '', request_company_registration: true, teammate_ids: '' })
-  const query = useQuery({ queryKey: ['proposal-student-status'], queryFn: () => api.get('/proposal/student-status').then((response) => response.data) })
-  const companies = useQuery({ queryKey: ['company-suggestions', form.company_name], queryFn: () => api.get('/companies', { params: { q: form.company_name } }).then((response) => response.data), enabled: form.company_name.trim().length >= 2 })
-  const mutation = useMutation({
-    mutationFn: () => api.post('/projects', {
-      ...form,
-      subject_group_id: query.data.subject_group.id,
-      student_ids: String(form.teammate_ids || '').split(',').map((value) => value.trim()).filter(Boolean),
-    }),
-    onSuccess: () => { toast.success('Propuesta registrada para revisión.'); client.invalidateQueries({ queryKey: ['proposal-student-status'] }) },
-    onError: (error) => toast.error(apiError(error)),
-  })
-  if (query.isLoading) return <Loading />
-  if (query.isError) return <ErrorState message={apiError(query.error)} onRetry={query.refetch} />
-  const data = query.data
-  if (data.project) return <>
-    <PageHeader eyebrow="Proyecto integrador" title="Mi propuesta" description="Consulta el avance de revisión de tu propuesta." />
-    <section className="panel proposal-status-card"><StatusBadge value={data.project.proposal_status} /><h2>{data.project.title}</h2><p>{data.project.description}</p>{data.project.proposal_review_comment && <div className="review-comment"><strong>Retroalimentación</strong><p>{data.project.proposal_review_comment}</p></div>}<small>Registrada el {formatDate(data.project.created_at)}</small></section>
-  </>
-  if (data.profile_required) return <ErrorState message="Completa tu perfil inicial antes de registrar una propuesta." />
-  if (!data.can_register) return <><PageHeader eyebrow="Proyecto integrador" title="Registro de propuesta" description="El registro depende de la ventana asignada a tu grupo." /><section className="panel closed-window"><FiClock /><h2>La ventana de registro no está abierta</h2><p>Tu grupo: {data.subject_group ? `${data.subject_group.semestre} ${data.subject_group.grupo}` : 'sin carga asignada'}.</p></section></>
-  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }))
-  const selectCompany = (id) => {
-    const company = (companies.data || []).find((item) => String(item.id) === String(id))
-    if (!company) return
-    setForm((current) => ({ ...current, company_id: company.id, company_name: company.nombre, company_rfc: company.rfc || '', company_giro: company.giro || '', company_contact_name: company.contacto_nombre || '', company_contact_position: company.contacto_cargo || '', company_address: company.direccion || '', request_company_registration: false }))
+const STATUS_TONE = { pendiente: 'warning', aprobado: 'success', requiere_cambios: 'info', rechazado: 'danger' }
+const authors = (project) => (project?.students || []).map(fullName).filter(Boolean).join(', ') || '—'
+
+/** Alta y baja de ventanas de registro de un grupo (compartido por jefatura y docentes). */
+function WindowEditor({ group, onChanged }) {
+  const [start, setStart] = useState('')
+  const [end, setEnd] = useState('')
+  const add = async () => {
+    if (!start || !end) return toast.warning('Indica inicio y cierre de la ventana.')
+    try { await api.post('/proposal/windows', { subject_group_id: group.id, starts_at: start, ends_at: end, activo: true }); toast.success('Ventana creada'); setStart(''); setEnd(''); onChanged() } catch (error) { toast.error(apiError(error)) }
+    return undefined
   }
-  return <>
-    <PageHeader eyebrow="Proyecto integrador" title="Registrar propuesta" description={`Carga asignada: ${data.subject_group?.nombre}. Completa todos los datos de vinculación.`} />
-    <form className="panel proposal-form" onSubmit={(event) => { event.preventDefault(); mutation.mutate() }}>
-      <div className="form-grid">
-        <label className="full-field">Título del proyecto<input required value={form.title} onChange={(event) => update('title', event.target.value)} /></label>
-        <label className="full-field">Descripción<textarea required rows="5" value={form.description} onChange={(event) => update('description', event.target.value)} /></label>
-        <label>Modalidad<select required value={form.modalidad} onChange={(event) => update('modalidad', event.target.value)}><option value="dual">Modalidad Dual</option><option value="proyecto_integrador">Proyecto integrador</option><option value="caso_integrador">Caso integrador</option></select></label>
-        <label>Empresa registrada<select value={form.company_id} onChange={(event) => selectCompany(event.target.value)}><option value="">Nueva empresa</option>{(companies.data || []).map((company) => <option key={company.id} value={company.id}>{company.nombre} · {company.rfc || 'sin RFC histórico'}</option>)}</select></label>
-        <label>Empresa u organización<input required value={form.company_name} onChange={(event) => update('company_name', event.target.value)} /></label>
-        <label>RFC<input required={!form.company_id} maxLength="13" value={form.company_rfc} onChange={(event) => update('company_rfc', event.target.value.toUpperCase())} placeholder="ABC010203AB1" /></label>
-        <label>Giro de la empresa<input required value={form.company_giro} onChange={(event) => update('company_giro', event.target.value)} /></label>
-        <label>Persona de contacto<input required value={form.company_contact_name} onChange={(event) => update('company_contact_name', event.target.value)} /></label>
-        <label>Cargo del contacto<input required value={form.company_contact_position} onChange={(event) => update('company_contact_position', event.target.value)} /></label>
-        <label className="full-field">Dirección de la empresa<input required value={form.company_address} onChange={(event) => update('company_address', event.target.value)} /></label>
-        {!form.company_id && <label className="full-field switch-field"><input type="checkbox" checked={form.request_company_registration} onChange={(event) => update('request_company_registration', event.target.checked)} /><span>Solicitar a jefatura o administración que valide y guarde esta empresa en el catálogo</span></label>}
-        <label className="full-field">Matrículas de compañeros <small>Separadas por coma. Tú se agregas automáticamente.</small><input value={form.teammate_ids} onChange={(event) => update('teammate_ids', event.target.value)} /></label>
+  const remove = async (id) => {
+    if (!(await confirmAction({ title: 'Eliminar ventana', text: 'Los alumnos ya no podrán registrar en ese periodo.', confirmText: 'Sí, eliminar', danger: true }))) return
+    try { await api.delete(`/proposal/windows/${id}`); toast.success('Ventana eliminada'); onChanged() } catch (error) { toast.error(apiError(error)) }
+  }
+  return (
+    <section className="card-app">
+      <header className="card-head"><h2>{group.nombre}</h2><div className="row-wrap">{group.grupo && <Badge tone="info">{group.grupo}</Badge>}{group.semestre && <Badge>{group.semestre}° semestre</Badge>}</div></header>
+      <ul className="list-app">
+        {(group.registration_windows || []).map((item) => (
+          <li key={item.id} className="list-row">
+            <div><strong>{formatDateTime(item.starts_at)}</strong><small>Hasta {formatDateTime(item.ends_at)}</small></div>
+            <Badge tone={item.activo ? 'success' : 'neutral'}>{item.activo ? 'Activa' : 'Inactiva'}</Badge>
+            <IconButton icon={FiTrash2} className="danger" label="Eliminar ventana" onClick={() => remove(item.id)} />
+          </li>
+        ))}
+        {!(group.registration_windows || []).length && <li className="muted small-text">Sin ventanas configuradas.</li>}
+      </ul>
+      <div className="form-grid mt-2">
+        <Field label="Inicio"><input className="control" type="datetime-local" value={start} onChange={(event) => setStart(event.target.value)} /></Field>
+        <Field label="Cierre"><input className="control" type="datetime-local" value={end} onChange={(event) => setEnd(event.target.value)} /></Field>
       </div>
-      <button className="btn-primary-app compact" disabled={mutation.isPending}><FiSend /> Enviar propuesta</button>
-    </form>
-  </>
-}
-
-function TeacherReviews() {
-  const client = useQueryClient()
-  const [selected, setSelected] = useState(null)
-  const [review, setReview] = useState({ proposal_status: 'aprobado', proposal_review_comment: '', revision_allowed_until: '' })
-  const query = useQuery({ queryKey: ['teacher-proposals'], queryFn: () => api.get('/proposal/teacher-projects').then((response) => response.data) })
-  const mutation = useMutation({
-    mutationFn: () => api.post(`/proposal/projects/${selected.id}/review`, review),
-    onSuccess: () => { toast.success('Revisión registrada.'); setSelected(null); client.invalidateQueries({ queryKey: ['teacher-proposals'] }) },
-    onError: (error) => toast.error(apiError(error)),
-  })
-  if (query.isLoading) return <Loading />
-  return <>
-    <PageHeader eyebrow="Docencia" title="Revisión de propuestas" description="Evalúa las propuestas de los grupos que tienes asignados." />
-    {query.data?.length ? <section className="proposal-grid">{query.data.map((project) => <article className="panel proposal-card" key={project.id}><div><StatusBadge value={project.proposal_status} /><small>{project.subject_group ? `${project.subject_group.semestre} ${project.subject_group.grupo}` : 'Sin grupo'}</small></div><h2>{project.title}</h2><p>{project.description}</p><small>{project.students?.map(fullName).join(', ')}</small><button className="btn-primary-app compact" onClick={() => setSelected(project)}>Revisar propuesta</button></article>)}</section> : <Empty title="Sin propuestas pendientes" />}
-    <Modal open={Boolean(selected)} title="Registrar revisión" onClose={() => setSelected(null)}><form className="modal-form" onSubmit={(event) => { event.preventDefault(); mutation.mutate() }}>
-      <label>Resultado<select value={review.proposal_status} onChange={(event) => setReview({ ...review, proposal_status: event.target.value })}><option value="aprobado">Aprobar</option><option value="requiere_cambios">Solicitar cambios</option><option value="rechazado">Rechazar</option></select></label>
-      {review.proposal_status === 'requiere_cambios' && <label>Fecha límite para corregir<input required type="datetime-local" value={review.revision_allowed_until} onChange={(event) => setReview({ ...review, revision_allowed_until: event.target.value })} /></label>}
-      <label>Comentarios<textarea rows="5" value={review.proposal_review_comment} onChange={(event) => setReview({ ...review, proposal_review_comment: event.target.value })} /></label>
-      <div className="modal-actions"><button type="button" onClick={() => setSelected(null)}>Cancelar</button><button className="btn-primary-app compact">Guardar revisión</button></div>
-    </form></Modal>
-  </>
-}
-
-function ProposalConfiguration() {
-  const client = useQueryClient()
-  const [windowForm, setWindowForm] = useState({ subject_group_id: '', starts_at: '', ends_at: '', activo: true, notes: '' })
-  const [assignment, setAssignment] = useState({ subject_group_id: '', teacher_id: '' })
-  const query = useQuery({ queryKey: ['proposal-config'], queryFn: () => api.get('/proposal/config').then((response) => response.data) })
-  const mutation = useMutation({
-    mutationFn: ({ method = 'post', endpoint, body }) => api[method](endpoint, body),
-    onSuccess: ({ data }) => { toast.success(data.message || 'Configuración actualizada.'); client.invalidateQueries({ queryKey: ['proposal-config'] }) },
-    onError: (error) => toast.error(apiError(error)),
-  })
-  if (query.isLoading) return <Loading />
-  if (query.isError) return <ErrorState message={apiError(query.error)} onRetry={query.refetch} />
-  const data = query.data
-  const remove = async (title, endpoint) => {
-    if (await confirmAction({ title, text: 'El cambio se aplicará a la configuración de propuestas.' })) mutation.mutate({ method: 'delete', endpoint })
-  }
-  return <>
-    <PageHeader eyebrow="Administración" title="Configuración de propuestas" description={`Materia predeterminada: ${data.default_subject?.nombre || 'sin configurar'}. Administra responsables, excepciones y ventanas por grupo.`} />
-    <section className="proposal-config-grid">
-      <form className="panel proposal-form" onSubmit={(event) => { event.preventDefault(); mutation.mutate({ endpoint: '/proposal/windows', body: windowForm }) }}><h2>Nueva ventana de registro</h2>
-        <label>Grupo<select required value={windowForm.subject_group_id} onChange={(event) => setWindowForm({ ...windowForm, subject_group_id: Number(event.target.value) })}><option value="">Selecciona</option>{data.subject_groups.map((group) => <option key={group.id} value={group.id}>{group.semestre} {group.grupo} · {group.nombre}</option>)}</select></label>
-        <label>Inicio<input required type="datetime-local" value={windowForm.starts_at} onChange={(event) => setWindowForm({ ...windowForm, starts_at: event.target.value })} /></label>
-        <label>Fin<input required type="datetime-local" value={windowForm.ends_at} onChange={(event) => setWindowForm({ ...windowForm, ends_at: event.target.value })} /></label>
-        <label>Notas<textarea rows="3" value={windowForm.notes} onChange={(event) => setWindowForm({ ...windowForm, notes: event.target.value })} /></label>
-        <button className="btn-primary-app compact" disabled={mutation.isPending}><FiClock /> Crear ventana</button>
-      </form>
-      <section className="panel"><h2>Grupos y ventanas</h2><div className="window-list">{data.subject_groups.map((group) => <article key={group.id}><strong>{group.semestre} {group.grupo} · {group.nombre}</strong>{group.registration_windows?.length ? group.registration_windows.map((window) => <span className="window-row" key={window.id}><span><StatusBadge value={window.activo ? 'activo' : 'inactivo'} /> {formatDate(window.starts_at)} a {formatDate(window.ends_at)}</span><button className="icon-action danger" title="Eliminar ventana" onClick={() => remove('Eliminar ventana', `/proposal/windows/${window.id}`)}><FiTrash2 /></button></span>) : <small>Sin ventanas registradas</small>}</article>)}</div></section>
+      <Button size="sm" variant="soft" icon={FiPlus} className="mt-2" onClick={add}>Agregar ventana</Button>
     </section>
-    <section className="panel proposal-admin-section"><header className="panel-heading"><div><span className="eyebrow">Responsables</span><h2>Docentes por grupo</h2></div></header><form className="proposal-inline-form" onSubmit={(event) => { event.preventDefault(); mutation.mutate({ endpoint: '/proposal/assignments', body: { ...assignment, asignatura_id: data.default_subject.id, labor: `Revisión de propuesta: ${data.default_subject.nombre}`, activo: true } }) }}><label>Grupo<select required value={assignment.subject_group_id} onChange={(event) => setAssignment({ ...assignment, subject_group_id: Number(event.target.value) })}><option value="">Selecciona una carga</option>{data.subject_groups.map((group) => <option key={group.id} value={group.id}>{group.nombre} · {group.grupo}</option>)}</select></label><label>Docente<select required value={assignment.teacher_id} onChange={(event) => setAssignment({ ...assignment, teacher_id: event.target.value })}><option value="">Selecciona un docente</option>{data.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.id} · {fullName(teacher)}</option>)}</select></label><button className="btn-primary-app compact"><FiUserPlus /> Asignar</button></form><div className="assignment-grid">{data.subject_groups.map((group) => <article key={group.id}><strong>{group.nombre} · {group.grupo}</strong>{group.teacher_assignments?.length ? group.teacher_assignments.map((item) => <span key={item.id}>{fullName(item.teacher)}<button className="icon-action danger" onClick={() => remove('Quitar docente responsable', `/proposal/assignments/${item.id}`)}><FiTrash2 /></button></span>) : <small>Sin docente responsable</small>}</article>)}</div></section>
-    <section className="panel"><h2>Inscripción excepcional</h2><p>Solicita la autorización por semestre desde Operación académica. Después, el alumno se inscribe a la materia y utiliza su ventana de propuestas.</p></section>
-  </>
+  )
+}
+
+/** Responsables y ventanas de registro de Fundamentos de Ingeniería de Software (admin/proposal-config.php). */
+function ProposalConfig() {
+  const client = useQueryClient()
+  const query = useQuery({ queryKey: ['proposal-config'], queryFn: () => api.get('/proposal/config').then((response) => response.data) })
+  const [semester, setSemester] = useState('')
+  const [search, setSearch] = useState('')
+  const [picked, setPicked] = useState({})
+  const refresh = () => client.invalidateQueries({ queryKey: ['proposal-config'] })
+  const config = query.data || { subject_groups: [], teachers: [], asignaturas: [] }
+  const subject = config.default_subject ? config.asignaturas.find((item) => Number(item.id) === Number(config.default_subject.id)) || config.default_subject : null
+  const groups = subject ? config.subject_groups.filter((group) => (group.asignaturas || []).some((item) => Number(item.id) === Number(subject.id))
+    && (!semester || String(group.semestre) === semester) && (!search.trim() || `${group.nombre} ${group.periodo || ''}`.toLowerCase().includes(search.trim().toLowerCase()))) : []
+
+  const assign = async (group) => {
+    const teacherId = picked[group.id]
+    if (!teacherId) return toast.warning('Selecciona un docente activo.')
+    try {
+      await api.post('/proposal/assignments', { subject_group_id: group.id, asignatura_id: subject.id, teacher_id: teacherId, labor: `Revisión de propuesta: ${subject.nombre}`, activo: true })
+      toast.success('Docente asignado al grupo')
+      setPicked({ ...picked, [group.id]: '' })
+      refresh()
+    } catch (error) { toast.error(apiError(error)) }
+    return undefined
+  }
+  const unassign = async (assignment) => {
+    if (!(await confirmAction({ title: 'Quitar docente responsable', text: `${fullName(assignment.teacher)} dejará de revisar las propuestas de este grupo.`, confirmText: 'Sí, quitar' }))) return
+    try { await api.delete(`/proposal/assignments/${assignment.id}`); toast.success('Responsable removido'); refresh() } catch (error) { toast.error(apiError(error)) }
+  }
+
+  return (
+    <Page title="Gestión de propuestas" subtitle="Responsables, excepciones y periodos de registro de Fundamentos de Ingeniería de Software." actions={<Button variant="ghost" icon={FiRefreshCw} onClick={refresh}>Actualizar</Button>}>
+      {query.isLoading ? <Loading rows={4} /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
+        <>
+          <Card title="Docentes responsables por materia" subtitle="La materia se toma de las asignaturas ligadas a cada carga/grupo." actions={<Badge tone="info">{groups.length} grupo{groups.length === 1 ? '' : 's'}</Badge>}>
+            <div className="toolbar">
+              <select className="control grow" aria-label="Materia a supervisar" disabled value={subject?.id || ''}><option value={subject?.id || ''}>{subject ? `${subject.clave ? `${subject.clave} - ` : ''}${subject.nombre}` : 'Materia predeterminada no encontrada'}</option></select>
+              <select className="control" aria-label="Semestre" value={semester} onChange={(event) => setSemester(event.target.value)}><option value="">Todos los semestres</option>{[5, 6, 7, 8].map((value) => <option key={value} value={value}>{value}° semestre</option>)}</select>
+              <SearchInput value={search} onChange={setSearch} placeholder="Ej. 5to A, B, 2026" />
+            </div>
+            {!subject ? <div className="alert-app">Selecciona una materia para ver los grupos donde está ligada.</div> : !groups.length ? <div className="alert-app warning">No hay grupos con esta materia. Lígala primero desde Asignaturas → Gestionar cargas.</div> : (
+              <ul className="assign-list">
+                {groups.map((group) => {
+                  const assignments = (group.teacher_assignments || []).filter((item) => Number(item.asignatura_id) === Number(subject.id))
+                  return (
+                    <li key={group.id}>
+                      <div className="assign-text">
+                        <strong>{group.nombre}</strong><small>{group.periodo || `${group.semestre}° semestre`}</small>
+                        <span className="row-wrap">
+                          {assignments.length ? assignments.map((item) => <span key={item.id} className="chip-removable">{fullName(item.teacher)}<button type="button" aria-label={`Quitar a ${fullName(item.teacher)}`} onClick={() => unassign(item)}><FiX /></button></span>) : <Badge tone="warning">Sin docente</Badge>}
+                        </span>
+                      </div>
+                      <div className="assign-controls">
+                        <select className="control" aria-label="Asignar docente al grupo" value={picked[group.id] || ''} onChange={(event) => setPicked({ ...picked, [group.id]: event.target.value })}>
+                          <option value="">Seleccionar docente</option>
+                          {config.teachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.id} - {fullName(teacher)}</option>)}
+                        </select>
+                        <IconButton icon={FiUserPlus} label="Asignar docente" onClick={() => assign(group)} />
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </Card>
+          <h2 className="section-title">Ventanas de registro por grupo</h2>
+          <div className="grid-2">{config.subject_groups.map((group) => <WindowEditor key={group.id} group={group} onChanged={refresh} />)}</div>
+        </>
+      )}
+    </Page>
+  )
+}
+
+/** Revisión de propuestas de los grupos asignados al docente (teacher/proposal-review.php). */
+function ProposalReview() {
+  const client = useQueryClient()
+  const projects = useQuery({ queryKey: ['proposal-teacher-projects'], queryFn: () => api.get('/proposal/teacher-projects').then((response) => response.data || []) })
+  const windows = useQuery({ queryKey: ['proposal-window-groups'], queryFn: () => api.get('/proposal/window-groups').then((response) => response.data) })
+  const review = async (project, status) => {
+    const comment = await promptText({ title: 'Comentario', placeholder: 'Observaciones para el alumno', confirmText: 'Continuar', required: false })
+    if (comment === null) return
+    let until = null
+    if (status === 'requiere_cambios') {
+      until = await promptText({ title: 'Permitir corrección hasta', input: 'datetime-local', confirmText: 'Guardar' })
+      if (!until) return
+    }
+    try {
+      await api.post(`/proposal/projects/${project.id}/review`, { proposal_status: status, proposal_review_comment: comment || '', revision_allowed_until: until })
+      toast.success('Revisión registrada')
+      client.invalidateQueries({ queryKey: ['proposal-teacher-projects'] })
+    } catch (error) { toast.error(apiError(error)) }
+  }
+  const list = projects.data || []
+  return (
+    <Page title="Revisión de propuestas" subtitle="Fundamentos de Ingeniería de Software" actions={<Button variant="ghost" icon={FiRefreshCw} onClick={() => { projects.refetch(); windows.refetch() }}>Actualizar</Button>}>
+      <h2 className="section-title">Periodos de registro de mis grupos</h2>
+      {windows.isLoading ? <Loading /> : !(windows.data?.groups || []).length ? <p className="muted">No tienes grupos asignados para supervisar propuestas.</p> : (
+        <div className="grid-2">{windows.data.groups.map((group) => <WindowEditor key={group.id} group={group} onChanged={() => client.invalidateQueries({ queryKey: ['proposal-window-groups'] })} />)}</div>
+      )}
+      <div className="row-wrap"><h2 className="section-title">Propuestas asignadas</h2><Badge>{list.length} propuesta{list.length === 1 ? '' : 's'}</Badge></div>
+      {projects.isLoading ? <Loading /> : projects.isError ? <ErrorState error={projects.error} onRetry={projects.refetch} /> : !list.length ? <Empty message="No tienes propuestas pendientes en tus grupos asignados." /> : (
+        <div className="grid-2">
+          {list.map((project) => (
+            <Card key={project.id} title={project.title} actions={<Badge tone={STATUS_TONE[project.proposal_status] || 'neutral'}>{project.proposal_status}</Badge>}>
+              <p className="muted small-text">{project.description || 'Sin descripción'}</p>
+              <dl className="meta-grid">
+                <div className="wide"><dt>Integrantes</dt><dd>{authors(project)}</dd></div>
+                <div><dt>Grupo</dt><dd>{project.subject_group?.nombre || '—'}</dd></div>
+                <div><dt>Empresa</dt><dd>{project.company_name || '—'}<br /><small className="muted">{[project.company_contact_name, project.company_contact_position].filter(Boolean).join(' · ')}</small></dd></div>
+              </dl>
+              {project.proposal_review_comment && <div className="alert-app">{project.proposal_review_comment}</div>}
+              <div className="row-wrap mt-2">
+                <Button size="sm" variant="success" icon={FiCheck} onClick={() => review(project, 'aprobado')}>Aprobar</Button>
+                <Button size="sm" variant="warning" icon={FiEdit3} onClick={() => review(project, 'requiere_cambios')}>Solicitar cambios</Button>
+                <Button size="sm" variant="ghost-danger" icon={FiX} onClick={() => review(project, 'rechazado')}>Rechazar</Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </Page>
+  )
+}
+
+const COMPANY_FIELDS = [['company_name', 'Empresa o negocio'], ['company_giro', 'Giro'], ['company_contact_name', 'Persona a cargo'], ['company_contact_position', 'Puesto']]
+
+/** Registro (o corrección) de la propuesta del alumno (student/proposal-register.php). */
+function ProposalRegister() {
+  const { user } = useAuth()
+  const client = useQueryClient()
+  const status = useQuery({ queryKey: ['proposal-student-status'], queryFn: () => api.get('/proposal/student-status').then((response) => response.data) })
+  const [form, setForm] = useState(null)
+  const [members, setMembers] = useState([])
+  const [term, setTerm] = useState('')
+  const [saving, setSaving] = useState(false)
+  const debounced = useDebounced(term, 300)
+  const search = useQuery({ queryKey: ['proposal-students', debounced], queryFn: () => api.get('/proposal/students/search', { params: { q: debounced } }).then((response) => response.data || []), enabled: debounced.trim().length >= 2 })
+  const data = status.data
+  const project = data?.project
+  const canFix = project?.proposal_status === 'requiere_cambios' && project.revision_allowed_until && new Date(project.revision_allowed_until) > new Date()
+  const open = !project && data?.subject_group && data?.active_window
+  const values = form || (canFix ? Object.fromEntries(['title', 'description', 'company_address', ...COMPANY_FIELDS.map(([key]) => key)].map((key) => [key, project[key] || ''])) : { title: '', description: '', company_name: '', company_giro: '', company_contact_name: '', company_contact_position: '', company_address: '' })
+  const set = (key) => (event) => setForm({ ...values, [key]: event.target.value })
+  const subjectName = data?.default_subject?.nombre || 'Fundamentos de Ingeniería de Software'
+
+  const submit = async (event) => {
+    event.preventDefault()
+    setSaving(true)
+    try {
+      if (canFix) { await api.put(`/projects/${project.id}`, values); toast.success('Corrección enviada') }
+      else { await api.post('/projects', { ...values, subject_group_id: data.subject_group.id, student_ids: members.map((student) => student.id) }); toast.success('Proyecto registrado') }
+      setForm(null)
+      client.invalidateQueries({ queryKey: ['proposal-student-status'] })
+    } catch (error) { toast.error(apiError(error)) } finally { setSaving(false) }
+  }
+
+  const banner = () => {
+    if (data.profile_required) return <div className="alert-app warning">Debes completar tu perfil inicial antes de registrar un proyecto.</div>
+    if (project) return (
+      <div className={`alert-app ${canFix ? 'warning' : ''}`}>
+        <strong>Proyecto ligado:</strong> {project.title}<br />Estado: <Badge tone={STATUS_TONE[project.proposal_status]}>{project.proposal_status}</Badge>
+        {project.revision_allowed_until && <><br />Correcciones hasta: {formatDateTime(project.revision_allowed_until)}</>}
+        {project.proposal_review_comment && <><br /><strong>Observaciones:</strong> {project.proposal_review_comment}</>}
+      </div>
+    )
+    if (!data.subject_group) return <div className="alert-app">El registro corresponde a quinto semestre. Solicita una excepción a la jefatura para poder participar.</div>
+    if (!data.active_window) return <div className="alert-app">El registro para <strong>{subjectName}</strong> no está abierto para la carga {data.subject_group.nombre || 'asignada'}.</div>
+    return <div className="alert-app success"><strong>{subjectName}</strong><br />{data.has_exception && <>Acceso habilitado mediante excepción.<br /></>}Registro disponible hasta {formatDateTime(data.active_window.ends_at)}</div>
+  }
+
+  return (
+    <Page title="Registro de proyecto" subtitle="Registra la propuesta de tu equipo para revisión.">
+      {status.isLoading ? <Loading /> : status.isError ? <ErrorState error={status.error} onRetry={status.refetch} /> : (
+        <>
+          {banner()}
+          {(open || canFix) && !viewAs(user) && (
+            <Card>
+              <form className="form-grid" onSubmit={submit}>
+                <Field label="Nombre del proyecto" full><input className="control" required value={values.title} onChange={set('title')} /></Field>
+                <Field label="Descripción" full><textarea className="control" rows={4} required value={values.description} onChange={set('description')} /></Field>
+                {COMPANY_FIELDS.map(([key, label]) => <Field key={key} label={label}><input className="control" required value={values[key]} onChange={set(key)} /></Field>)}
+                <Field label="Dirección" hint="Separa calle, número, colonia y municipio con comas (,)." full><input className="control" required value={values.company_address} onChange={set('company_address')} /></Field>
+                {!canFix && (
+                  <div className="full stack-tight">
+                    <span className="field-label">Integrantes disponibles</span>
+                    <SearchInput value={term} onChange={setTerm} placeholder="Número de control o nombre (mín. 2 letras)" />
+                    {(search.data || []).filter((student) => !members.some((item) => String(item.id) === String(student.id))).slice(0, 8).map((student) => (
+                      <button type="button" key={student.id} className="file-chip" onClick={() => { setMembers([...members, student]); setTerm('') }}><FiUserPlus /><span><strong>{student.id} - {fullName(student)}</strong></span></button>
+                    ))}
+                    <div className="row-wrap">{members.map((student) => <span key={student.id} className="chip-removable">{student.id} - {fullName(student)}<button type="button" aria-label={`Quitar a ${fullName(student)}`} onClick={() => setMembers(members.filter((item) => item.id !== student.id))}><FiX /></button></span>)}</div>
+                  </div>
+                )}
+                <div className="form-actions full"><Button type="submit" icon={FiSend} loading={saving}>{canFix ? 'Enviar corrección' : 'Registrar propuesta'}</Button></div>
+              </form>
+            </Card>
+          )}
+        </>
+      )}
+    </Page>
+  )
 }
