@@ -4,7 +4,9 @@ import { FiEdit2, FiPlus, FiSave, FiTrash2 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { applyTheme, resolveTheme } from '../../lib/theme'
-import { formatDate } from '../../utils/formatters'
+import { formatDate, formatDateTime } from '../../utils/formatters'
+import { useAuth } from '../../hooks/useAuth'
+import { isGeneralAdmin } from '../../lib/permissions'
 import { Badge, Button, Card, confirmAction, DataTable, Empty, ErrorState, Field, IconButton, Loading, Page, Pager, SearchInput, Sheet, Switch, useDebounced } from '../../components/ui'
 
 /* Ajustes, avisos y etiquetas (Frontend_Swgpi/pages/admin/settings.php, notices.php y document-tags.php). */
@@ -12,11 +14,53 @@ import { Badge, Button, Card, confirmAction, DataTable, Empty, ErrorState, Field
 const FILE_TYPES = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'txt', 'jpg', 'jpeg', 'png', 'webp']
 
 export function SettingsPage() {
+  const { user } = useAuth()
   const query = useQuery({ queryKey: ['settings'], queryFn: () => api.get('/settings').then((response) => response.data) })
   return (
     <Page eyebrow="Sistema" title="Ajustes generales" subtitle="Sesión, apariencia, archivos y reglas generales del SGPI.">
       {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : <SettingsForm initial={query.data} />}
+      {isGeneralAdmin(user) && <SelfRegistrationRules />}
     </Page>
+  )
+}
+
+/** Formato del número de control y del correo institucional que acepta el autoregistro de cada carrera. */
+function SelfRegistrationRules() {
+  const query = useQuery({ queryKey: ['self-registration-rules'], queryFn: () => api.get('/admin/self-registration-rules').then((response) => response.data) })
+  return (
+    <Card title="Autoregistro: formato del correo por carrera" subtitle="El correo es el prefijo seguido del número de control completo. Ej. 22240022 → l22240022@smartin.tecnm.mx.">
+      {query.isLoading ? <Loading rows={2} /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
+        <div className="stack">{query.data.map((item) => <RuleEditor key={item.career.id} item={item} onSaved={query.refetch} />)}</div>
+      )}
+    </Card>
+  )
+}
+
+function RuleEditor({ item, onSaved }) {
+  const [rule, setRule] = useState(item.rule)
+  const [saving, setSaving] = useState(false)
+  const set = (key) => (event) => setRule({ ...rule, [key]: event.target.value })
+  const save = async () => {
+    setSaving(true)
+    try {
+      await api.put(`/admin/self-registration-rules/${item.career.id}`, { email_prefix: rule.email_prefix, allow_b: Boolean(rule.allow_b), number_prefix: rule.number_prefix || '', digits: Number(rule.digits), domain: rule.domain })
+      toast.success(`Regla de ${item.career.nombre_corto || item.career.nombre} guardada`)
+      onSaved()
+    } catch (error) { toast.error(apiError(error)) } finally { setSaving(false) }
+  }
+  const sample = `${rule.email_prefix}${String(rule.number_prefix || '').padEnd(Number(rule.digits) - 2, '0').slice(0, Number(rule.digits) - 2)}22@${rule.domain}`
+  return (
+    <section className="rule-editor">
+      <header className="row-wrap"><strong>{item.career.nombre}</strong>{item.open_until && new Date(item.open_until) > new Date() && <Badge tone="success">Abierto hasta {formatDateTime(item.open_until)}</Badge>}</header>
+      <div className="form-grid">
+        <Field label="Prefijo del correo"><input className="control" value={rule.email_prefix} onChange={set('email_prefix')} /></Field>
+        <Field label="El número inicia con" hint="Vacío para no exigirlo"><input className="control" inputMode="numeric" value={rule.number_prefix || ''} onChange={set('number_prefix')} /></Field>
+        <Field label="Dígitos del número de control"><input className="control" type="number" min={4} max={12} value={rule.digits} onChange={set('digits')} /></Field>
+        <Field label="Dominio"><input className="control" value={rule.domain} onChange={set('domain')} /></Field>
+        <div className="full"><Switch checked={rule.allow_b} onChange={(value) => setRule({ ...rule, allow_b: value })} label="Permitir números de control que inician con b" /></div>
+      </div>
+      <div className="row-wrap mt-2"><small className="muted">Ejemplo: {sample}</small><span className="spacer" /><Button size="sm" icon={FiSave} loading={saving} onClick={save}>Guardar</Button></div>
+    </section>
   )
 }
 
@@ -29,7 +73,7 @@ function SettingsForm({ initial }) {
       const payload = {
         session_timeout_minutes: Number(form.session_timeout_minutes), default_theme: form.default_theme, font_scale: Number(form.font_scale),
         max_file_size_mb: Number(form.max_file_size_mb), allowed_file_types: form.allowed_file_types, max_project_members: Number(form.max_project_members),
-        global_notice: String(form.global_notice || '').trim(), proposal_registration_enabled: Boolean(form.proposal_registration_enabled), grayscale_mode: Boolean(form.grayscale_mode),
+        global_notice: String(form.global_notice || '').trim(), grayscale_mode: Boolean(form.grayscale_mode),
       }
       if (!payload.allowed_file_types.length) throw new Error('Selecciona al menos un tipo de archivo permitido.')
       return api.put('/settings', payload).then((response) => response.data)
@@ -57,7 +101,7 @@ function SettingsForm({ initial }) {
           <Field label="Tamaño máximo de archivo (MB)"><input className="control" type="number" min={1} max={200} value={form.max_file_size_mb ?? ''} onChange={(event) => set('max_file_size_mb', event.target.value)} /></Field>
           <Field label="Máximo de integrantes por proyecto"><input className="control" type="number" min={1} max={10} value={form.max_project_members ?? ''} onChange={(event) => set('max_project_members', event.target.value)} /></Field>
           <div className="full"><span className="field-label">Tipos de archivo permitidos</span><div className="type-grid">{FILE_TYPES.map((type) => <label key={type} className={form.allowed_file_types.includes(type) ? 'active' : ''}><input type="checkbox" checked={form.allowed_file_types.includes(type)} onChange={() => toggleType(type)} />{type.toUpperCase()}</label>)}</div></div>
-          <div className="full"><Switch checked={form.proposal_registration_enabled} onChange={(value) => set('proposal_registration_enabled', value)} label="Activar registro de propuestas" /></div>
+          <p className="full muted small-text">El registro de propuestas y el autoregistro de alumnos se abren por carrera, con fecha de cierre, en Propuestas → Ventanas y validadores.</p>
         </div>
       </Card>
       <Card title="Aviso global del sistema"><textarea className="control" rows={3} value={form.global_notice || ''} onChange={(event) => set('global_notice', event.target.value)} placeholder="Se muestra en una franja sobre todas las pantallas." /></Card>

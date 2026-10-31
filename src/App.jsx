@@ -8,6 +8,7 @@ import { canManageAcademics, canViewUsers, homePath, isAdmin, mustChangePassword
 
 const Login = lazy(() => import('./pages/auth/Login'))
 const PasswordRecovery = lazy(() => import('./pages/auth/PasswordRecovery'))
+const SelfRegister = lazy(() => import('./pages/auth/SelfRegister'))
 const ChangePassword = lazy(() => import('./pages/auth/ChangePassword'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const GeneralPanel = lazy(() => import('./pages/admin/GeneralPanel'))
@@ -99,6 +100,7 @@ export default function App() {
         <Route element={<GuestRoute />}>
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<PasswordRecovery />} />
+          <Route path="/register" element={<SelfRegister />} />
         </Route>
         <Route path="/change-password" element={<ChangePassword />} />
         <Route element={<PublicOrApp />}>

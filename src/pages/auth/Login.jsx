@@ -1,19 +1,22 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { FiArrowRight, FiEye, FiEyeOff, FiLock, FiUser } from 'react-icons/fi'
+import { FiArrowRight, FiEye, FiEyeOff, FiLock, FiUser, FiUserPlus } from 'react-icons/fi'
 import { toast } from 'react-toastify'
-import { apiError } from '../../services/api'
+import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { homePath, mustChangePassword } from '../../lib/permissions'
 import { Button } from '../../components/ui'
 
 export default function Login() {
-  const [form, setForm] = useState({ id: '', password: '', remember: false })
+  const location = useLocation()
+  const [form, setForm] = useState({ id: location.state?.id || '', password: '', remember: false })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
+  // "Crear cuenta" sólo aparece mientras alguna carrera tenga abierto el autoregistro.
+  const signup = useQuery({ queryKey: ['self-registration'], queryFn: () => api.get('/self-registration').then((response) => response.data), staleTime: 60000, retry: false })
 
   const submit = async (event) => {
     event.preventDefault()
@@ -57,6 +60,7 @@ export default function Login() {
             <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
           </div>
           <Button type="submit" size="lg" className="w-100" loading={loading} icon={FiArrowRight}>Entrar al sistema</Button>
+          {signup.data?.open && <Link className="auth-signup" to="/register"><FiUserPlus aria-hidden="true" /> ¿Eres alumno y no tienes cuenta? <strong>Crear cuenta</strong></Link>}
           <Link className="auth-public" to="/repository">Consultar repositorio público</Link>
         </form>
       </section>
