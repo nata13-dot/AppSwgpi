@@ -5,7 +5,7 @@ import { FiArchive, FiBarChart2, FiBookOpen, FiClipboard, FiDownload, FiFileText
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
-import { downloadApiFile } from '../../utils/downloads'
+import { downloadApiFile, saveBlob } from '../../utils/downloads'
 import { Badge, Button, Card, confirmAction, Empty, ErrorState, Field, FileDrop, IconButton, Loading, Page, Switch } from '../../components/ui'
 
 /* Módulos de carrera y carga inicial (Frontend_Swgpi/pages/admin/career-modules.php y career-setup.php). */
@@ -138,11 +138,7 @@ function parseCsv(text) {
 }
 const csvTemplate = (type) => {
   const content = type === 'subjects' ? 'clave,nombre,descripcion\nCLAVE-01,Nombre de la asignatura,Descripción opcional\n' : 'nombre,semestre,grupo,periodo,asignaturas\nGrupo 5A,5,A,2026-2,CLAVE-01|CLAVE-02\n'
-  const link = document.createElement('a')
-  link.href = URL.createObjectURL(new Blob([`\uFEFF${content}`], { type: 'text/csv;charset=utf-8' }))
-  link.download = type === 'subjects' ? 'plantilla_asignaturas.csv' : 'plantilla_grupos.csv'
-  link.click()
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+  saveBlob(new Blob([`\uFEFF${content}`], { type: 'text/csv;charset=utf-8' }), type === 'subjects' ? 'plantilla_asignaturas.csv' : 'plantilla_grupos.csv').catch((error) => toast.error(error.message))
 }
 
 export function CareerSetupPage() {

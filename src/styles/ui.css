@@ -620,6 +620,7 @@ img { max-width: 100%; }
 .file-chip strong { font-size: .86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-chip svg { color: var(--brand-2); flex-shrink: 0; }
 .break { word-break: break-all; white-space: normal !important; }
+.wrap-anywhere { overflow-wrap: anywhere; white-space: normal !important; }
 
 /* ---------- Consola académica (módulo compartido con el front de PHP, genera su propio DOM) ---------- */
 .academic-console { display: flex; flex-direction: column; gap: 12px; min-width: 0; }

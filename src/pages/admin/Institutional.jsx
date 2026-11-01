@@ -257,8 +257,9 @@ export function BackupsPage() {
   const backups = useQuery({ queryKey: ['database-backups'], queryFn: () => api.get('/admin/database-backups').then((response) => response.data.data || []) })
   const health = useQuery({ queryKey: ['backups-health'], queryFn: () => api.get('/admin/database-backups-health').then((response) => response.data) })
   const reload = () => { client.invalidateQueries({ queryKey: ['database-backups'] }); client.invalidateQueries({ queryKey: ['backups-health'] }) }
-  const create = useMutation({ mutationFn: () => api.post('/admin/database-backups', {}, { timeout: 300_000 }), onSuccess: () => { toast.success('Respaldo generado.'); reload() }, onError: (error) => toast.error(apiError(error)) })
-  const verify = useMutation({ mutationFn: (id) => api.post(`/admin/database-backups/${id}/verify`, {}, { timeout: 300_000 }), onSuccess: () => { toast.success('Respaldo restaurable.'); reload() }, onError: (error) => toast.error(apiError(error)) })
+  // Un intento fallido también queda en el historial, así que la tabla se recarga en ambos casos.
+  const create = useMutation({ mutationFn: () => api.post('/admin/database-backups', {}, { timeout: 300_000 }), onSuccess: (response) => toast.success(`Respaldo generado (${bytes(response.data.backup?.tamano_bytes)}). Verifícalo para comprobar que se puede restaurar.`), onError: (error) => toast.error(apiError(error), { autoClose: 12_000 }), onSettled: reload })
+  const verify = useMutation({ mutationFn: (id) => api.post(`/admin/database-backups/${id}/verify`, {}, { timeout: 300_000 }), onSuccess: (response) => { const result = response.data.verification || {}; toast.success(`Restaurable: ${result.tablas_encontradas} tablas esenciales y ${Number(result.filas_verificadas).toLocaleString('es-MX')} filas comprobadas.`) }, onError: (error) => toast.error(apiError(error), { autoClose: 12_000 }), onSettled: reload })
   const storage = health.data
   // La depuración exige escribir la frase exacta, igual que en el front de PHP.
   const cleanup = async () => {
@@ -266,7 +267,11 @@ export function BackupsPage() {
     const phrase = `DEPURAR RESPALDOS ANTERIORES A ${days} DIAS`
     const confirmation = await promptText({ title: 'Aplicar retención', text: `Escribe exactamente: ${phrase}`, multiline: false, confirmText: 'Depurar' })
     if (confirmation === null) return
-    try { await api.post('/admin/database-backups-cleanup', { retention_days: days, confirmation }); toast.success('Retención aplicada.'); reload() } catch (error) { toast.error(apiError(error)) }
+    try {
+      const response = await api.post('/admin/database-backups-cleanup', { retention_days: days, confirmation })
+      toast.success(`Retención aplicada: ${response.data.result?.deleted || 0} copias eliminadas, ${bytes(response.data.result?.released_bytes)} liberados.`)
+      reload()
+    } catch (error) { toast.error(apiError(error)) }
   }
   return (
     <Page eyebrow="Continuidad operativa" title="Respaldos de base de datos" subtitle="Genera, verifica, conserva y descarga copias institucionales." actions={<Button icon={FiDatabase} loading={create.isPending} onClick={() => create.mutate()}>Crear respaldo ahora</Button>}>
@@ -282,13 +287,17 @@ export function BackupsPage() {
               const completed = backup.estado === 'completado'
               return [
                 <span className="cell-main" key="f"><strong>{formatDateTime(backup.creado_en)}</strong><code title={backup.checksum_sha256}>{backup.checksum_sha256 ? `${backup.checksum_sha256.slice(0, 12)}…` : '—'}</code></span>,
-                backup.origen, actor(backup, backup.creado_por || 'Sistema'), bytes(backup.tamano_bytes),
-                backup.estado_verificacion === 'correcto' ? 'Restaurable' : backup.estado_verificacion === 'fallido' ? 'Falló prueba' : 'Sin verificar',
-                <Badge key="e" tone={completed ? 'success' : 'danger'}>{backup.estado}</Badge>,
+                backup.origen, actor(backup, backup.creado_por || 'Sistema'), completed ? bytes(backup.tamano_bytes) : '—',
+                !completed ? '—' : <span className="cell-main" key="v">
+                  <Badge tone={backup.estado_verificacion === 'correcto' ? 'success' : backup.estado_verificacion === 'fallido' ? 'danger' : 'neutral'}>{backup.estado_verificacion === 'correcto' ? 'Restaurable' : backup.estado_verificacion === 'fallido' ? 'Falló prueba' : 'Sin verificar'}</Badge>
+                  {backup.estado_verificacion === 'correcto' && <small>{backup.tablas_encontradas} tablas · {Number(backup.filas_verificadas).toLocaleString('es-MX')} filas · {formatDateTime(backup.verificado_en)}</small>}
+                  {backup.estado_verificacion === 'fallido' && <small className="text-danger wrap-anywhere">{backup.error_verificacion}</small>}
+                </span>,
+                <Badge key="e" tone={completed ? 'success' : 'danger'}>{completed ? 'Completado' : 'Fallido'}</Badge>,
                 completed ? <span className="row-wrap" key="a">
                   <Button size="sm" variant="ghost" icon={FiShield} loading={verify.isPending && verify.variables === backup.id} onClick={() => verify.mutate(backup.id)}>Verificar</Button>
                   <Button size="sm" variant="ghost" icon={FiDownload} onClick={() => fileDownload(`/admin/database-backups/${backup.id}/download`, backup.nombre_archivo || `respaldo_${backup.id}.sql.gz`)}>Descargar</Button>
-                </span> : <small key="x" className="text-danger" title={backup.mensaje_error}>{backup.mensaje_error || 'Error'}</small>,
+                </span> : <small key="x" className="text-danger wrap-anywhere">{backup.mensaje_error || 'No se registró el detalle del error.'}</small>,
               ]
             })} />
           </Card>
