@@ -2,3 +2,8 @@ node_modules
 dist
 .env
 *.local
+
+# Llave de firma de Android y sus contraseñas: nunca en Git. El respaldo se guarda fuera del repositorio.
+android/app/keystore.properties
+*.keystore
+*.jks
