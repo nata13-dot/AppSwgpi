@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { FiCamera, FiSave } from 'react-icons/fi'
+import { FiCamera, FiSave, FiSmartphone } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
+import { appLockAvailable, disableAppLock, enableAppLock, isAppLockEnabled, isNativeApp } from '../services/appLock'
 import { roleLabel, viewAs } from '../lib/permissions'
 import { fullName, publicAssetUrl } from '../utils/formatters'
 import { Button, Card, ErrorState, Field, Loading, Page } from '../components/ui'
@@ -15,7 +16,36 @@ export default function Profile() {
   return (
     <Page title="Mi perfil" subtitle={`${roleLabel(user)}${user?.active_career ? ` · ${user.active_career.nombre_corto}` : ''}`}>
       {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : <ProfileForm profile={query.data} readOnly={Boolean(viewAs(user))} onSaved={async () => { await refreshUser(); query.refetch() }} />}
+      {!viewAs(user) && <QuickUnlockCard userId={user?.id} />}
     </Page>
+  )
+}
+
+/** Sólo en la app: huella, rostro o bloqueo del teléfono en lugar de escribir la contraseña. */
+function QuickUnlockCard({ userId }) {
+  const { keepSession } = useAuth()
+  const [available, setAvailable] = useState(null)
+  const [enabled, setEnabled] = useState(() => isAppLockEnabled(userId))
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { appLockAvailable().then(setAvailable) }, [])
+  if (!isNativeApp() || available === null) return null
+  const toggle = async () => {
+    setBusy(true)
+    try {
+      if (enabled) await disableAppLock(userId)
+      else { await enableAppLock(userId); keepSession() }
+      setEnabled(!enabled)
+      toast.success(enabled ? 'Desbloqueo rápido desactivado.' : 'Desbloqueo rápido activado.')
+    } catch (error) {
+      if (error.code !== 'CANCELED') toast.error(error.message || 'No se pudo verificar.')
+    } finally { setBusy(false) }
+  }
+  return (
+    <Card title="Desbloqueo rápido" subtitle="La app te pedirá la huella, el rostro o el bloqueo de tu teléfono al abrirla y al volver tras 5 minutos. Tu contraseña no se guarda en la app. Si se agrega una huella al teléfono, tendrás que entrar de nuevo con tu contraseña.">
+      {available || enabled
+        ? <Button variant={enabled ? 'ghost' : undefined} icon={FiSmartphone} loading={busy} onClick={toggle}>{enabled ? 'Desactivar' : 'Activar'}</Button>
+        : <p className="muted">Configura un bloqueo de pantalla en tu teléfono para usar esta opción.</p>}
+    </Card>
   )
 }
 

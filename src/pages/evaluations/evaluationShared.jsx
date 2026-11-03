@@ -1,5 +1,5 @@
 import { toast } from 'react-toastify'
-import { downloadApiFile } from '../../utils/downloads'
+import { downloadApiFile, downloadBackgroundReport } from '../../utils/downloads'
 import { fullName } from '../../utils/formatters'
 
 /* eslint-disable react-refresh/only-export-components */
@@ -74,9 +74,15 @@ export const projectDetailRows = (project) => [
 export async function downloadReport(kind, id, limited) {
   const base = kind === 'room' ? `/evaluations/rooms/${id}/report.pdf` : `/evaluations/${id}/report.pdf`
   const name = `${kind === 'room' ? 'reporte_sala' : 'reporte_evaluacion'}_${id}${limited ? '_limitado' : ''}.pdf`
+  const audience = limited ? '?audience=teachers' : ''
+  // Una sala reúne muchos proyectos y docentes: su informe se genera en segundo plano.
+  const notice = kind === 'room' ? toast.info('Generando el informe de la sala. Puedes seguir trabajando; se descargará al terminar.', { autoClose: false }) : null
   try {
-    await downloadApiFile(limited ? `${base}?audience=teachers` : base, name, { headers: { Accept: 'application/pdf' }, timeout: 60_000 })
+    if (kind === 'room') await downloadBackgroundReport(`/evaluations/rooms/${id}/report-job${audience}`, name)
+    else await downloadApiFile(`${base}${audience}`, name, { headers: { Accept: 'application/pdf' }, timeout: 60_000 })
   } catch (error) {
     toast.error(error.message || 'No se pudo generar el reporte PDF.')
+  } finally {
+    if (notice) toast.dismiss(notice)
   }
 }

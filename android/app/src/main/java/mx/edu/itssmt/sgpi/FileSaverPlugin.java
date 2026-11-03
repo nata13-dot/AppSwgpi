@@ -50,12 +50,17 @@ public class FileSaverPlugin extends Plugin {
                 values.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
                 values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
                 values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/SGPI");
+                // Oculto hasta terminar de escribir: otras apps no ven un archivo a medias.
+                values.put(MediaStore.MediaColumns.IS_PENDING, 1);
                 uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
                 if (uri == null) throw new IllegalStateException("Android no permitió crear el archivo.");
                 try (OutputStream output = resolver.openOutputStream(uri)) {
                     if (output == null) throw new IllegalStateException("Android no permitió escribir el archivo.");
                     output.write(bytes);
                 }
+                values.clear();
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                resolver.update(uri, values, null, null);
                 location = "Descargas/SGPI";
             } else {
                 File directory = new File(getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "SGPI");

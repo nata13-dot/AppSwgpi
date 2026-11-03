@@ -41,6 +41,30 @@ const blobError = async (response) => {
   }
 }
 
+const sleep = (ms) => new Promise((resolve) => { window.setTimeout(resolve, ms) })
+
+/** Informes que se generan en segundo plano: los pide, espera a que estén listos y los descarga. */
+export async function downloadBackgroundReport(startEndpoint, fallbackName) {
+  try {
+    const { data } = await api.get(startEndpoint, { timeout: 60_000 })
+    const deadline = Date.now() + 6 * 60_000
+    while (Date.now() < deadline) {
+      await sleep(2500)
+      // Un corte momentáneo de red no cancela el informe: se sigue consultando hasta el límite.
+      const check = await api.get(`/evaluations/report-jobs/${data.job}`).catch((error) => {
+        if (error.response) throw error
+        return null
+      })
+      if (check?.data.status === 'failed') throw new Error('No se pudo generar el informe. Intenta de nuevo; si se repite, avisa a sistemas.')
+      if (check?.data.status === 'ready') return await downloadApiFile(`/evaluations/report-jobs/${data.job}/download`, check.data.filename || fallbackName, { timeout: 120_000 })
+    }
+    throw new Error('El informe está tardando demasiado. Intenta de nuevo en unos minutos.')
+  } catch (error) {
+    if (error instanceof Error && !error.response) throw error
+    throw new Error(apiError(error))
+  }
+}
+
 const blobToBase64 = (blob) => new Promise((resolve, reject) => {
   const reader = new FileReader()
   reader.onload = () => resolve(String(reader.result).split(',')[1] || '')

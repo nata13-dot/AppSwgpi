@@ -6,6 +6,7 @@ import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { homePath, mustChangePassword } from '../../lib/permissions'
+import { isNativeApp, offerAppLock } from '../../services/appLock'
 import { Button } from '../../components/ui'
 
 export default function Login() {
@@ -24,6 +25,7 @@ export default function Login() {
     try {
       const user = await login(form)
       toast.success(`Bienvenido, ${user.nombres}`)
+      await offerAppLock(user)
       navigate(mustChangePassword(user) ? '/change-password' : location.state?.from?.pathname || homePath(user), { replace: true })
     } catch (error) {
       toast.error(apiError(error))
@@ -48,14 +50,14 @@ export default function Login() {
           <p className="muted">Usa tu número de control o número de empleado.</p>
           {new URLSearchParams(location.search).has('expired') && <div className="alert-app warning">Tu sesión terminó. Ingresa nuevamente.</div>}
           <label className="field"><span className="field-label">No. de control o empleado</span>
-            <span className="input-icon"><FiUser aria-hidden="true" /><input className="control" autoFocus required autoComplete="username" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} placeholder="Ej. 20CS001" /></span>
+            <span className="input-icon"><FiUser aria-hidden="true" /><input className="control" name="username" id="login-username" autoFocus required autoCapitalize="none" autoCorrect="off" autoComplete="username" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} placeholder="Ej. 20CS001" /></span>
           </label>
           <label className="field"><span className="field-label">Contraseña</span>
-            <span className="input-icon"><FiLock aria-hidden="true" /><input className="control" required autoComplete="current-password" type={showPassword ? 'text' : 'password'} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Tu contraseña" />
+            <span className="input-icon"><FiLock aria-hidden="true" /><input className="control" name="password" id="login-password" required autoComplete="current-password" type={showPassword ? 'text' : 'password'} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Tu contraseña" />
               <button type="button" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <FiEyeOff /> : <FiEye />}</button></span>
           </label>
           <div className="row-wrap">
-            <label className="check-inline"><input type="checkbox" checked={form.remember} onChange={(event) => setForm({ ...form, remember: event.target.checked })} /> Mantener sesión</label>
+            {!isNativeApp() && <label className="check-inline"><input type="checkbox" checked={form.remember} onChange={(event) => setForm({ ...form, remember: event.target.checked })} /> Mantener sesión</label>}
             <span className="spacer" />
             <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
           </div>

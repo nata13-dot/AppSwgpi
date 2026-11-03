@@ -4,6 +4,7 @@ import axios from 'axios'
 import api, { API_URL } from '../services/api'
 import { clearCredentials, setCredentials, setUser } from '../store/store'
 import { activeProfileId } from '../lib/permissions'
+import { isNativeApp } from '../services/appLock'
 
 /*
  * Sesión original del administrador general mientras simula un nivel. Vive sólo en sessionStorage:
@@ -21,11 +22,17 @@ export function useAuth() {
   const auth = useSelector((state) => state.auth)
 
   const login = useCallback(async ({ id, password, remember }) => {
-    const { data } = await api.post('/auth/login', { id, password, remember })
+    // En la app la sesión dura hasta cerrarla: se conserva en el teléfono y el token no expira por inactividad.
+    const keep = remember || isNativeApp()
+    const { data } = await api.post('/auth/login', { id, password, remember: keep })
     sessionStorage.removeItem(VIEW_ORIGIN_KEY)
-    dispatch(setCredentials({ token: data.access_token, user: data.user, remember }))
+    dispatch(setCredentials({ token: data.access_token, user: data.user, remember: keep }))
     return data.user
   }, [dispatch])
+
+  const keepSession = useCallback(() => {
+    if (auth.token) dispatch(setCredentials({ token: auth.token, user: auth.user, remember: true }))
+  }, [auth.token, auth.user, dispatch])
 
   const refreshUser = useCallback(async () => {
     const { data } = await api.get('/auth/me')
@@ -95,6 +102,6 @@ export function useAuth() {
     ...auth,
     isAuthenticated: Boolean(auth.token),
     profileId: activeProfileId(auth.user),
-    login, logout, refreshUser, switchCareer, startLevelView, exitLevelView, markPasswordChanged,
+    login, logout, keepSession, refreshUser, switchCareer, startLevelView, exitLevelView, markPasswordChanged,
   }
 }

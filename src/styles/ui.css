@@ -737,3 +737,9 @@ a.btn-app { text-decoration: none; }
 .auth-card.wide { max-width: 560px; }
 .rule-editor { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px; display: grid; gap: 10px; }
 .chips-wrap .chips-app { flex-wrap: wrap; overflow: visible; }
+
+/* Pantalla de bloqueo de la app (huella o bloqueo del teléfono) */
+.app-lock { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; background: var(--bg, #f4f6fa); }
+.app-lock img { width: 84px; height: 84px; margin-bottom: 8px; }
+.app-lock h1 { margin: 0; font-size: 1.4rem; }
+.app-lock p { margin: 0 0 8px; }
