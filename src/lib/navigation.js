@@ -39,8 +39,9 @@ function managementMenu(user) {
   if (canViewUsers(user)) {
     menu.push({ group: 'Personas', icon: FiUsers, module: 'usuarios', items: [
       item('Usuarios', '/users', FiUsers, null, ['alumnos', 'docentes', 'cuentas', 'excel']),
+      canManageAcademics(user) && item('Solicitudes de cuenta', '/registration-requests', FiUserCheck, null, ['autoregistro', 'aprobar', 'alumnos']),
       item('Asesores', '/advisors', FiUserCheck, null, ['asesorías', 'revisores']),
-    ] })
+    ].filter(Boolean) })
   } else {
     menu.push(item('Asesores', '/advisors', FiUserCheck, 'proyectos', ['asesorías']))
   }

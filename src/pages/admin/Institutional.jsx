@@ -307,7 +307,7 @@ export function BackupsPage() {
   )
 }
 
-const EMAIL_CATEGORIES = { credenciales: 'Credenciales', codigo_registro: 'Código de registro', recuperacion: 'Recuperación de contraseña', general: 'General' }
+const EMAIL_CATEGORIES = { credenciales: 'Credenciales', codigo_registro: 'Código de registro', recuperacion: 'Recuperación de contraseña', resultado_registro: 'Resultado de solicitud', general: 'General' }
 const EMAIL_STATUS = { queued: ['En cola', 'neutral'], sending: ['Enviando', 'neutral'], sent: ['Enviado', 'success'], failed: ['Falló', 'danger'] }
 const SENT_COPY = { removed: ['Borrada', 'success'], pending: ['Por borrar', 'warning'], failed: ['No se pudo borrar', 'danger'] }
 

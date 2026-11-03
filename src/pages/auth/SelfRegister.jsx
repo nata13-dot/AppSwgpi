@@ -12,7 +12,7 @@ const EMPTY = { carrera_id: '', id: '', email: '', nombres: '', apa: '', ama: ''
 /** Mismo criterio que la API: correo = prefijo + número de control @ dominio de la carrera. */
 const expectedEmail = (rule, id) => (rule && id ? `${rule.email_prefix}${id.trim().toLowerCase()}@${rule.domain}` : '')
 
-/** Autoregistro de alumnos: datos → código enviado al correo institucional → cuenta activa. */
+/** Autoregistro de alumnos: datos → código enviado al correo institucional → revisión de la jefatura. */
 export default function SelfRegister() {
   const navigate = useNavigate()
   const careers = useQuery({ queryKey: ['self-registration'], queryFn: () => api.get('/self-registration').then((response) => response.data) })
@@ -58,15 +58,15 @@ export default function SelfRegister() {
     if (!open.length) return <div className="alert-app">El registro de cuentas de alumnos está cerrado. Consulta a la jefatura de tu carrera.</div>
     if (step === 2) return (
       <div className="stack">
-        <div className="alert-app success"><FiCheckCircle aria-hidden="true" /> Tu cuenta quedó activa. Inicia sesión con tu número de control <strong>{form.id.trim().toLowerCase()}</strong> y tu contraseña.</div>
-        <Button size="lg" className="w-100" onClick={() => navigate('/login', { replace: true, state: { id: form.id.trim().toLowerCase() } })}>Iniciar sesión</Button>
+        <div className="alert-app success"><FiCheckCircle aria-hidden="true" /> Confirmamos tu correo. Tu solicitud quedó en revisión: te avisaremos en <strong>{form.email.trim().toLowerCase()}</strong> cuando la jefatura de tu carrera la responda. Después podrás iniciar sesión con tu número de control <strong>{form.id.trim().toLowerCase()}</strong> y tu contraseña.</div>
+        <Button size="lg" variant="ghost" className="w-100" onClick={() => navigate('/login', { replace: true, state: { id: form.id.trim().toLowerCase() } })}>Volver al inicio de sesión</Button>
       </div>
     )
     if (step === 1) return (
       <>
         <p className="muted"><FiMail aria-hidden="true" /> Enviamos un código de seis dígitos a <strong>{form.email.trim().toLowerCase()}</strong>. Vence en 15 minutos.</p>
         <Field label="Código de seis dígitos"><input className="control code-input" required autoFocus minLength="6" maxLength="6" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} /></Field>
-        <Button type="submit" size="lg" className="w-100" loading={loading}>Activar cuenta</Button>
+        <Button type="submit" size="lg" className="w-100" loading={loading}>Confirmar correo</Button>
         <div className="row-wrap">
           <Button type="button" variant="ghost" size="sm" onClick={() => { setStep(0); setCode('') }}>Corregir datos</Button>
           <span className="spacer" />
@@ -117,7 +117,7 @@ export default function SelfRegister() {
     <main className="center-page">
       <form className="card-app narrow auth-card wide" onSubmit={submit}>
         <div className="auth-logo"><img src="/images/itssmt.webp" alt="ITSSMT" /><span><strong>Crear cuenta de alumno</strong><small>SGPI ITSSMT</small></span></div>
-        {open.length > 0 && <Steps steps={['Tus datos', 'Código', 'Listo']} current={step} />}
+        {open.length > 0 && <Steps steps={['Tus datos', 'Código', 'En revisión']} current={step} />}
         {content()}
         <Link className="auth-public" to="/login">Ya tengo cuenta · Iniciar sesión</Link>
       </form>

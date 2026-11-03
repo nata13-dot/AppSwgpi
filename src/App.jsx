@@ -36,6 +36,7 @@ const TagsPage = SystemPage('TagsPage')
 const CareerModules = CareerPage('CareerModulesPage')
 const CareerSetup = CareerPage('CareerSetupPage')
 const Profile = lazy(() => import('./pages/Profile'))
+const RegistrationRequests = lazy(() => import('./pages/RegistrationRequests'))
 const Companies = lazy(() => import('./pages/Companies'))
 const Repository = lazy(() => import('./pages/Repository'))
 const RepositoryDetail = lazy(() => import('./pages/Repository').then((module) => ({ default: module.RepositoryDetail })))
@@ -57,6 +58,7 @@ const routes = [
   ['/integrity', Integrity, isGeneralAdmin],
   ['/backups', Backups, isGeneralAdmin],
   ['/sent-emails', SentEmails, isGeneralAdmin],
+  ['/registration-requests', RegistrationRequests, canManageAcademics],
   ['/users', Users, canViewUsers],
   ['/projects', Projects, staffOrTeacher],
   ['/evaluations', Evaluations, staffOrTeacher],
