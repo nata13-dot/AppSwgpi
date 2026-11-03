@@ -1,7 +1,7 @@
 import {
   FiActivity, FiArchive, FiBookOpen, FiCalendar, FiCheckSquare, FiClipboard, FiCloud, FiDatabase,
   FiFileText, FiFolder, FiGrid, FiHome, FiLayers, FiShield, FiSliders, FiStar, FiTag, FiUser,
-  FiUserCheck, FiUsers, FiVolume2, FiBriefcase, FiEdit3, FiMonitor,
+  FiUserCheck, FiUsers, FiVolume2, FiBriefcase, FiEdit3, FiMail, FiMonitor,
 } from 'react-icons/fi'
 import {
   canManageAcademics, canViewUsers, isAdmin, isGeneralAdmin, isManagementStaff, isStudent, isTeacher,
@@ -27,6 +27,7 @@ function managementMenu(user) {
         item('Auditoría', '/audit', FiShield, null, ['bitácora']),
         item('Integridad', '/integrity', FiCheckSquare, null, ['verificación']),
         item('Respaldos', '/backups', FiDatabase, null, ['base de datos', 'backup']),
+        item('Correos enviados', '/sent-emails', FiMail, null, ['correo', 'destinatarios', 'email']),
       ] },
       { section: `Carrera: ${career}` },
       item('Inicio de la carrera', '/dashboard', FiHome),

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiActivity, FiAlertTriangle, FiCheckCircle, FiDatabase, FiDownload, FiEdit3, FiFileText, FiPlus, FiPower, FiRefreshCw, FiSave, FiSearch, FiShield, FiTrash2 } from 'react-icons/fi'
+import { FiActivity, FiAlertTriangle, FiCheckCircle, FiDatabase, FiDownload, FiEdit3, FiFileText, FiMail, FiPlus, FiPower, FiRefreshCw, FiSave, FiSearch, FiShield, FiTrash2 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError, unwrapCollection } from '../../services/api'
 import { profileLabel, SIMULABLE_PROFILES } from '../../lib/permissions'
@@ -10,8 +10,8 @@ import { Badge, Button, Card, confirmAction, DataTable, Empty, ErrorState, Field
 
 /*
  * Administración institucional del administrador general: carreras y accesos, operaciones, auditoría,
- * integridad y respaldos (Frontend_Swgpi/pages/admin/careers.php, operations.php, career-audit.php,
- * career-integrity.php y database-backups.php).
+ * integridad, respaldos y correos enviados (Frontend_Swgpi/pages/admin/careers.php, operations.php, career-audit.php,
+ * career-integrity.php, database-backups.php y sent-emails.php).
  */
 const READINESS = { identity: 'Identidad', career_management: 'Jefatura', subjects: 'Asignaturas', groups: 'Grupos', students: 'Estudiantes', configuration: 'Configuración', rubrics: 'Rúbricas' }
 const actor = (item, fallback = 'Sistema') => [item.actor_nombres, item.actor_apellido].filter(Boolean).join(' ') || fallback
@@ -300,6 +300,56 @@ export function BackupsPage() {
                 </span> : <small key="x" className="text-danger wrap-anywhere">{backup.mensaje_error || 'No se registró el detalle del error.'}</small>,
               ]
             })} />
+          </Card>
+        </>
+      )}
+    </Page>
+  )
+}
+
+const EMAIL_CATEGORIES = { credenciales: 'Credenciales', codigo_registro: 'Código de registro', recuperacion: 'Recuperación de contraseña', general: 'General' }
+const EMAIL_STATUS = { queued: ['En cola', 'neutral'], sending: ['Enviando', 'neutral'], sent: ['Enviado', 'success'], failed: ['Falló', 'danger'] }
+const SENT_COPY = { removed: ['Borrada', 'success'], pending: ['Por borrar', 'warning'], failed: ['No se pudo borrar', 'danger'] }
+
+/** Registro de envíos: a quién y cuándo. El servicio de correo no conserva asunto ni contenido. */
+export function SentEmailsPage() {
+  const [filters, setFilters] = useState({ page: 1, search: '', status: '', category: '' })
+  const query = useQuery({ queryKey: ['sent-emails', filters], queryFn: () => api.get('/admin/sent-emails', { params: Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== '')) }).then((response) => response.data), placeholderData: (previous) => previous, refetchInterval: 30_000 })
+  const set = (key, value) => setFilters({ ...filters, [key]: value, page: 1 })
+  const stats = query.data?.stats
+  return (
+    <Page eyebrow="Continuidad operativa" title="Correos enviados" subtitle="A quién se envió cada correo y si llegó al servidor de Gmail. El contenido y el asunto no se conservan; el registro dura 90 días.">
+      {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
+        <>
+          <section className={`health-banner ${stats?.account_error || stats?.sent_copy_error ? 'bad' : 'ok'}`}>
+            <FiMail />
+            <div>
+              <h2>{stats?.account || 'Cuenta sin configurar'}</h2>
+              <p>{stats?.sent_last_24h ?? 0} de {stats?.max_per_day ?? 0} en las últimas 24 horas · {stats?.queued ?? 0} en cola · {stats?.failed ?? 0} {Number(stats?.failed) === 1 ? 'fallido' : 'fallidos'}</p>
+              {stats?.account_error && <p className="text-danger wrap-anywhere">{stats.account_error}</p>}
+              {stats?.sent_copy_error && <p className="text-danger wrap-anywhere">{stats.sent_copy_error}</p>}
+            </div>
+          </section>
+          <Card>
+            <div className="form-grid">
+              <Field label="Destinatario"><SearchInput value={filters.search} onChange={(value) => set('search', value)} placeholder="Buscar por correo" /></Field>
+              <Field label="Estado"><select className="control" value={filters.status} onChange={(event) => set('status', event.target.value)}><option value="">Todos</option>{Object.entries(EMAIL_STATUS).map(([key, [label]]) => <option key={key} value={key}>{label}</option>)}</select></Field>
+              <Field label="Tipo"><select className="control" value={filters.category} onChange={(event) => set('category', event.target.value)}><option value="">Todos</option>{Object.entries(EMAIL_CATEGORIES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
+            </div>
+          </Card>
+          <Card flush>
+            <Rows empty="No hay correos con esos filtros." headers={['Destinatario', 'Tipo', 'Estado', 'Registrado', 'Enviado', 'Copia en Gmail']} rows={(query.data?.data || []).map((email) => {
+              const [statusLabel, statusTone] = EMAIL_STATUS[email.status] || [email.status, 'neutral']
+              const [copyLabel, copyTone] = SENT_COPY[email.sent_copy] || []
+              return [
+                <span className="cell-main" key="d"><strong className="wrap-anywhere">{email.to}</strong>{email.last_error && <small className="text-danger wrap-anywhere">{email.last_error}</small>}</span>,
+                EMAIL_CATEGORIES[email.category] || email.category,
+                <Badge key="s" tone={statusTone}>{statusLabel}</Badge>,
+                formatDateTime(email.created_at), email.sent_at ? formatDateTime(email.sent_at) : '—',
+                copyLabel ? <Badge key="c" tone={copyTone}>{copyLabel}</Badge> : '—',
+              ]
+            })} />
+            <Pager meta={query.data} onPage={(page) => setFilters({ ...filters, page })} />
           </Card>
         </>
       )}

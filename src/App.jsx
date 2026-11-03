@@ -27,6 +27,7 @@ const Operations = Institutional('OperationsPage')
 const Audit = Institutional('AuditPage')
 const Integrity = Institutional('IntegrityPage')
 const Backups = Institutional('BackupsPage')
+const SentEmails = Institutional('SentEmailsPage')
 const SystemPage = (name) => lazy(() => import('./pages/admin/SystemPages').then((module) => ({ default: module[name] })))
 const CareerPage = (name) => lazy(() => import('./pages/admin/CareerPages').then((module) => ({ default: module[name] })))
 const SettingsPage = SystemPage('SettingsPage')
@@ -55,6 +56,7 @@ const routes = [
   ['/audit', Audit, isGeneralAdmin],
   ['/integrity', Integrity, isGeneralAdmin],
   ['/backups', Backups, isGeneralAdmin],
+  ['/sent-emails', SentEmails, isGeneralAdmin],
   ['/users', Users, canViewUsers],
   ['/projects', Projects, staffOrTeacher],
   ['/evaluations', Evaluations, staffOrTeacher],

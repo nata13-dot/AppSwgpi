@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiActivity, FiCalendar, FiDatabase, FiLayers, FiLogIn, FiShield, FiCheckSquare, FiGrid } from 'react-icons/fi'
+import { FiActivity, FiCalendar, FiDatabase, FiLayers, FiLogIn, FiMail, FiShield, FiCheckSquare, FiGrid } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
@@ -104,6 +104,7 @@ export default function GeneralPanel() {
             ['Auditoría', 'Quién cambió qué, por carrera', '/audit', FiShield],
             ['Integridad', 'Verificaciones entre carreras', '/integrity', FiCheckSquare],
             ['Respaldos', 'Copias y verificación', '/backups', FiDatabase],
+            ['Correos enviados', 'A quién se envió, sin contenido', '/sent-emails', FiMail],
           ].map(([title, hint, path, Icon]) => <button type="button" key={path} onClick={() => navigate(path)}><Icon aria-hidden="true" /><span>{title}<small>{hint}</small></span></button>)}
         </div>
       </Card>
