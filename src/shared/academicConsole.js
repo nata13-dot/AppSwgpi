@@ -59,7 +59,11 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
     const data = await request('GET', '/semester-management')
     if (data.scheduler) content.append(el('p', `Última preparación automática: ${date(data.scheduler.updated_at)} · ${data.scheduler.estado}`))
     else content.append(el('p', 'Todavía no se ha registrado una preparación automática.'))
-    const section = panel('Periodos por carrera', content)
+    await renderAutomation()
+    // Lo manual queda disponible para casos especiales; el trabajo normal es automático.
+    const advanced = el('details', undefined, { style: 'margin-bottom:16px' })
+    advanced.append(el('summary', 'Opciones manuales de periodos')); content.append(advanced)
+    const section = panel('Periodos por carrera', advanced)
     for (const p of data.periods) {
       const row = el('article', undefined, { style: 'padding:12px;border-bottom:1px solid #aaa' })
       row.append(el('strong', `${p.nombre} · ${p.operacion?.estado || 'sin preparar'} · ${p.operacion?.conciliado ? 'conciliado' : 'requiere conciliación'}`))
@@ -77,6 +81,42 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
     const p = panel('Asignar matrícula del periodo abierto', content)
     const [f, done] = form(p, 'Guardar matrícula', d => request('POST', '/academic-operations/enrollments', { student_id: d.student_id, group_id: Number(d.group_id) }))
     select(f, 'Alumno', 'student_id', members([3])); select(f, 'Grupo', 'group_id', groups()); done()
+  }
+
+  async function renderAutomation() {
+    const auto = await request('GET', '/academic-operations/automation').catch(() => null)
+    if (!auto?.plan) return
+    const { plan, unplaced, open_period: open } = auto
+    const box = panel(open ? `Periodo abierto: ${open.nombre}` : `Abrir periodo: ${plan.period.nombre}`, content)
+    box.append(el('p', auto.scheduled ? 'Los periodos se abren y se cierran solos por fecha.' : 'La apertura automática por fecha está apagada; puedes abrirlo con este botón.'))
+    const reasons = (rows) => { const list = el('ul'); for (const row of rows) list.append(el('li', `${row.name} (${row.student_id}): ${row.reason}`)); return list }
+    if (open) {
+      if (!unplaced.length) { box.append(el('p', 'Todos los alumnos activos tienen grupo en este periodo.')); return }
+      box.append(el('p', `${unplaced.length} alumno(s) por acomodar. Elige su grupo; el resto ya quedó inscrito.`))
+      const options = groups(catalog.groups.filter(g => Number(g.periodo_id) === Number(open.id)))
+      for (const row of unplaced) {
+        const [f, done] = form(box, 'Guardar', d => request('POST', '/academic-operations/enrollments', { student_id: row.student_id, group_id: Number(d.group_id) }))
+        f.append(el('strong', `${row.name} (${row.student_id})`), el('p', row.suggestion ? `Sugerido: ${row.suggestion}` : row.reason))
+        select(f, 'Grupo', 'group_id', options); done()
+      }
+      return
+    }
+    if (!plan.can_apply) { box.append(el('p', `Este periodo está ${plan.state}. Revisa las opciones manuales.`)); return }
+    const summary = {}
+    for (const move of plan.moves) { const key = `${move.source_group} (${move.from}°) → ${move.to}° ${move.clave}`; summary[key] = (summary[key] || 0) + 1 }
+    box.append(el('p', `Vista previa: nada se guarda hasta que lo apliques. ${plan.moves.length} alumno(s) se ubican solos y ${plan.unplaced.length} quedan por acomodar.`))
+    const moves = el('ul'); for (const [key, total] of Object.entries(summary)) moves.append(el('li', `${key}: ${total}`)); box.append(moves)
+    if (plan.new_groups.length) box.append(el('p', `Grupos nuevos: ${plan.new_groups.map(g => `${g.semestre}° ${g.clave}`).join(', ')}.`))
+    for (const period of plan.close) box.append(el('p', `Concluye ${period.nombre}${period.pending.length ? ` con pendientes: ${period.pending.join(', ')}` : ''}.`))
+    if (plan.moves.some(move => move.to === 9)) box.append(el('p', 'Revisa a quienes pasan a 9°: si alguien ya egresó, desactívalo antes de abrir.'))
+    if (plan.unplaced.length) { box.append(el('h3', 'Por acomodar después de abrir')); box.append(reasons(plan.unplaced)) }
+    if (manager) button('Abrir periodo ahora', async () => {
+      if (!window.confirm(`Se abrirá ${plan.period.nombre} y ${plan.moves.length} alumno(s) quedarán inscritos en su nuevo grupo. ¿Continuar?`)) return
+      const result = await request('POST', '/academic-operations/automation', { snapshot: plan.snapshot })
+      status.textContent = `Periodo abierto: ${result.promoted} inscrito(s), ${result.unplaced} por acomodar.`
+      catalog = await request('GET', '/academic-operations/catalog')
+      await render()
+    }, box)
   }
 
   async function promotion(period) {
