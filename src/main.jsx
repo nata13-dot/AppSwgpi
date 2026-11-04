@@ -8,6 +8,7 @@ import 'react-toastify/dist/ReactToastify.css'
 import './styles/ui.css'
 import App from './App'
 import AppLockGate from './components/auth/AppLockGate'
+import PushNotificationsBridge from './components/layout/PushNotificationsBridge'
 import { store } from './store/store'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import SystemPreferences from './components/layout/SystemPreferences'
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <NativeBackButton />
+          <PushNotificationsBridge />
           <ErrorBoundary>
             <SystemPreferences />
             <AppLockGate><App /></AppLockGate>

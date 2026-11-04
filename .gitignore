@@ -7,3 +7,6 @@ dist
 android/app/keystore.properties
 *.keystore
 *.jks
+
+# Configuración de Firebase del proyecto: el repositorio es público.
+android/app/google-services.json

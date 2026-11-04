@@ -5,6 +5,7 @@ import api, { API_URL } from '../services/api'
 import { clearCredentials, setCredentials, setUser } from '../store/store'
 import { activeProfileId } from '../lib/permissions'
 import { isNativeApp } from '../services/appLock'
+import { unregisterPushDevice } from '../services/pushNotifications'
 
 /*
  * Sesión original del administrador general mientras simula un nivel. Vive sólo en sessionStorage:
@@ -22,9 +23,9 @@ export function useAuth() {
   const auth = useSelector((state) => state.auth)
 
   const login = useCallback(async ({ id, password, remember }) => {
-    // En la app la sesión dura hasta cerrarla: se conserva en el teléfono y el token no expira por inactividad.
+    // En la app la sesión dura hasta cerrarla: se conserva en el teléfono y su token no vence.
     const keep = remember || isNativeApp()
-    const { data } = await api.post('/auth/login', { id, password, remember: keep })
+    const { data } = await api.post('/auth/login', { id, password, remember: keep, ...(isNativeApp() ? { device: 'app' } : {}) })
     sessionStorage.removeItem(VIEW_ORIGIN_KEY)
     dispatch(setCredentials({ token: data.access_token, user: data.user, remember: keep }))
     return data.user
@@ -43,6 +44,8 @@ export function useAuth() {
   const logout = useCallback(async () => {
     const origin = readOrigin()
     try {
+      // Antes de cerrar: después ya no hay sesión para pedirlo, y este teléfono no debe seguir recibiendo sus avisos.
+      await unregisterPushDevice()
       await api.post('/auth/logout')
       if (origin?.token) await axios.post(`${API_URL}/auth/logout`, null, withToken(origin.token)).catch(() => {})
     } finally {
