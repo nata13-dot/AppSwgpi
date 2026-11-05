@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiEdit2, FiMail, FiPlus, FiShield, FiToggleLeft, FiToggleRight, FiUploadCloud, FiUsers, FiX } from 'react-icons/fi'
+import { FiAward, FiEdit2, FiMail, FiPlus, FiShield, FiToggleLeft, FiToggleRight, FiUploadCloud, FiUsers, FiX } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
@@ -57,6 +57,19 @@ export default function Users() {
     const password = await promptPassword({ title: 'Autorizar desactivación' })
     if (password) toggleStatus(row, password)
   }
+  const setGeneralAdmin = async (row) => {
+    const grant = !row.es_administrador_general
+    const confirmed = await promptPassword({
+      title: grant ? `¿Nombrar a ${fullName(row)} administrador general?` : `¿Retirar la administración general a ${fullName(row)}?`,
+      confirmText: grant ? 'Nombrar' : 'Retirar',
+    })
+    if (!confirmed) return
+    try {
+      const response = await api.put(`/users/${row.id}/general-admin`, { grant, admin_password: confirmed })
+      toast.success(response.data.message)
+      refresh()
+    } catch (error) { toast.error(apiError(error)) }
+  }
   const openCredentials = () => {
     if (!selecting) {
       setSelecting(true)
@@ -70,7 +83,7 @@ export default function Users() {
   const statusDescription = { active: 'Mostrando perfiles activos', inactive: 'Mostrando perfiles inactivos', all: 'Mostrando todos los perfiles' }[status]
   const columns = [
     { key: 'name', label: 'Nombre', primary: true, render: (row) => <span className="cell-main"><strong>{fullName(row)}</strong><small>{[row.id, row.email || row.correo].filter(Boolean).join(' · ')}</small></span> },
-    { key: 'perfil', label: 'Perfil', render: (row) => <Badge>{profileLabel(row.perfil_id)}</Badge> },
+    { key: 'perfil', label: 'Perfil', render: (row) => <span className="row-wrap"><Badge>{profileLabel(row.perfil_id)}</Badge>{row.es_administrador_general && <Badge tone="info" icon={FiAward}>Admin. general</Badge>}</span> },
     { key: 'grupo', label: 'Grupo', render: (row) => (Number(row.perfil_id) === 3 ? <Badge tone="info">{row.semestre ? `${ordinal(row.semestre)} ${row.grupo || ''}` : 'Sin grupo'}</Badge> : '—') },
     { key: 'proyecto', label: 'Proyecto', render: (row) => {
       if (Number(row.perfil_id) === 2) return <Badge tone="info">{Number(row.advising_projects_count || 0)} asesorías</Badge>
@@ -81,13 +94,16 @@ export default function Users() {
   ]
   const actions = govern ? (row) => {
     // Jefatura y asistencia sólo las modifica el administrador general.
-    const protectedUser = [5, 6].includes(Number(row.perfil_id))
+    const protectedUser = [5, 6].includes(Number(row.perfil_id)) || Boolean(row.es_administrador_general)
     if (protectedUser && !generalAdmin) return <Badge icon={FiShield}>Protegido</Badge>
     return <>
       <IconButton icon={FiEdit2} label="Editar" onClick={() => setSheet({ type: 'form', id: row.id })} />
       {protectedUser
         ? <IconButton icon={FiShield} label="Acción protegida: cambiar estado" onClick={() => protectedToggle(row)} />
         : <IconButton icon={row.activo ? FiToggleRight : FiToggleLeft} className={row.activo ? 'success' : 'danger'} label={row.activo ? 'Activo. Toca para desactivar' : 'Inactivo. Toca para activar'} onClick={() => toggleStatus(row)} />}
+      {generalAdmin && String(row.id) !== String(user?.id) && Number(row.perfil_id) !== 3 && (
+        <IconButton icon={FiAward} className={row.es_administrador_general ? 'success' : ''} label={row.es_administrador_general ? 'Administrador general. Toca para retirarlo' : 'Nombrar administrador general'} onClick={() => setGeneralAdmin(row)} />
+      )}
     </>
   } : null
 
