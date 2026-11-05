@@ -778,3 +778,12 @@ a.btn-app { text-decoration: none; }
 .sticky-actions { padding-right: 62px; }
 .help-fab.guest { bottom: calc(var(--safe-bottom) + 20px); }
 .help-caption { display: block; margin-top: 8px; color: var(--muted); font-size: .78rem; }
+
+/* Recuperación de contraseña */
+.recovery-rules { margin: 0 0 14px; padding: 0; list-style: none; color: var(--muted); font-size: .86rem; }
+.recovery-rules li { display: flex; align-items: center; gap: 6px; } .recovery-rules li + li { margin-top: 4px; }
+.recovery-rules li.met { color: var(--success); }
+.recovery-links { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.link-btn { padding: 2px 0; border: 0; background: none; color: var(--brand-2); font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; }
+.link-btn:disabled { color: var(--muted); cursor: default; }
+.input-icon.no-lead .control { padding-left: 14px; padding-right: 44px; }
