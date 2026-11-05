@@ -7,7 +7,7 @@ import { activeProfileId } from '../../lib/permissions'
 import { registerBackHandler } from '../../utils/backNavigation'
 import { Button, IconButton, Sheet } from '../ui'
 
-/* Los textos y la comparación de preguntas viven en la API (config/help.php); no intervienen servicios externos. */
+/* Los temas y la comparación de preguntas viven en la API (resources/help); no intervienen servicios externos. */
 
 /** Elementos de la pantalla que señala cada paso; se usa el primero que esté visible. */
 const TOUR_TARGETS = {
@@ -84,17 +84,25 @@ function GuidedTour({ steps, onClose }) {
   )
 }
 
-function TopicAnswer({ topic, canOpen, onOpen }) {
+const Choices = ({ items, onPick }) => (
+  <div className="help-suggestions">
+    {items.map((item) => <button type="button" key={item.id} onClick={() => onPick(item)}>{item.question || item.title}</button>)}
+  </div>
+)
+
+function TopicAnswer({ topic, canOpen, onOpen, onPick }) {
   return (
     <>
-      <ol className="help-steps">{topic.steps.map((text) => <li key={text}>{text}</li>)}</ol>
+      {topic.personal ? topic.steps.map((line) => <p key={line}>{line}</p>) : <ol className="help-steps">{topic.steps.map((text) => <li key={text}>{text}</li>)}</ol>}
       {canOpen(topic) && <Button variant="ghost" size="sm" icon={FiArrowRight} onClick={() => onOpen(topic.app)}>Ir a la pantalla</Button>}
+      {topic.next && <><small className="help-caption">¿Qué sigue?</small><Choices items={[topic.next]} onPick={onPick} /></>}
+      {topic.related?.length > 0 && <><small className="help-caption">También puede servirte</small><Choices items={topic.related} onPick={onPick} /></>}
     </>
   )
 }
 
-/** Botón flotante de ayuda: asistente de preguntas frecuentes y guía de inicio. */
-export default function HelpCenter({ user, menuItems, simulated, onOpenSearch }) {
+/** Botón flotante de ayuda: árbol de temas, preguntas libres y guía de inicio. Sin sesión ofrece acceso y registro. */
+export default function HelpCenter({ user = null, menuItems = [], simulated = false, onOpenSearch = null }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -104,14 +112,16 @@ export default function HelpCenter({ user, menuItems, simulated, onOpenSearch })
   const [asking, setAsking] = useState(false)
   const endRef = useRef(null)
   const page = location.pathname
+  const guest = !user
+  const endpoint = guest ? '/help/public' : '/help'
 
   const help = useQuery({
-    queryKey: ['help', activeProfileId(user), page],
-    queryFn: () => api.get('/help', { params: { page } }).then((response) => response.data),
+    queryKey: ['help', guest ? 'guest' : activeProfileId(user), page],
+    queryFn: () => api.get(endpoint, { params: { page } }).then((response) => response.data),
     staleTime: 300_000,
-    enabled: Boolean(user),
   })
   const tour = help.data?.tour
+  const categories = help.data?.categories || []
 
   // La primera vez que entra con este perfil en este dispositivo; la vista simulada no la activa.
   const [autoChecked, setAutoChecked] = useState(false)
@@ -122,35 +132,49 @@ export default function HelpCenter({ user, menuItems, simulated, onOpenSearch })
 
   useEffect(() => { endRef.current?.scrollIntoView?.({ block: 'nearest' }) }, [messages, asking])
 
-  const allowedPaths = useMemo(() => new Set(['/repository', ...menuItems.map((entry) => entry.path)]), [menuItems])
-  const canOpen = (topic) => topic.app && !topic.here && topic.app !== page && allowedPaths.has(topic.app)
+  const allowedPaths = useMemo(() => new Set(guest ? ['/login', '/register', '/forgot-password'] : ['/repository', ...menuItems.map((entry) => entry.path)]), [guest, menuItems])
+  const canOpen = (topic) => {
+    const path = topic.app?.split('?')[0]
+    return path && !topic.here && topic.app !== page && allowedPaths.has(path)
+  }
   const openPage = (path) => { setOpen(false); navigate(path) }
   const finishTour = () => { markTourSeen(user); setTouring(false) }
   const startTour = () => { setOpen(false); setTouring(true) }
-  const showTopic = (topic) => setMessages((current) => [...current, { from: 'user', text: topic.question }, { from: 'bot', topic }])
+  const push = (...items) => setMessages((current) => [...current, ...items])
 
-  const ask = async (event) => {
+  const request = async (params, respond) => {
+    setAsking(true)
+    try {
+      const { data } = await api.get(endpoint, { params: { ...params, page } })
+      respond(data)
+    } catch (error) {
+      push({ from: 'bot', text: apiError(error) })
+    } finally { setAsking(false) }
+  }
+  const openTopic = (item) => {
+    push({ from: 'user', text: item.question })
+    request({ topic: item.id }, (data) => push({ from: 'bot', topic: data.topic }))
+  }
+  const openCategory = (category) => push({ from: 'user', text: category.title }, { from: 'bot', category })
+  const showCategories = () => push({ from: 'user', text: 'Ver todos los temas' }, { from: 'bot', menu: true })
+
+  const ask = (event) => {
     event.preventDefault()
     const question = draft.trim()
     if (!question || asking) return
     setDraft('')
-    setMessages((current) => [...current, { from: 'user', text: question }])
-    setAsking(true)
-    try {
-      const { data } = await api.get('/help', { params: { q: question, page } })
-      const [best, ...others] = data.topics
-      setMessages((current) => [...current, best
-        ? { from: 'bot', topic: best, related: others.slice(0, 3) }
-        : { from: 'bot', notFound: true }])
-    } catch (error) {
-      setMessages((current) => [...current, { from: 'bot', text: apiError(error) }])
-    } finally { setAsking(false) }
+    push({ from: 'user', text: question })
+    request({ q: question }, (data) => {
+      if (data.topic) push({ from: 'bot', topic: data.topic, others: data.options })
+      else if (data.options?.length) push({ from: 'bot', options: data.options })
+      else push({ from: 'bot', notFound: true })
+    })
   }
 
   return (
     <>
-      <button type="button" className="help-fab" aria-label="Ayuda" title="Ayuda" onClick={() => setOpen(true)}><FiHelpCircle aria-hidden="true" /></button>
-      <Sheet open={open} title="Asistente de ayuda" subtitle="Respuestas sobre cómo usar el SGPI." onClose={() => setOpen(false)} size="sm"
+      <button type="button" className={`help-fab ${guest ? 'guest' : ''}`} aria-label="Ayuda" title="Ayuda" onClick={() => setOpen(true)}><FiHelpCircle aria-hidden="true" /></button>
+      <Sheet open={open} title="Asistente de ayuda" subtitle="Elige un tema o escribe tu pregunta." onClose={() => setOpen(false)} size="sm"
         footer={(
           <form className="help-compose" onSubmit={ask}>
             <input className="control" value={draft} maxLength={200} onChange={(event) => setDraft(event.target.value)} placeholder="Escribe tu pregunta..." aria-label="Escribe tu pregunta" />
@@ -159,27 +183,27 @@ export default function HelpCenter({ user, menuItems, simulated, onOpenSearch })
         )}>
         <div className="help-chat" aria-live="polite">
           <div className="help-bubble bot">
-            <p>Hola{user?.nombres ? `, ${user.nombres.split(' ')[0]}` : ''}. Pregúntame cómo hacer algo o elige un tema:</p>
-            <div className="help-suggestions">
-              {(help.data?.topics || []).map((topic) => <button type="button" key={topic.id} onClick={() => showTopic(topic)}>{topic.question}</button>)}
-            </div>
-            <Button variant="ghost" size="sm" icon={FiCompass} onClick={startTour} disabled={!tour?.length}>Ver la guía de inicio</Button>
+            <p>Hola{user?.nombres ? `, ${user.nombres.split(' ')[0]}` : ''}. ¿En qué te ayudo?</p>
+            <Choices items={help.data?.suggested || []} onPick={openTopic} />
+            <small className="help-caption">Todos los temas</small>
+            <Choices items={categories} onPick={openCategory} />
+            {!guest && <Button variant="ghost" size="sm" icon={FiCompass} onClick={startTour} disabled={!tour?.length}>Ver la guía de inicio</Button>}
           </div>
           {messages.map((message, index) => (
             <div key={index} className={`help-bubble ${message.from}`}>
               {message.text && <p>{message.text}</p>}
               {message.topic && <>
-                {message.related && <strong>{message.topic.question}</strong>}
-                <TopicAnswer topic={message.topic} canOpen={canOpen} onOpen={openPage} />
+                {message.others && <strong>{message.topic.question}</strong>}
+                <TopicAnswer topic={message.topic} canOpen={canOpen} onOpen={openPage} onPick={openTopic} />
+                {message.others?.length > 0 && <><small className="help-caption">¿Buscabas otra cosa?</small><Choices items={message.others} onPick={openTopic} /></>}
               </>}
-              {message.related?.length > 0 && (
-                <div className="help-suggestions"><small>También puede servirte:</small>
-                  {message.related.map((topic) => <button type="button" key={topic.id} onClick={() => showTopic(topic)}>{topic.question}</button>)}
-                </div>
-              )}
+              {message.category && <><p>Temas de {message.category.title}:</p><Choices items={message.category.topics} onPick={openTopic} /></>}
+              {message.menu && <><p>Elige una sección:</p><Choices items={categories} onPick={openCategory} /></>}
+              {message.options && <><p>No estoy seguro de haberte entendido. ¿Te refieres a alguna de estas?</p><Choices items={message.options} onPick={openTopic} /></>}
               {message.notFound && <>
-                <p>No encontré una respuesta para eso. Intenta con otras palabras, o búscalo en el sistema. Si es un problema con tu cuenta o tus datos, acude a tu jefatura.</p>
-                <Button variant="ghost" size="sm" icon={FiSearch} onClick={() => { setOpen(false); onOpenSearch() }}>Abrir el buscador</Button>
+                <p>No encontré una respuesta para eso. Intenta con otras palabras o revisa los temas. Si es un problema con tu cuenta o tus datos, acude a tu jefatura.</p>
+                <Button variant="ghost" size="sm" onClick={showCategories}>Ver todos los temas</Button>
+                {onOpenSearch && <Button variant="ghost" size="sm" icon={FiSearch} onClick={() => { setOpen(false); onOpenSearch() }}>Abrir el buscador</Button>}
               </>}
             </div>
           ))}

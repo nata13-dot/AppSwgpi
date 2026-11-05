@@ -12,7 +12,10 @@ import PushNotificationsBridge from './components/layout/PushNotificationsBridge
 import { store } from './store/store'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import SystemPreferences from './components/layout/SystemPreferences'
+import { initAppearance } from './lib/theme'
 import NativeBackButton from './components/layout/NativeBackButton'
+
+initAppearance()
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },

@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         // Los plugins propios se registran antes de crear el puente.
         registerPlugin(FileSaverPlugin.class);
         registerPlugin(AppLockPlugin.class);
+        registerPlugin(DeviceDisplayPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

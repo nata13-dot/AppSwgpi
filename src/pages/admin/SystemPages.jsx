@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiEdit2, FiPlus, FiSave, FiTrash2 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
-import { applyTheme, resolveTheme } from '../../lib/theme'
 import { formatDate, formatDateTime } from '../../utils/formatters'
 import { useAuth } from '../../hooks/useAuth'
 import { isGeneralAdmin } from '../../lib/permissions'
@@ -71,7 +70,7 @@ function SettingsForm({ initial }) {
   const save = useMutation({
     mutationFn: () => {
       const payload = {
-        session_timeout_minutes: Number(form.session_timeout_minutes), default_theme: form.default_theme, font_scale: Number(form.font_scale),
+        session_timeout_minutes: Number(form.session_timeout_minutes),
         max_file_size_mb: Number(form.max_file_size_mb), allowed_file_types: form.allowed_file_types, max_project_members: Number(form.max_project_members),
         global_notice: String(form.global_notice || '').trim(), grayscale_mode: Boolean(form.grayscale_mode),
       }
@@ -81,18 +80,15 @@ function SettingsForm({ initial }) {
     onSuccess: (data) => {
       toast.success(data.message || 'Ajustes guardados')
       client.invalidateQueries({ queryKey: ['public-settings'] })
-      applyTheme(resolveTheme(data.settings?.default_theme))
     },
     onError: (error) => toast.error(error.response ? apiError(error) : error.message),
   })
   const toggleType = (type) => set('allowed_file_types', form.allowed_file_types.includes(type) ? form.allowed_file_types.filter((item) => item !== type) : [...form.allowed_file_types, type])
   return (
     <form className="stack" onSubmit={(event) => { event.preventDefault(); save.mutate() }}>
-      <Card title="Sesión y apariencia">
+      <Card title="Sesión y apariencia general" subtitle="El tema y el tamaño de letra los elige cada persona en Mi perfil.">
         <div className="form-grid">
           <Field label="Inactividad antes de cerrar sesión (min)"><input className="control" type="number" min={1} max={480} value={form.session_timeout_minutes ?? ''} onChange={(event) => set('session_timeout_minutes', event.target.value)} /></Field>
-          <Field label="Tema por defecto"><select className="control" value={form.default_theme || 'system'} onChange={(event) => set('default_theme', event.target.value)}><option value="system">Preferencia del navegador</option><option value="light">Claro</option><option value="dark">Oscuro</option></select></Field>
-          <Field label={`Tamaño de fuente general (${form.font_scale || 100}%)`} full><input type="range" min={85} max={125} value={form.font_scale || 100} onChange={(event) => set('font_scale', event.target.value)} /></Field>
           <div className="full"><Switch checked={form.grayscale_mode} onChange={(value) => { set('grayscale_mode', value); document.documentElement.classList.toggle('grayscale-mode', value) }} label="Mostrar el sistema en escala de grises" /></div>
         </div>
       </Card>

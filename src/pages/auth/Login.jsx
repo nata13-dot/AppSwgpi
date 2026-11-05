@@ -6,12 +6,12 @@ import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { homePath, mustChangePassword } from '../../lib/permissions'
-import { isNativeApp, offerAppLock } from '../../services/appLock'
+import { offerAppLock } from '../../services/appLock'
 import { Button } from '../../components/ui'
 
 export default function Login() {
   const location = useLocation()
-  const [form, setForm] = useState({ id: location.state?.id || '', password: '', remember: false })
+  const [form, setForm] = useState({ id: location.state?.id || '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
@@ -57,7 +57,6 @@ export default function Login() {
               <button type="button" aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <FiEyeOff /> : <FiEye />}</button></span>
           </label>
           <div className="row-wrap">
-            {!isNativeApp() && <label className="check-inline"><input type="checkbox" checked={form.remember} onChange={(event) => setForm({ ...form, remember: event.target.checked })} /> Mantener sesión</label>}
             <span className="spacer" />
             <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
           </div>

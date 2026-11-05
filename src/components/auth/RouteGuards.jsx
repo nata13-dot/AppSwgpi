@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { homePath, mustChangePassword } from '../../lib/permissions'
+import HelpCenter from '../layout/HelpCenter'
 
 export function ProtectedRoute() {
   const { isAuthenticated, user } = useAuth()
@@ -19,5 +20,5 @@ export function Require({ allow, children }) {
 
 export function GuestRoute() {
   const { isAuthenticated, user } = useAuth()
-  return isAuthenticated ? <Navigate to={homePath(user)} replace /> : <Outlet />
+  return isAuthenticated ? <Navigate to={homePath(user)} replace /> : <><Outlet /><HelpCenter /></>
 }

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiCamera, FiSave, FiSmartphone } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { appLockAvailable, disableAppLock, enableAppLock, isAppLockEnabled, isNativeApp } from '../services/appLock'
 import { roleLabel, viewAs } from '../lib/permissions'
+import { accountAppearance, deviceFontPercent, fontScalePreference, setAppearance, themePreference } from '../lib/theme'
 import { fullName, publicAssetUrl } from '../utils/formatters'
-import { Button, Card, ErrorState, Field, Loading, Page, rejectEmptyFile, Switch } from '../components/ui'
+import { Button, Card, Chips, ErrorState, Field, Loading, Page, rejectEmptyFile, Switch } from '../components/ui'
 
 /** Perfil propio (Frontend_Swgpi/pages/profile.php): foto, teléfono, especialidad y contraseña. */
 export default function Profile() {
@@ -16,6 +17,7 @@ export default function Profile() {
   return (
     <Page title="Mi perfil" subtitle={`${roleLabel(user)}${user?.active_career ? ` · ${user.active_career.nombre_corto}` : ''}`}>
       {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : <ProfileForm profile={query.data} readOnly={Boolean(viewAs(user))} onSaved={async () => { await refreshUser(); query.refetch() }} />}
+      <AppearanceCard readOnly={Boolean(viewAs(user))} />
       {!viewAs(user) && <QuickUnlockCard userId={user?.id} />}
       {!viewAs(user) && <NotificationPreferences />}
     </Page>
@@ -23,6 +25,41 @@ export default function Profile() {
 }
 
 /** Recordatorios y resúmenes que cada quien puede apagar. Lo que requiere una acción suya siempre llega. */
+const THEMES = [{ value: 'light', label: 'Claro' }, { value: 'dark', label: 'Oscuro' }, { value: 'system', label: 'Según el dispositivo' }]
+const FONT_SCALES = [{ value: 90, label: 'Chica' }, { value: 100, label: 'Normal' }, { value: 115, label: 'Grande' }, { value: 130, label: 'Muy grande' }]
+
+/** Tema y letra de la cuenta. Se aplican al momento; en la vista simulada no se guardan. */
+function AppearanceCard({ readOnly }) {
+  const client = useQueryClient()
+  const [theme, setTheme] = useState(themePreference)
+  const [fontScale, setFontScale] = useState(fontScalePreference)
+  // La apariencia de la cuenta puede llegar después de abrir esta pantalla.
+  useEffect(() => {
+    const sync = () => { setTheme(themePreference()); setFontScale(fontScalePreference()) }
+    window.addEventListener('sgpi:appearance', sync)
+    return () => window.removeEventListener('sgpi:appearance', sync)
+  }, [])
+  const change = async (next) => {
+    if (next.theme) setTheme(next.theme)
+    if (next.fontScale) setFontScale(next.fontScale)
+    setAppearance(next)
+    if (readOnly) return
+    try {
+      await api.put('/appearance', accountAppearance())
+      client.removeQueries({ queryKey: ['appearance'] })
+    } catch (error) { toast.error(apiError(error)) }
+  }
+  const native = isNativeApp()
+  return (
+    <Card title="Apariencia" subtitle="Se guarda en tu cuenta y te acompaña en tus otros dispositivos.">
+      <div className="stack">
+        <Field label="Tema" hint={theme === 'system' ? 'Cada dispositivo usará su propio tema, claro u oscuro.' : undefined}><Chips options={THEMES} value={theme} onChange={(value) => change({ theme: value })} /></Field>
+        <Field label="Tamaño de letra" hint={native ? `Se suma al tamaño de letra de tu teléfono (${deviceFontPercent()}%).` : 'Se suma al tamaño de letra de tu navegador.'}><Chips options={FONT_SCALES} value={fontScale} onChange={(value) => change({ fontScale: value })} /></Field>
+      </div>
+    </Card>
+  )
+}
+
 function NotificationPreferences() {
   const query = useQuery({ queryKey: ['notification-preferences'], queryFn: () => api.get('/notifications/preferences').then((response) => response.data.data) })
   const toggle = async (item) => {

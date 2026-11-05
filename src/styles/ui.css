@@ -776,3 +776,5 @@ a.btn-app { text-decoration: none; }
 .search-group-title { margin: 12px 0 4px; color: var(--muted); font-size: .76rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
 /* El botón de ayuda no debe tapar las acciones fijas de los formularios. */
 .sticky-actions { padding-right: 62px; }
+.help-fab.guest { bottom: calc(var(--safe-bottom) + 20px); }
+.help-caption { display: block; margin-top: 8px; color: var(--muted); font-size: .78rem; }

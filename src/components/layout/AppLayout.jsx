@@ -13,7 +13,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { bottomNavPaths, filterMenu, flattenMenu, menuForUser, SHORT_LABELS } from '../../lib/navigation'
 import { homePath, isGeneralAdmin, profileLabel, roleLabel, SIMULABLE_PROFILES, viewAs, activeProfileId, isAdmin } from '../../lib/permissions'
 import { markNoticesRead, noticeKey, noticesForUser, readNoticeKeys } from '../../lib/notices'
-import { toggleTheme } from '../../lib/theme'
+import { accountAppearance, setAppearance } from '../../lib/theme'
 import { fullName, matchesSearch, publicAssetUrl } from '../../utils/formatters'
 import { recordPath } from '../../lib/searchRoutes'
 import { Button, confirmAction, Empty, IconButton, Sheet, Tabs, useDebounced } from '../ui'
@@ -65,6 +65,15 @@ export default function AppLayout() {
   const canSimulate = generalAdmin || Boolean(simulation)
 
   useEffect(() => { localStorage.setItem('sgpi-sidebar-collapsed', collapsed ? '1' : '0') }, [collapsed])
+  useEffect(() => {
+    const sync = () => setDark(document.documentElement.dataset.theme === 'dark')
+    window.addEventListener('sgpi:appearance', sync)
+    return () => window.removeEventListener('sgpi:appearance', sync)
+  }, [])
+  const flipTheme = () => {
+    setAppearance({ theme: dark ? 'light' : 'dark' })
+    if (!simulation) api.put('/appearance', accountAppearance()).then(() => client.removeQueries({ queryKey: ['appearance'] })).catch(() => toast.error('No se pudo guardar el tema en tu cuenta.'))
+  }
   // Al cambiar de pantalla se cierra cualquier hoja abierta (ajuste durante el render, sin efecto).
   const [lastPath, setLastPath] = useState(location.pathname)
   if (lastPath !== location.pathname) { setLastPath(location.pathname); setSheet(null) }
@@ -157,7 +166,7 @@ export default function AppLayout() {
         <div className="more-quick">
           {canSwitchCareer && <button type="button" onClick={() => setSheet('career')}><FiGrid /><span>Carrera</span><small>{user?.active_career?.nombre_corto}</small></button>}
           {canSimulate && <button type="button" onClick={() => setSheet('level')}><FiLayers /><span>Nivel</span><small>{simulation ? roleLabel(user) : 'Admin. general'}</small></button>}
-          <button type="button" onClick={() => setDark(toggleTheme() === 'dark')}>{dark ? <FiSun /> : <FiMoon />}<span>{dark ? 'Modo claro' : 'Modo oscuro'}</span></button>
+          <button type="button" onClick={flipTheme}>{dark ? <FiSun /> : <FiMoon />}<span>{dark ? 'Modo claro' : 'Modo oscuro'}</span></button>
           <button type="button" onClick={() => navigate('/profile')}><FiUser /><span>Mi perfil</span></button>
         </div>
         <MenuList menu={menu} pathname={location.pathname} />

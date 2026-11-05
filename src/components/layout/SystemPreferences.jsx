@@ -5,11 +5,11 @@ import { toast } from 'react-toastify'
 import api from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { noticesForUser } from '../../lib/notices'
-import { applyTheme, resolveTheme } from '../../lib/theme'
+import { setAppearance } from '../../lib/theme'
 
 /**
- * Ajustes públicos del sistema (Frontend_Swgpi/includes/footer.php): tema por omisión, escala de letra,
- * modo en grises, avisos emergentes y cierre por inactividad para sesiones que no se recuerdan.
+ * Ajustes públicos del sistema (Frontend_Swgpi/includes/footer.php): modo en grises, avisos emergentes y cierre
+ * por inactividad para sesiones que no se recuerdan. También trae la apariencia guardada en la cuenta.
  */
 export default function SystemPreferences() {
   const { user, remember, isAuthenticated, logout } = useAuth()
@@ -22,11 +22,18 @@ export default function SystemPreferences() {
   })
   const settings = query.data
 
-  useEffect(() => { applyTheme(resolveTheme(settings?.default_theme)) }, [settings?.default_theme])
+  const appearance = useQuery({
+    queryKey: ['appearance', user?.id],
+    queryFn: () => api.get('/appearance').then((response) => response.data.data),
+    enabled: Boolean(isAuthenticated && user?.id),
+    staleTime: Infinity,
+  })
+  useEffect(() => {
+    if (appearance.data) setAppearance({ theme: appearance.data.theme, fontScale: appearance.data.font_scale })
+  }, [appearance.data])
 
   useEffect(() => {
     if (!settings) return
-    document.documentElement.style.fontSize = `${Number(settings.font_scale || 100)}%`
     document.documentElement.classList.toggle('grayscale-mode', Boolean(settings.grayscale_mode))
   }, [settings])
 

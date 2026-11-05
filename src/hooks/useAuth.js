@@ -22,9 +22,9 @@ export function useAuth() {
   const dispatch = useDispatch()
   const auth = useSelector((state) => state.auth)
 
-  const login = useCallback(async ({ id, password, remember }) => {
+  const login = useCallback(async ({ id, password }) => {
     // En la app la sesión dura hasta cerrarla: se conserva en el teléfono y su token no vence.
-    const keep = remember || isNativeApp()
+    const keep = isNativeApp()
     const { data } = await api.post('/auth/login', { id, password, remember: keep, ...(isNativeApp() ? { device: 'app' } : {}) })
     sessionStorage.removeItem(VIEW_ORIGIN_KEY)
     dispatch(setCredentials({ token: data.access_token, user: data.user, remember: keep }))
