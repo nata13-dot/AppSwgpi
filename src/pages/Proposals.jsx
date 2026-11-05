@@ -336,6 +336,7 @@ function ProposalSettings() {
         <WindowControl title="Autoregistro de alumnos" subtitle="Mientras esté abierto, el inicio de sesión muestra «Crear cuenta»." state={data.self_registration}
           endpoint="/proposal/settings/self-registration" disabled={readOnly || !data.self_registration.can_manage} onChanged={refresh}>
           <p className="muted small-text">Correo esperado: <strong>{data.self_registration.rule.example}</strong>. {data.self_registration.rule.description}</p>
+          {data.self_registration.blocker && <div className="alert-app warning"><strong>«Crear cuenta» no se está mostrando.</strong> {data.self_registration.blocker}</div>}
           {!data.self_registration.can_manage && <p className="muted small-text">Lo abre la administración general o la jefatura.</p>}
           <NewStudentGroups groups={data.self_registration.groups} disabled={readOnly || !data.self_registration.can_manage} onChanged={refresh} />
         </WindowControl>

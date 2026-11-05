@@ -17,7 +17,7 @@ export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   // "Crear cuenta" sólo aparece mientras alguna carrera tenga abierto el autoregistro.
-  const signup = useQuery({ queryKey: ['self-registration'], queryFn: () => api.get('/self-registration').then((response) => response.data), staleTime: 60000, retry: false })
+  const signup = useQuery({ queryKey: ['self-registration'], queryFn: () => api.get('/self-registration').then((response) => response.data), staleTime: 0, refetchInterval: 60000, retry: false })
 
   const submit = async (event) => {
     event.preventDefault()
@@ -50,7 +50,7 @@ export default function Login() {
           <p className="muted">Usa tu número de control o número de empleado.</p>
           {new URLSearchParams(location.search).has('expired') && <div className="alert-app warning">Tu sesión terminó. Ingresa nuevamente.</div>}
           <label className="field"><span className="field-label">No. de control o empleado</span>
-            <span className="input-icon"><FiUser aria-hidden="true" /><input className="control" name="username" id="login-username" autoFocus required autoCapitalize="none" autoCorrect="off" autoComplete="username" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} placeholder="Ej. 20CS001" /></span>
+            <span className="input-icon"><FiUser aria-hidden="true" /><input className="control" name="username" id="login-username" autoFocus required autoCapitalize="none" autoCorrect="off" autoComplete="username" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} placeholder="Escribe tu número" /></span>
           </label>
           <label className="field"><span className="field-label">Contraseña</span>
             <span className="input-icon"><FiLock aria-hidden="true" /><input className="control" name="password" id="login-password" required autoComplete="current-password" type={showPassword ? 'text' : 'password'} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Tu contraseña" />

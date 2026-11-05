@@ -86,9 +86,9 @@ export default function SelfRegister() {
         )}
         {career && <p className="muted small-text">{career.nombre} · periodo {career.period} · registro abierto hasta {formatDateTime(career.closes_at)}</p>}
         <div className="form-grid">
-          <Field label="Número de control" hint={rule?.description}><input className="control" required autoFocus autoComplete="username" value={form.id} onChange={set('id')} placeholder={rule ? rule.example.split('@')[0].slice(1) : ''} /></Field>
-          <Field label="Correo institucional" error={emailMismatch ? `Debe ser ${expected}` : null} hint={expected || [rule?.example, rule?.example_b].filter(Boolean).join(' o ')}>
-            <input className="control" required type="email" autoComplete="email" value={form.email} onChange={set('email')} placeholder={expected || rule?.example} />
+          <Field label="Número de control" hint={rule?.description}><input className="control" required autoFocus autoComplete="username" value={form.id} onChange={set('id')} /></Field>
+          <Field label="Correo institucional" error={emailMismatch ? `Debe ser ${expected}` : null} hint={expected || (rule ? `La letra l seguida de tu número de control, @${rule.domain}` : '')}>
+            <input className="control" required type="email" autoComplete="email" value={form.email} onChange={set('email')} placeholder={expected || undefined} />
           </Field>
           <Field label="Nombre(s)"><input className="control" required autoComplete="given-name" value={form.nombres} onChange={set('nombres')} /></Field>
           <Field label="Apellido paterno"><input className="control" required autoComplete="family-name" value={form.apa} onChange={set('apa')} /></Field>

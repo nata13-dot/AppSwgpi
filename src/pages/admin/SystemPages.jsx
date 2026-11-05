@@ -27,7 +27,7 @@ export function SettingsPage() {
 function SelfRegistrationRules() {
   const query = useQuery({ queryKey: ['self-registration-rules'], queryFn: () => api.get('/admin/self-registration-rules').then((response) => response.data) })
   return (
-    <Card title="Autoregistro: formato del correo por carrera" subtitle="El correo siempre es «l» seguida del número de control completo: 22240022 → l22240022@smartin.tecnm.mx; b22240022 → lb22240022@smartin.tecnm.mx.">
+    <Card title="Autoregistro: formato del correo por carrera" subtitle="El número de control es generación (2) + clave de la carrera (2) + consecutivo (4). El correo siempre es «l» seguida del número completo, o «lb» si inicia con b.">
       {query.isLoading ? <Loading rows={2} /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
         <div className="stack">{query.data.map((item) => <RuleEditor key={item.career.id} item={item} onSaved={query.refetch} />)}</div>
       )}
@@ -42,23 +42,22 @@ function RuleEditor({ item, onSaved }) {
   const save = async () => {
     setSaving(true)
     try {
-      await api.put(`/admin/self-registration-rules/${item.career.id}`, { number_prefix: rule.number_prefix || '', digits: Number(rule.digits), domain: rule.domain })
+      await api.put(`/admin/self-registration-rules/${item.career.id}`, { career_code: rule.career_code || '', domain: rule.domain })
       toast.success(`Regla de ${item.career.nombre_corto || item.career.nombre} guardada`)
       onSaved()
     } catch (error) { toast.error(apiError(error)) } finally { setSaving(false) }
   }
   // La «l» del correo es fija y todas las carreras aceptan números con b al inicio (correo «lb…»).
-  const number = `${String(rule.number_prefix || '').padEnd(Number(rule.digits) - 2, '0').slice(0, Number(rule.digits) - 2)}22`
+  const number = `AA${rule.career_code || 'CC'}NNNN`
   const sample = `l${number}@${rule.domain} · lb${number}@${rule.domain}`
   return (
     <section className="rule-editor">
       <header className="row-wrap"><strong>{item.career.nombre}</strong>{item.open_until && new Date(item.open_until) > new Date() && <Badge tone="success">Abierto hasta {formatDateTime(item.open_until)}</Badge>}</header>
       <div className="form-grid">
-        <Field label="El número inicia con" hint="Vacío para no exigirlo"><input className="control" inputMode="numeric" value={rule.number_prefix || ''} onChange={set('number_prefix')} /></Field>
-        <Field label="Dígitos del número de control"><input className="control" type="number" min={4} max={12} value={rule.digits} onChange={set('digits')} /></Field>
+        <Field label="Clave de la carrera" hint="2 dígitos; vacío para no exigirla"><input className="control" inputMode="numeric" maxLength={2} value={rule.career_code || ''} onChange={set('career_code')} /></Field>
         <Field label="Dominio"><input className="control" value={rule.domain} onChange={set('domain')} /></Field>
       </div>
-      <div className="row-wrap mt-2"><small className="muted">Ejemplo: {sample}</small><span className="spacer" /><Button size="sm" icon={FiSave} loading={saving} onClick={save}>Guardar</Button></div>
+      <div className="row-wrap mt-2"><small className="muted">Formato: {sample}</small><span className="spacer" /><Button size="sm" icon={FiSave} loading={saving} onClick={save}>Guardar</Button></div>
     </section>
   )
 }

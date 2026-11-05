@@ -81,8 +81,8 @@ export default function PasswordRecovery() {
         <Steps steps={['Tus datos', 'Código', 'Contraseña']} current={step} />
         {step === 0 && <>
           <p className="muted">Confirma los datos de tu cuenta y te enviaremos un código a tu correo.</p>
-          <Field label="Número de control o empleado"><input className="control" required autoFocus maxLength={10} placeholder="Ejemplo: 22240022" autoComplete="username" autoCapitalize="none" value={form.id} onChange={set('id')} /></Field>
-          <Field label="Correo de tu cuenta"><input className="control" required type="email" placeholder="l22240022@smartin.tecnm.mx" autoComplete="email" autoCapitalize="none" value={form.email} onChange={set('email')} /></Field>
+          <Field label="Número de control o empleado"><input className="control" required autoFocus maxLength={10} placeholder="Escribe tu número" autoComplete="username" autoCapitalize="none" value={form.id} onChange={set('id')} /></Field>
+          <Field label="Correo de tu cuenta"><input className="control" required type="email" placeholder="El correo registrado en tu cuenta" autoComplete="email" autoCapitalize="none" value={form.email} onChange={set('email')} /></Field>
         </>}
         {step === 1 && <>
           <p className="muted">Escribe el código de seis dígitos que enviamos a <strong>{maskEmail(form.email)}</strong>. Vence en 15 minutos; si no lo ves, revisa tu carpeta de spam.</p>
