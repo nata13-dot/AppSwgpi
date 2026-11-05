@@ -44,3 +44,11 @@ export const formatDateTime = (value) => {
 export const percent = (value, total) => (Number(total) > 0 ? Math.round((Number(value || 0) / Number(total)) * 100) : 0)
 /** Colecciones de Laravel que llegan como objeto ({0: …}) o como arreglo. */
 export const asList = (value) => (Array.isArray(value) ? value : value && typeof value === 'object' ? Object.values(value) : [])
+
+/** Texto sin acentos ni mayúsculas, para comparar búsquedas. */
+export const plainText = (value) => String(value ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+/** Cada palabra buscada debe aparecer en el texto, en cualquier orden: «perez juan» encuentra a «Juan Pérez». */
+export const matchesSearch = (text, term) => {
+  const haystack = plainText(text)
+  return plainText(term).split(/\s+/).filter(Boolean).every((word) => haystack.includes(word))
+}

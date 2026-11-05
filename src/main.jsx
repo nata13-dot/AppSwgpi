@@ -24,10 +24,9 @@ createRoot(document.getElementById('root')).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <NativeBackButton />
-          <PushNotificationsBridge />
           <ErrorBoundary>
             <SystemPreferences />
-            <AppLockGate><App /></AppLockGate>
+            <AppLockGate><PushNotificationsBridge /><App /></AppLockGate>
             <ToastContainer position="bottom-center" autoClose={3500} theme="colored" newestOnTop />
           </ErrorBoundary>
         </BrowserRouter>

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiCheck, FiX } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
+import { useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, Chips, DataTable, Empty, ErrorState, Loading, Page, promptText, SearchInput, useDebounced } from '../components/ui'
 
 const TONES = { pendiente: 'warning', aprobada: 'success', rechazada: 'danger' }
@@ -10,8 +11,10 @@ const TONES = { pendiente: 'warning', aprobada: 'success', rechazada: 'danger' }
 /** Directorio de empresas propuestas en los proyectos: la coordinación valida antes de incorporarlas al catálogo. */
 export default function Companies() {
   const client = useQueryClient()
-  const [status, setStatus] = useState('pendiente')
-  const [search, setSearch] = useState('')
+  // Al llegar desde el buscador se muestran todas, sea cual sea su estado de validación.
+  const [status, setStatus] = useState(() => (new URLSearchParams(window.location.search).get('q') ? '' : 'pendiente'))
+  const [params] = useSearchParams()
+  const [search, setSearch] = useState(params.get('q') || '')
   const debounced = useDebounced(search)
   const query = useQuery({ queryKey: ['companies', status, debounced], queryFn: () => api.get('/companies', { params: { status, q: debounced.trim() || undefined } }).then((response) => (Array.isArray(response.data) ? response.data : response.data.data || [])) })
   const review = async (company, next) => {

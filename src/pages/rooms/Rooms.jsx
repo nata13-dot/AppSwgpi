@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiArchive, FiArrowLeft, FiClock, FiEdit2, FiEyeOff, FiFileText, FiLock, FiPause, FiPlay, FiPlus, FiRotateCcw, FiSave, FiSkipForward, FiSquare, FiTrash2 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
@@ -7,10 +7,10 @@ import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { canDownloadFullEvaluationReports, canManageProjects } from '../../lib/permissions'
 import { useSemesters } from '../../lib/semesters'
-import { formatDateTime } from '../../utils/formatters'
+import { formatDateTime, matchesSearch } from '../../utils/formatters'
 import { Badge, Button, Card, Chips, confirmAction, Empty, ErrorState, Field, IconButton, Loading, Page, SearchInput, Sheet, Switch, Tabs } from '../../components/ui'
 import { downloadReport, roomName } from '../evaluations/evaluationShared'
-import { apiToInput, authorsOf, EVALUATOR_PROFILES, orderedProjects, personName, projectSemester, ROOM_STAGES, roomPayload, roomSearchText } from './roomShared'
+import { apiToInput, authorsOf, EVALUATOR_PROFILES, nextMinute, orderedProjects, personName, projectSemester, ROOM_STAGES, roomPayload, roomSearchText } from './roomShared'
 import RoomWizard from './RoomWizard'
 
 /** Salas de evaluación (Frontend_Swgpi/pages/admin/evaluation-rooms.php). */
@@ -23,7 +23,8 @@ export default function Rooms() {
   const { semesters } = useSemesters('career', { min: 5, max: 8 })
   const [semester, setSemester] = useState('')
   const [status, setStatus] = useState('active')
-  const [search, setSearch] = useState('')
+  const [params] = useSearchParams()
+  const [search, setSearch] = useState(params.get('q') || '')
   const [view, setView] = useState('rooms')
   const [sheet, setSheet] = useState(null) // { type: 'wizard', room } | { type: 'schedule', room }
   const archived = status === 'archived'
@@ -47,9 +48,9 @@ export default function Rooms() {
     return (projectsQuery.data || []).map((project) => ({ ...project, assigned_room_id: assignments.get(String(project.id)) || null }))
   }, [projectsQuery.data, rooms])
   const roomOf = (projectId) => rooms.find((room) => (room.projects || []).some((project) => Number(project.id) === Number(projectId))) || null
-  const needle = search.trim().toLowerCase()
-  const visibleRooms = rooms.filter((room) => (!semester || String(room.semestre) === semester) && (!needle || roomSearchText(room, roomName(room)).includes(needle)))
-  const visibleProjects = projects.filter((project) => (!semester || String(projectSemester(project)) === semester) && (!needle || `${project.title} ${authorsOf(project)} ${roomOf(project.id)?.nombre || ''}`.toLowerCase().includes(needle)))
+  const needle = search
+  const visibleRooms = rooms.filter((room) => (!semester || String(room.semestre) === semester) && matchesSearch(roomSearchText(room, roomName(room)), needle))
+  const visibleProjects = projects.filter((project) => (!semester || String(projectSemester(project)) === semester) && matchesSearch(`${project.title} ${authorsOf(project)} ${roomOf(project.id)?.nombre || ''}`, needle))
   const assigned = new Set(rooms.flatMap((room) => (room.projects || []).map((project) => Number(project.id))))
   const refresh = () => { client.invalidateQueries({ queryKey: ['evaluation-rooms'] }); client.invalidateQueries({ queryKey: ['evaluations'] }) }
 
@@ -218,7 +219,7 @@ function TeacherView({ teachers, rooms, search }) {
     teacher,
     evaluator: rooms.filter((room) => (room.teachers || []).some((item) => String(item.id) === String(teacher.id))),
     responsible: rooms.filter((room) => String(room.responsible_teacher_id || room.responsible_teacher?.id || '') === String(teacher.id)),
-  })).filter((item) => (item.evaluator.length || item.responsible.length) && (!search || `${item.teacher.id} ${personName(item.teacher)} ${item.teacher.email || ''}`.toLowerCase().includes(search) || item.evaluator.some((room) => String(room.nombre || '').toLowerCase().includes(search))))
+  })).filter((item) => (item.evaluator.length || item.responsible.length) && (matchesSearch(`${item.teacher.id} ${personName(item.teacher)} ${item.teacher.email || ''}`, search) || item.evaluator.some((room) => matchesSearch(room.nombre, search))))
     .sort((a, b) => (b.evaluator.length + b.responsible.length) - (a.evaluator.length + a.responsible.length) || personName(a.teacher).localeCompare(personName(b.teacher)))
   if (!cards.length) return <Empty title="Sin evaluadores" message="No hay evaluadores con salas en los filtros actuales." />
   return (
@@ -264,11 +265,11 @@ function ScheduleSheet({ room, onClose, onSaved }) {
     <Sheet open title="Horario y evaluación fuera de tiempo" subtitle={roomName(room)} onClose={onClose} size="md"
       footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button type="submit" form="schedule-form" icon={FiSave} loading={saving}>Guardar horario</Button></>}>
       <form id="schedule-form" className="form-grid" onSubmit={submit}>
-        <Field label="Inicio"><input className="control" type="datetime-local" required disabled={room.evaluation_window?.status !== 'scheduled'} value={form.start} onChange={(event) => set({ start: event.target.value })} /></Field>
+        <Field label="Inicio"><input className="control" type="datetime-local" required min={form.start === apiToInput(room.fecha_evaluacion) ? undefined : nextMinute()} disabled={room.evaluation_window?.status !== 'scheduled'} value={form.start} onChange={(event) => set({ start: event.target.value })} /></Field>
         <Field label="Fin ordinario"><input className="control" type="datetime-local" required value={form.end} onChange={(event) => set({ end: event.target.value })} /></Field>
         <div className="full"><Switch checked={form.late} onChange={(value) => set({ late: value })} label="Permitir evaluaciones fuera del horario" /></div>
         {form.late && <>
-          <Field label="Autorizada hasta"><input className="control" type="datetime-local" required value={form.lateUntil} onChange={(event) => set({ lateUntil: event.target.value })} /></Field>
+          <Field label="Autorizada hasta"><input className="control" type="datetime-local" required min={form.lateUntil === apiToInput(room.late_evaluation_until) ? undefined : nextMinute()} value={form.lateUntil} onChange={(event) => set({ lateUntil: event.target.value })} /></Field>
           <Field label="Motivo" full><textarea className="control" rows={3} required minLength={10} maxLength={500} value={form.reason} onChange={(event) => set({ reason: event.target.value })} /></Field>
         </>}
         <p className="muted small-text full">Si la sala ya comenzó, la hora de inicio queda protegida; todavía puedes extender el cierre o autorizar una captura tardía.</p>

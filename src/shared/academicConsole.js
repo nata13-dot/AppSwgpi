@@ -187,7 +187,8 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
       } else {
         const [f, done] = form(p, 'Abrir inscripción / renovar clave', d => request('PUT', `/courses/${c.id}/self-enrollment`, { enabled: true, password: d.password, password_confirmation: d.password, starts_at: d.start, ends_at: d.end }))
         input(f, 'Nueva clave (mínimo 6 caracteres)', 'password', 'password').minLength = 6
-        input(f, 'Apertura', 'start', 'datetime-local'); input(f, 'Cierre', 'end', 'datetime-local'); done()
+        const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+        input(f, 'Apertura', 'start', 'datetime-local').min = now; input(f, 'Cierre', 'end', 'datetime-local').min = now; done()
         button('Cerrar autorregistro', async () => { await request('PUT', `/courses/${c.id}/self-enrollment`, { enabled: false }); await render() }, p)
         button('Ver inscritos', async () => {
           const data = await request('GET', `/courses/${c.id}/students`)

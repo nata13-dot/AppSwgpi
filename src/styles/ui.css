@@ -743,3 +743,36 @@ a.btn-app { text-decoration: none; }
 .app-lock img { width: 84px; height: 84px; margin-bottom: 8px; }
 .app-lock h1 { margin: 0; font-size: 1.4rem; }
 .app-lock p { margin: 0 0 8px; }
+
+/* Asistente de ayuda y guía de inicio */
+.help-fab { position: fixed; z-index: 44; right: 16px; bottom: calc(var(--bottom-h) + var(--safe-bottom) + 14px); width: 48px; height: 48px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--brand); color: var(--brand-ink, #fff); font-size: 1.35rem; box-shadow: var(--shadow-lg); cursor: pointer; }
+:root:not([data-theme="dark"]) .help-fab { color: #fff; }
+.help-fab:hover { background: var(--brand-2); }
+@media (min-width: 992px) { .help-fab { bottom: 22px; right: 22px; } }
+.help-chat { display: flex; flex-direction: column; gap: 10px; }
+.help-bubble { max-width: 92%; padding: 10px 12px; border-radius: 14px; font-size: .9rem; }
+.help-bubble p { margin: 0 0 6px; } .help-bubble p:last-child { margin-bottom: 0; }
+.help-bubble.bot { align-self: flex-start; background: var(--surface-2); color: var(--ink); border-bottom-left-radius: 4px; }
+.help-bubble.user { align-self: flex-end; background: var(--brand); color: #fff; border-bottom-right-radius: 4px; }
+:root[data-theme="dark"] .help-bubble.user { color: var(--brand-ink); }
+.help-steps { margin: 4px 0 8px; padding-left: 20px; } .help-steps li + li { margin-top: 4px; }
+.help-suggestions { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 6px 0 8px; }
+.help-suggestions button { padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: .84rem; text-align: left; cursor: pointer; }
+.help-suggestions button:hover { border-color: var(--brand); }
+.help-suggestions small { color: var(--muted); }
+.help-compose { flex: 1; display: flex; gap: 8px; align-items: center; } .help-compose .control { flex: 1; min-width: 0; }
+.tour-layer { position: fixed; inset: 0; z-index: 1100; }
+.tour-backdrop { position: absolute; inset: 0; background: rgba(10, 18, 32, .6); }
+.tour-spotlight { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(10, 18, 32, .6); outline: 2px solid #fff; transition: all .2s ease; pointer-events: none; }
+.tour-card { position: fixed; width: min(320px, calc(100vw - 32px)); padding: 16px; border-radius: 16px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lg); outline: none; }
+.tour-layer.centered .tour-card { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.tour-card small { color: var(--muted); }
+.tour-card h3 { margin: 4px 0 6px; font-size: 1.05rem; }
+.tour-card p { margin: 0 0 12px; font-size: .9rem; }
+.tour-card footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tour-card footer span { display: flex; gap: 6px; }
+.tour-skip { padding: 4px; border: 0; background: none; color: var(--muted); font: inherit; font-size: .84rem; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .tour-spotlight { transition: none; } }
+.search-group-title { margin: 12px 0 4px; color: var(--muted); font-size: .76rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+/* El botón de ayuda no debe tapar las acciones fijas de los formularios. */
+.sticky-actions { padding-right: 62px; }

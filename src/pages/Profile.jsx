@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth'
 import { appLockAvailable, disableAppLock, enableAppLock, isAppLockEnabled, isNativeApp } from '../services/appLock'
 import { roleLabel, viewAs } from '../lib/permissions'
 import { fullName, publicAssetUrl } from '../utils/formatters'
-import { Button, Card, ErrorState, Field, Loading, Page } from '../components/ui'
+import { Button, Card, ErrorState, Field, Loading, Page, rejectEmptyFile, Switch } from '../components/ui'
 
 /** Perfil propio (Frontend_Swgpi/pages/profile.php): foto, teléfono, especialidad y contraseña. */
 export default function Profile() {
@@ -17,7 +17,27 @@ export default function Profile() {
     <Page title="Mi perfil" subtitle={`${roleLabel(user)}${user?.active_career ? ` · ${user.active_career.nombre_corto}` : ''}`}>
       {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : <ProfileForm profile={query.data} readOnly={Boolean(viewAs(user))} onSaved={async () => { await refreshUser(); query.refetch() }} />}
       {!viewAs(user) && <QuickUnlockCard userId={user?.id} />}
+      {!viewAs(user) && <NotificationPreferences />}
     </Page>
+  )
+}
+
+/** Recordatorios y resúmenes que cada quien puede apagar. Lo que requiere una acción suya siempre llega. */
+function NotificationPreferences() {
+  const query = useQuery({ queryKey: ['notification-preferences'], queryFn: () => api.get('/notifications/preferences').then((response) => response.data.data) })
+  const toggle = async (item) => {
+    try {
+      await api.put('/notifications/preferences', { event: item.key, enabled: !item.enabled })
+      query.refetch()
+    } catch (error) { toast.error(apiError(error)) }
+  }
+  if (!query.data?.length) return null
+  return (
+    <Card title="Avisos" subtitle="Los avisos sobre algo que requiere tu atención (calificaciones, cambios de sala, solicitudes) siempre llegan. De 22:00 a 7:00 sólo llegan cambios urgentes.">
+      <div className="stack">{query.data.map((item) => (
+        <Switch key={item.key} checked={item.enabled} onChange={() => toggle(item)} label={item.label} hint={item.hint} />
+      ))}</div>
+    </Card>
   )
 }
 
@@ -79,7 +99,7 @@ function ProfileForm({ profile, readOnly, onSaved }) {
           <label className="profile-photo" title="Cambiar foto">
             {preview ? <img src={preview} alt="" /> : <span>{(profile.nombres || '?').charAt(0)}</span>}
             <i><FiCamera /></i>
-            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={readOnly} onChange={(event) => event.target.files[0] && setPhoto(event.target.files[0])} />
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={readOnly} onChange={(event) => { const file = event.target.files[0]; if (file && !rejectEmptyFile(file)) setPhoto(file); else event.target.value = '' }} />
           </label>
           <div><h2>{fullName(profile)}</h2><p className="muted">{profile.id} · {profile.email}</p>{photo && <small className="text-success">Nueva foto lista para guardar</small>}</div>
         </div>

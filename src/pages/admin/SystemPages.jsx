@@ -161,7 +161,7 @@ function NoticeForm({ notice, onClose, onSave }) {
         <Field label="Mensaje" full><textarea className="control" rows={3} required value={form.message} onChange={set('message')} /></Field>
         <Field label="Audiencia"><select className="control" value={form.audience} onChange={set('audience')}>{Object.entries(AUDIENCES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
         <Field label="Tipo"><select className="control" value={form.type} onChange={set('type')}>{Object.entries(TYPES).map(([key, [label]]) => <option key={key} value={key}>{label}</option>)}</select></Field>
-        <Field label="Inicia"><input className="control" type="date" value={form.starts_at || ''} onChange={set('starts_at')} /></Field>
+        <Field label="Inicia"><input className="control" type="date" min={form.starts_at && form.starts_at === notice?.starts_at ? undefined : new Date().toLocaleDateString('en-CA')} value={form.starts_at || ''} onChange={set('starts_at')} /></Field>
         <Field label="Finaliza"><input className="control" type="date" value={form.ends_at || ''} onChange={set('ends_at')} /></Field>
         <Field label="Duración en pantalla (segundos)"><input className="control" type="number" min={2} max={30} value={form.duration_seconds} onChange={set('duration_seconds')} /></Field>
         <div className="field align-end"><Switch checked={form.active} onChange={(value) => setForm({ ...form, active: value })} label="Activo" /></div>

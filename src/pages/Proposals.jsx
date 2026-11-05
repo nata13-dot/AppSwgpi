@@ -267,6 +267,26 @@ function ProposalReview() {
 }
 
 /** Abre o cierra una ventana con fecha de cierre (autoregistro o registro de propuestas). */
+/** Grupos de 5° que elige un alumno nuevo al registrarse. */
+function NewStudentGroups({ groups, disabled, onChanged }) {
+  const [value, setValue] = useState((groups || []).join(', '))
+  const [saving, setSaving] = useState(false)
+  const save = async () => {
+    setSaving(true)
+    try {
+      await api.put('/proposal/settings/new-student-groups', { groups: value.split(/[\s,]+/).filter(Boolean) })
+      toast.success('Grupos guardados')
+      onChanged()
+    } catch (error) { toast.error(apiError(error)) } finally { setSaving(false) }
+  }
+  return (
+    <div className="row-wrap">
+      <Field label="Grupos de 5° para alumnos nuevos" hint="Separados por coma. El registro sólo se abre de julio a diciembre."><input className="control" disabled={disabled} value={value} onChange={(event) => setValue(event.target.value)} /></Field>
+      {!disabled && <Button size="sm" variant="ghost" loading={saving} onClick={save}>Guardar grupos</Button>}
+    </div>
+  )
+}
+
 function WindowControl({ title, subtitle, state, endpoint, disabled, onChanged, children }) {
   const [until, setUntil] = useState('')
   const [saving, setSaving] = useState(false)
@@ -317,6 +337,7 @@ function ProposalSettings() {
           endpoint="/proposal/settings/self-registration" disabled={readOnly || !data.self_registration.can_manage} onChanged={refresh}>
           <p className="muted small-text">Correo esperado: <strong>{data.self_registration.rule.example}</strong>. {data.self_registration.rule.description}</p>
           {!data.self_registration.can_manage && <p className="muted small-text">Lo abre la administración general o la jefatura.</p>}
+          <NewStudentGroups groups={data.self_registration.groups} disabled={readOnly || !data.self_registration.can_manage} onChanged={refresh} />
         </WindowControl>
         <WindowControl title="Registro de propuestas" subtitle={`Los alumnos registran su propuesta o piden unirse a la de un compañero (máximo ${data.max_project_members} integrantes).`}
           state={data.proposal_window} endpoint="/proposal/settings/proposal-window" disabled={readOnly} onChanged={refresh} />

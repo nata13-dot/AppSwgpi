@@ -1,8 +1,10 @@
-import { createElement, useEffect, useMemo, useState } from 'react'
+import { createElement, Fragment, useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { App as CapacitorApp } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  FiBell, FiCheck, FiChevronDown, FiChevronsLeft, FiEye, FiGrid, FiLayers, FiLogOut, FiMenu, FiMoon,
+  FiArrowRight, FiBell, FiCheck, FiChevronDown, FiChevronsLeft, FiEye, FiGrid, FiLayers, FiLogOut, FiMenu, FiMoon,
   FiSearch, FiShield, FiSun, FiUser, FiX,
 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
@@ -12,8 +14,10 @@ import { bottomNavPaths, filterMenu, flattenMenu, menuForUser, SHORT_LABELS } fr
 import { homePath, isGeneralAdmin, profileLabel, roleLabel, SIMULABLE_PROFILES, viewAs, activeProfileId, isAdmin } from '../../lib/permissions'
 import { markNoticesRead, noticeKey, noticesForUser, readNoticeKeys } from '../../lib/notices'
 import { toggleTheme } from '../../lib/theme'
-import { fullName, publicAssetUrl } from '../../utils/formatters'
-import { Button, confirmAction, Empty, IconButton, Sheet, Tabs } from '../ui'
+import { fullName, matchesSearch, publicAssetUrl } from '../../utils/formatters'
+import { recordPath } from '../../lib/searchRoutes'
+import { Button, confirmAction, Empty, IconButton, Sheet, Tabs, useDebounced } from '../ui'
+import HelpCenter from './HelpCenter'
 
 const careerColor = (career) => career?.color_acento || career?.color_primario || '#1B396A'
 
@@ -23,6 +27,10 @@ function Avatar({ user, size = 'md' }) {
 }
 
 export default function AppLayout() {
+  const [appVersion, setAppVersion] = useState('')
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) CapacitorApp.getInfo().then((info) => setAppVersion(info.version)).catch(() => {})
+  }, [])
   const { user, logout, switchCareer, startLevelView, exitLevelView } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -110,7 +118,7 @@ export default function AppLayout() {
         <div className="sidebar-profile"><Avatar user={user} /><span><strong>{user?.nombres}</strong><small>{roleLabel(user)}</small></span></div>
         <MenuList menu={menu} pathname={location.pathname} collapsed={collapsed} />
         <footer className="sidebar-foot">
-          <small>SGPI · versión móvil 3.1</small>
+          <small>SGPI{appVersion ? ` · versión ${appVersion}` : ''}</small>
           <IconButton icon={FiChevronsLeft} label={collapsed ? 'Expandir menú' : 'Contraer menú'} className="collapse-toggle" onClick={() => setCollapsed((value) => !value)} />
         </footer>
       </aside>
@@ -119,7 +127,7 @@ export default function AppLayout() {
         <header className="topbar-app">
           <NavLink to={homePath(user)} className="topbar-logo" aria-label="Inicio"><img src="/images/itssmt.webp" alt="" /></NavLink>
           <div className="topbar-title"><strong>{user?.active_career?.nombre_corto || 'SGPI'}</strong><small>{roleLabel(user)}</small></div>
-          <button type="button" className="topbar-search" onClick={() => setSheet('search')}><FiSearch /><span>Buscar páginas y opciones...</span><kbd>Ctrl K</kbd></button>
+          <button type="button" className="topbar-search" onClick={() => setSheet('search')}><FiSearch /><span>Buscar pantallas y registros...</span><kbd>Ctrl K</kbd></button>
           <div className="topbar-actions">
             {canSwitchCareer && <button type="button" className="topbar-chip" onClick={() => setSheet('career')} disabled={busy}><i style={{ background: careerColor(user?.active_career) }} /><span>{user?.active_career?.nombre_corto || 'Carrera'}</span><FiChevronDown /></button>}
             {canSimulate && <button type="button" className={`topbar-chip level ${simulation ? 'active' : ''}`} onClick={() => setSheet('level')} disabled={busy}><FiLayers /><span>{simulation ? roleLabel(user) : 'Administrador general'}</span><FiChevronDown /></button>}
@@ -183,7 +191,8 @@ export default function AppLayout() {
       </Sheet>
 
       <NotificationsSheet open={sheet === 'notifications'} onClose={() => setSheet(null)} notices={notices} activity={activity} operations={generalAdmin && !simulation ? operations : null} canManageNotices={isAdmin(user)} />
-      <SearchSheet open={sheet === 'search'} onClose={() => setSheet(null)} items={flatMenu} />
+      <SearchSheet open={sheet === 'search'} onClose={() => setSheet(null)} items={flatMenu} user={user} />
+      <HelpCenter user={user} menuItems={flatMenu} simulated={Boolean(simulation)} onOpenSearch={() => setSheet('search')} />
     </div>
   )
 }
@@ -256,19 +265,37 @@ function NotificationsSheet({ open, onClose, notices, activity, operations, canM
   )
 }
 
-function SearchSheet({ open, onClose, items }) {
+function SearchSheet({ open, onClose, items, user }) {
   const navigate = useNavigate()
   const [term, setTerm] = useState('')
-  const normalized = term.trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
-  const plain = (text) => text.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
-  const results = normalized ? items.filter((entry) => plain(entry.label).includes(normalized) || entry.keywords?.some((keyword) => plain(keyword).includes(normalized))) : items
-  const go = (path) => { navigate(path); setTerm(''); onClose() }
+  const debounced = useDebounced(term.trim(), 280)
+  const close = () => { setTerm(''); onClose() }
+  const go = (path) => { navigate(path); close() }
+  const pages = term.trim() ? items.filter((entry) => matchesSearch(`${entry.label} ${(entry.keywords || []).join(' ')}`, term)) : items
+  const records = useQuery({
+    queryKey: ['global-search', debounced],
+    queryFn: () => api.get('/search', { params: { q: debounced } }).then((response) => response.data),
+    enabled: open && debounced.length >= 2,
+    staleTime: 30_000,
+  })
+  const groups = debounced.length >= 2 ? records.data?.groups || [] : []
+  const searching = term.trim().length >= 2 && (records.isFetching || debounced !== term.trim())
+  const first = pages[0]?.path || (groups[0] && recordPath(groups[0].type, groups[0].items[0], user))
   return (
-    <Sheet open={open} title="Buscar" onClose={onClose} size="sm">
-      <label className="search-app big"><FiSearch /><input autoFocus value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Páginas y opciones..." onKeyDown={(event) => event.key === 'Enter' && results[0] && go(results[0].path)} />{term && <button type="button" aria-label="Limpiar" onClick={() => setTerm('')}><FiX /></button>}</label>
+    <Sheet open={open} title="Buscar" onClose={close} size="sm">
+      <label className="search-app big"><FiSearch /><input autoFocus value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Pantallas, proyectos, personas, documentos..." onKeyDown={(event) => { if (event.key === 'Enter' && first) go(first) }} /></label>
       <div className="option-list compact">
-        {results.map((entry) => <button type="button" key={entry.path} onClick={() => go(entry.path)}>{createElement(entry.icon)}<span><strong>{entry.label}</strong></span></button>)}
-        {!results.length && <Empty title="Sin coincidencias" message="Prueba con otra palabra." />}
+        {pages.length > 0 && term.trim() && <h6 className="search-group-title">Pantallas</h6>}
+        {pages.map((entry) => <button type="button" key={entry.path} onClick={() => go(entry.path)}>{createElement(entry.icon)}<span><strong>{entry.label}</strong></span></button>)}
+        {groups.map((group) => (
+          <Fragment key={group.type}>
+            <h6 className="search-group-title">{group.label}</h6>
+            {group.items.map((item) => <button type="button" key={item.id} onClick={() => go(recordPath(group.type, item, user))}><FiArrowRight aria-hidden="true" /><span><strong>{item.title}</strong><small>{item.subtitle}</small></span></button>)}
+          </Fragment>
+        ))}
+        {searching && !groups.length && <p className="muted small-text">Buscando en el sistema...</p>}
+        {records.isError && <p className="muted small-text">{apiError(records.error)}</p>}
+        {!pages.length && !groups.length && !searching && !records.isError && <Empty title="Sin coincidencias" message={term.trim().length < 2 ? 'Escribe al menos dos letras.' : 'Prueba con otra palabra. Sólo aparece lo que tu perfil puede consultar.'} />}
       </div>
     </Sheet>
   )

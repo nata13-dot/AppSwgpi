@@ -3,6 +3,7 @@ import { FiAlertTriangle, FiArrowLeft, FiArrowRight, FiCheckCircle, FiChevronDow
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useSemesters } from '../../lib/semesters'
+import { matchesSearch } from '../../utils/formatters'
 import { Badge, Button, Field, SearchInput, Sheet, Steps } from '../../components/ui'
 import { roomName } from '../evaluations/evaluationShared'
 import {
@@ -11,7 +12,7 @@ import {
 } from './roomShared'
 
 const STEPS = ['Cuándo y dónde', 'Proyectos', 'Evaluadores']
-const matches = (text, needle) => !needle.trim() || text.toLowerCase().includes(needle.trim().toLowerCase())
+const matches = matchesSearch
 
 function initialState(room) {
   if (!room) return { name: '', nameAuto: true, classroom: '', semester: '', start: '', end: '', endAuto: true, teacherMinutes: 15, presentationMinutes: 20, attempts: 1, projects: [], special: {}, teachers: [], responsible: '' }

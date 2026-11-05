@@ -7,7 +7,7 @@ import api, { apiError } from '../../services/api'
 import { Button, ErrorState, Field, Loading, Steps } from '../../components/ui'
 import { formatDateTime } from '../../utils/formatters'
 
-const EMPTY = { carrera_id: '', id: '', email: '', nombres: '', apa: '', ama: '', semestre: '', grupo_id: '', password: '', password_confirmation: '' }
+const EMPTY = { carrera_id: '', id: '', email: '', nombres: '', apa: '', ama: '', grupo_id: '', password: '', password_confirmation: '' }
 
 /** Mismo criterio que la API: correo = prefijo + número de control @ dominio de la carrera. */
 const expectedEmail = (rule, id) => (rule && id ? `${rule.email_prefix}${id.trim().toLowerCase()}@${rule.domain}` : '')
@@ -23,11 +23,11 @@ export default function SelfRegister() {
   const open = careers.data?.careers || []
   const career = open.find((item) => String(item.id) === String(form.carrera_id)) || (open.length === 1 ? open[0] : null)
   const rule = career?.rule
-  const semesters = [...new Set((career?.groups || []).map((group) => group.semestre))]
-  const groups = (career?.groups || []).filter((group) => String(group.semestre) === String(form.semestre))
+  // Los alumnos nuevos entran a 5°: sólo eligen su grupo.
+  const groups = career?.groups || []
   const expected = expectedEmail(rule, form.id)
   const emailMismatch = form.email && expected && form.email.trim().toLowerCase() !== expected
-  const set = (key) => (event) => setForm({ ...form, [key]: event.target.value, ...(key === 'semestre' ? { grupo_id: '' } : {}), ...(key === 'carrera_id' ? { semestre: '', grupo_id: '' } : {}) })
+  const set = (key) => (event) => setForm({ ...form, [key]: event.target.value, ...(key === 'carrera_id' ? { grupo_id: '' } : {}) })
 
   const sendData = async () => {
     setLoading(true)
@@ -93,16 +93,10 @@ export default function SelfRegister() {
           <Field label="Nombre(s)"><input className="control" required autoComplete="given-name" value={form.nombres} onChange={set('nombres')} /></Field>
           <Field label="Apellido paterno"><input className="control" required autoComplete="family-name" value={form.apa} onChange={set('apa')} /></Field>
           <Field label="Apellido materno"><input className="control" value={form.ama} onChange={set('ama')} /></Field>
-          <Field label="Semestre">
-            <select className="control" required disabled={!career} value={form.semestre} onChange={set('semestre')}>
-              <option value="">Elige tu semestre</option>
-              {semesters.map((semester) => <option key={semester} value={semester}>{semester}° semestre</option>)}
-            </select>
-          </Field>
-          <Field label="Grupo">
-            <select className="control" required disabled={!form.semestre} value={form.grupo_id} onChange={set('grupo_id')}>
+          <Field label="Grupo" hint="Los alumnos nuevos entran a 5° semestre.">
+            <select className="control" required disabled={!career} value={form.grupo_id} onChange={set('grupo_id')}>
               <option value="">Elige tu grupo</option>
-              {groups.map((group) => <option key={group.id} value={group.id}>{group.grupo} · {group.nombre}</option>)}
+              {groups.map((group) => <option key={group.id} value={group.id}>{group.semestre}° {group.grupo}</option>)}
             </select>
           </Field>
           <Field label="Contraseña" hint="Mínimo 8 caracteres."><input className="control" required minLength="8" type="password" autoComplete="new-password" value={form.password} onChange={set('password')} /></Field>

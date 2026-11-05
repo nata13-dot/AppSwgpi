@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { FiAlertCircle, FiArrowLeft, FiCheck, FiChevronLeft, FiChevronRight, FiInbox, FiSearch, FiUploadCloud, FiX } from 'react-icons/fi'
 import Swal from 'sweetalert2'
+import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { registerBackHandler } from '../../utils/backNavigation'
 
@@ -278,17 +279,25 @@ export function DataTable({ columns, rows, rowKey = 'id', onRowClick, actions, e
   )
 }
 
+/** Avisa y devuelve true si el archivo elegido no tiene contenido. La API también lo rechaza. */
+export const rejectEmptyFile = (file) => {
+  if (file.size > 0) return false
+  toast.error(`El archivo «${file.name}» está vacío. Elige otro.`)
+  return true
+}
+
 export function FileDrop({ accept, onFile, file, hint, label = 'Toca para elegir un archivo o arrástralo aquí', disabled }) {
   const [over, setOver] = useState(false)
   const inputRef = useRef(null)
+  const pick = (chosen) => { if (chosen && !rejectEmptyFile(chosen)) onFile(chosen) }
   return (
     <div
       className={`filedrop ${over ? 'over' : ''} ${file ? 'has-file' : ''} ${disabled ? 'disabled' : ''}`}
       onDragOver={(event) => { event.preventDefault(); setOver(true) }}
       onDragLeave={() => setOver(false)}
-      onDrop={(event) => { event.preventDefault(); setOver(false); if (!disabled && event.dataTransfer.files[0]) onFile(event.dataTransfer.files[0]) }}
+      onDrop={(event) => { event.preventDefault(); setOver(false); if (!disabled) pick(event.dataTransfer.files[0]) }}
     >
-      <input ref={inputRef} type="file" accept={accept} disabled={disabled} onChange={(event) => { if (event.target.files[0]) onFile(event.target.files[0]); event.target.value = '' }} />
+      <input ref={inputRef} type="file" accept={accept} disabled={disabled} onChange={(event) => { pick(event.target.files[0]); event.target.value = '' }} />
       <FiUploadCloud aria-hidden="true" />
       <strong>{file ? file.name : label}</strong>
       <small>{file ? `${(file.size / 1048576).toFixed(1)} MB` : hint}</small>

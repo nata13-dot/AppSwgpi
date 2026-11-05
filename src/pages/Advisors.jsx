@@ -6,7 +6,7 @@ import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { isProjectCoordinator } from '../lib/permissions'
-import { fullName } from '../utils/formatters'
+import { fullName, matchesSearch } from '../utils/formatters'
 import { Badge, Button, Card, Empty, ErrorState, IconButton, Loading, Page, promptPassword, SearchInput, Tabs } from '../components/ui'
 import { ProjectDetails } from './projects/projectShared'
 
@@ -150,7 +150,7 @@ function TeacherView({ teachers, projects, onOpen, onFocus }) {
     const assigned = projects.filter((project) => advisorFor(project, teacher) && (!role || advisorFor(project, teacher)?.pivot?.rol_asesor === role))
     const count = (key) => assigned.filter((project) => advisorFor(project, teacher)?.pivot?.rol_asesor === key).length
     return { teacher, assigned, count }
-  }).filter((item) => !search.trim() || `${item.teacher.id} ${fullName(item.teacher)} ${item.teacher.email || ''}`.toLowerCase().includes(search.trim().toLowerCase()))
+  }).filter((item) => matchesSearch(`${item.teacher.id} ${fullName(item.teacher)} ${item.teacher.email || ''}`, search))
     .sort((a, b) => b.assigned.length - a.assigned.length || fullName(a.teacher).localeCompare(fullName(b.teacher)))
   const withProjects = teachers.filter((teacher) => projects.some((project) => advisorFor(project, teacher))).length
   const totalRoles = teachers.reduce((total, teacher) => total + projects.filter((project) => advisorFor(project, teacher)).length, 0)

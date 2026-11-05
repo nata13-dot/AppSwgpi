@@ -7,6 +7,7 @@ import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { isStudent, isTeacher } from '../lib/permissions'
 import { downloadApiFile } from '../utils/downloads'
+import { nextMinute } from './rooms/roomShared'
 import { formatDate, fullName } from '../utils/formatters'
 import { Badge, Button, Card, confirmAction, DataTable, Empty, ErrorState, Field, FileDrop, IconButton, Loading, Page, Pager, SearchInput, Sheet, useDebounced } from '../components/ui'
 
@@ -86,6 +87,8 @@ function ManageDeliverables() {
   const competencyFilter = params.get('competencia_id')
   const [subject, setSubject] = useState('')
   const [competency, setCompetency] = useState('')
+  const [search, setSearch] = useState(params.get('q') || '')
+  const debounced = useDebounced(search)
   const [page, setPage] = useState(1)
   const [sheet, setSheet] = useState(null)
   const catalogs = useQuery({
@@ -100,7 +103,7 @@ function ManageDeliverables() {
     },
     staleTime: 60_000,
   })
-  const filters = { ...(subject ? { asignatura_id: subject } : {}), ...(competency ? { competencia_id: competency } : {}), ...(competencyFilter ? { competencia_id: competencyFilter } : {}) }
+  const filters = { ...(debounced.trim() ? { q: debounced.trim() } : {}), ...(subject ? { asignatura_id: subject } : {}), ...(competency ? { competencia_id: competency } : {}), ...(competencyFilter ? { competencia_id: competencyFilter } : {}) }
   const query = useQuery({ queryKey: ['deliverables', filters, page], queryFn: () => api.get('/deliverables', { params: { ...filters, page } }).then((response) => response.data) })
   const refresh = () => client.invalidateQueries({ queryKey: ['deliverables'] })
   const competencies = (catalogs.data?.competencies || []).filter((item) => !subject || Number(item.asignatura_id) === Number(subject))
@@ -118,6 +121,7 @@ function ManageDeliverables() {
       </>}>
       {!competencyFilter && (
         <div className="toolbar">
+          <SearchInput value={search} onChange={(value) => { setSearch(value); setPage(1) }} placeholder="Nombre del entregable" />
           <select className="control grow" aria-label="Materia" value={subject} onChange={(event) => { setSubject(event.target.value); setCompetency(''); setPage(1) }}>
             <option value="">Todas las materias</option>
             {(catalogs.data?.subjects || []).map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
@@ -160,12 +164,13 @@ function DeliverableForm({ deliverable, catalogs, defaultSubject, onClose, onSav
     project_id: deliverable?.project_id || '', asignatura_id: deliverable?.asignatura_id || defaultSubject || '', nombre: deliverable?.nombre || '',
     descripcion: deliverable?.descripcion || '', tipo_documento: deliverable?.tipo_documento || 'documento', estado: deliverable?.estado || 'pendiente',
     rama_asociada: deliverable?.rama_asociada || '', autores: deliverable?.autores || '',
+    fecha_limite: String(deliverable?.fecha_limite || '').replace(' ', 'T').slice(0, 16),
   })
   const [saving, setSaving] = useState(false)
   const set = (key) => (event) => setForm({ ...form, [key]: event.target.value })
   const submit = async (event) => {
     event.preventDefault()
-    const data = { ...form, project_id: form.project_id || null, asignatura_id: form.asignatura_id || null, nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, rama_asociada: form.rama_asociada.trim() || null, autores: form.autores.trim() || null }
+    const data = { ...form, fecha_limite: form.fecha_limite || null, project_id: form.project_id || null, asignatura_id: form.asignatura_id || null, nombre: form.nombre.trim(), descripcion: form.descripcion.trim() || null, rama_asociada: form.rama_asociada.trim() || null, autores: form.autores.trim() || null }
     setSaving(true)
     try {
       if (deliverable) await api.put(`/deliverables/${deliverable.id}`, data)
@@ -185,6 +190,7 @@ function DeliverableForm({ deliverable, catalogs, defaultSubject, onClose, onSav
         <Field label="Descripción" full><textarea className="control" rows={3} value={form.descripcion} onChange={set('descripcion')} /></Field>
         <Field label="Tipo"><select className="control" value={form.tipo_documento} onChange={set('tipo_documento')}>{[['documento', 'Documento'], ['reporte', 'Reporte'], ['video', 'Video'], ['presentacion', 'Presentación'], ['codigo', 'Código'], ['otro', 'Otro']].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
         <Field label="Estado"><select className="control" value={form.estado} onChange={set('estado')}>{[['pendiente', 'Pendiente'], ['enviado', 'Enviado'], ['revisado', 'Revisado'], ['aprobado', 'Aprobado']].map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+        <Field label="Fecha límite" hint="Los alumnos inscritos reciben recordatorios 7, 3 y 1 día antes." full><input className="control" type="datetime-local" min={String(deliverable?.fecha_limite || '').replace(' ', 'T').slice(0, 16) === form.fecha_limite ? undefined : nextMinute()} value={form.fecha_limite} onChange={set('fecha_limite')} /></Field>
         <Field label="Rama asociada"><input className="control" value={form.rama_asociada} onChange={set('rama_asociada')} /></Field>
         <Field label="Autores"><input className="control" value={form.autores} onChange={set('autores')} /></Field>
       </form>

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiChevronRight, FiEdit2, FiFileText, FiLayers, FiPlus, FiSave, FiStar, FiTrash2, FiGitBranch } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
+import { matchesSearch } from '../utils/formatters'
 import { Badge, Button, Card, confirmAction, DataTable, Empty, ErrorState, Field, IconButton, Loading, Page, Pager, SearchInput, Sheet } from '../components/ui'
 
 const dateOnly = (value) => (value ? String(value).substring(0, 10) : '')
@@ -29,8 +30,9 @@ export default function Subjects() {
   const location = useLocation()
   const [page, setPage] = useState(1)
   const [perPage, setPerPage] = useState(15)
+  const searchFilter = new URLSearchParams(location.search).get('q') || ''
   const [sheet, setSheet] = useState(() => (location.hash === '#competencias' ? { type: 'launcher' } : null))
-  const query = useQuery({ queryKey: ['asignaturas', page, perPage], queryFn: () => api.get('/asignaturas', { params: { page, per_page: perPage } }).then((response) => response.data), placeholderData: (previous) => previous })
+  const query = useQuery({ queryKey: ['asignaturas', page, perPage, searchFilter], queryFn: () => api.get('/asignaturas', { params: { page, per_page: perPage, q: searchFilter || undefined } }).then((response) => response.data), placeholderData: (previous) => previous })
   const rows = query.data?.data || []
   const refresh = () => client.invalidateQueries({ queryKey: ['asignaturas'] })
   const remove = async (subject) => {
@@ -104,7 +106,7 @@ function SubjectForm({ subject, onClose, onSaved }) {
 function CompetencyLauncher({ onClose, onPick }) {
   const [search, setSearch] = useState('')
   const query = useQuery({ queryKey: ['asignaturas', 'all'], queryFn: allSubjects, staleTime: 30_000 })
-  const list = (query.data || []).filter((subject) => `${subject.clave || ''} ${subject.nombre || ''}`.toLowerCase().includes(search.trim().toLowerCase()))
+  const list = (query.data || []).filter((subject) => matchesSearch(`${subject.clave || ''} ${subject.nombre || ''}`, search))
   return (
     <Sheet open title="Competencias" subtitle="Selecciona una asignatura para consultar sus competencias y entregables." onClose={onClose} size="sm">
       <SearchInput value={search} onChange={setSearch} placeholder="Clave o nombre de la asignatura" autoFocus />
