@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiBook, FiDownload, FiEdit2, FiEye, FiPlus, FiTrash2, FiUploadCloud, FiUserCheck, FiAward } from 'react-icons/fi'
+import { FiArchive, FiBook, FiBriefcase, FiDownload, FiEdit2, FiEye, FiPlus, FiTrash2, FiUploadCloud, FiUserCheck, FiAward } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
-import { canManageProjects, isProjectCoordinator, isTeacher } from '../../lib/permissions'
+import { canManageProjects, isAdmin, isProjectCoordinator, isTeacher } from '../../lib/permissions'
+import { sendToArchive } from '../../services/archive'
 import { downloadApiFile } from '../../utils/downloads'
 import { fullName } from '../../utils/formatters'
 import { Badge, Button, Card, confirmAction, DataTable, ErrorState, IconButton, Loading, Page, Pager, SearchInput, Tabs, useDebounced } from '../../components/ui'
@@ -15,14 +16,19 @@ import ProjectSubjects from './ProjectSubjects'
 import ProjectsImport from './ProjectsImport'
 import TeacherProjects from './TeacherProjects'
 
+const semesterOptions = (view) => (view === 'thesis' ? THESIS_SEMESTERS : view === 'residency' ? PROJECT_SEMESTERS.filter(([value]) => value === '9') : PROJECT_SEMESTERS)
+
 export default function ProjectsPage() {
   const { user } = useAuth()
   return isTeacher(user) ? <TeacherProjects /> : <Projects />
 }
 
+const RESIDENCY = { value: 'residencia', label: 'Residencia' }
+
 /**
  * Gestión de proyectos y tesis (Frontend_Swgpi/pages/admin/projects.php). Cada pestaña consulta sólo su
  * modalidad: la llave de la consulta incluye la vista, así una respuesta tardía nunca pinta otra pestaña.
+ * Los proyectos de 9° marcados como residencia salen de las demás pestañas y se listan en la suya.
  */
 function Projects() {
   const { user } = useAuth()
@@ -37,17 +43,28 @@ function Projects() {
   const [sheet, setSheet] = useState(() => (params.get('id') ? { type: 'details', id: params.get('id') } : params.get('edit') && manage ? { type: 'form', id: params.get('edit') } : null))
   const debounced = useDebounced(search)
   const thesis = view === 'thesis'
-  const modality = MODALITIES[view]
+  const residency = view === 'residency'
+  const modality = residency ? RESIDENCY : MODALITIES[view]
 
-  const filters = { tipo_registro: thesis ? 'tesis' : 'proyecto', ...(thesis ? {} : { modalidad: modality.value }), ...(semester ? { semestre: semester } : {}), ...(debounced.trim() ? { q: debounced.trim() } : {}) }
+  const filters = {
+    tipo_registro: thesis ? 'tesis' : 'proyecto',
+    ...(thesis || residency ? {} : { modalidad: modality.value }),
+    ...(thesis ? {} : { residencia: residency ? 1 : 0 }),
+    ...(semester ? { semestre: semester } : {}),
+    ...(debounced.trim() ? { q: debounced.trim() } : {}),
+  }
   const query = useQuery({ queryKey: ['projects', filters, page], queryFn: () => api.get('/projects', { params: { ...filters, page, per_page: 12 } }).then((response) => response.data) })
   // Se filtra otra vez en el cliente por si la API devolviera registros de otra categoría.
-  const rows = (query.data?.data || []).filter((project) => (thesis ? project.is_thesis || project.tipo === 'tesis' : !project.is_thesis && project.tipo !== 'tesis' && project.modalidad === modality.value))
+  const rows = (query.data?.data || []).filter((project) => {
+    if (thesis) return project.is_thesis || project.tipo === 'tesis'
+    if (project.is_thesis || project.tipo === 'tesis') return false
+    return residency ? Boolean(project.es_residencia) : !project.es_residencia && project.modalidad === modality.value
+  })
   const refresh = () => client.invalidateQueries({ queryKey: ['projects'] })
   const changeView = (next) => {
     setView(next)
     setPage(1)
-    if (!(next === 'thesis' ? THESIS_SEMESTERS : PROJECT_SEMESTERS).some(([value]) => value === semester)) setSemester('')
+    if (!semesterOptions(next).some(([value]) => value === semester)) setSemester('')
   }
   const closeSheet = () => { setSheet(null); if (params.get('id') || params.get('edit')) setParams({}, { replace: true }) }
 
@@ -63,6 +80,22 @@ function Projects() {
       toast.success(value ? 'Proyecto marcado como tesis' : 'Proyecto retirado de tesis')
       refresh()
     } catch (error) { toast.error(apiError(error)) }
+  }
+  const toggleResidency = async (project, value) => {
+    const ok = await confirmAction({
+      title: value ? 'Marcar como proyecto de residencia' : 'Quitar de residencia',
+      text: value ? 'El proyecto saldrá de esta lista y se verá en la pestaña Residencias.' : 'El proyecto volverá a su pestaña de proyectos integradores.',
+      confirmText: value ? 'Sí, marcar' : 'Sí, quitar',
+    })
+    if (!ok) return
+    try {
+      const { data } = await api.put(`/projects/${project.id}/residency`, { residencia: value })
+      toast.success(data.message)
+      refresh()
+    } catch (error) { toast.error(apiError(error)) }
+  }
+  const archive = async (project) => {
+    if (await sendToArchive({ tipo: 'proyectos', ids: [project.id], name: `«${project.title}»` })) refresh()
   }
   const remove = async (project) => {
     if (!(await confirmAction({ title: thesis ? 'Eliminar tesis' : 'Eliminar proyecto', text: '¿Seguro que deseas eliminarlo?', confirmText: 'Sí, eliminar', danger: true }))) return
@@ -97,23 +130,27 @@ function Projects() {
       {thesis && <IconButton icon={FiUserCheck} label="Asignar comité" onClick={() => navigate(`/advisors?project=${project.id}&view=thesis`)} />}
       {!thesis && !isProjectCoordinator(user) && <IconButton icon={FiAward} label="Marcar como tesis" onClick={() => toggleThesis(project, true)} />}
       {thesis && <IconButton icon={FiAward} className="danger" label="Quitar de tesis" onClick={() => toggleThesis(project, false)} />}
+      {!thesis && !residency && Number(project.semestre) === 9 && <IconButton icon={FiBriefcase} label="Marcar como residencia" onClick={() => toggleResidency(project, true)} />}
+      {residency && <IconButton icon={FiBriefcase} className="danger" label="Quitar de residencia" onClick={() => toggleResidency(project, false)} />}
       <IconButton icon={FiBook} label="Materias" onClick={() => setSheet({ type: 'subjects', id: project.id })} />
       <IconButton icon={FiEdit2} label="Editar" onClick={() => setSheet({ type: 'form', id: project.id, thesis })} />
+      {isAdmin(user) && <IconButton icon={FiArchive} label="Enviar al archivo histórico" onClick={() => archive(project)} />}
       <IconButton icon={FiTrash2} className="danger" label="Eliminar" onClick={() => remove(project)} />
     </>}
   </>
   const total = Number(query.data?.total || 0)
-  const noun = thesis ? 'tesis' : `${modality.label.toLowerCase()}(s)`
+  const noun = thesis ? 'tesis' : residency ? 'proyecto(s) de residencia' : `${modality.label.toLowerCase()}(s)`
 
   return (
     <Page title="Gestión de proyectos y tesis" subtitle={total ? `${total} ${noun}` : `Sin ${thesis ? 'tesis' : modality.label.toLowerCase()}`}
       actions={manage && <>
-        <Button icon={FiPlus} onClick={() => setSheet({ type: 'form', id: null, thesis })}>{thesis ? 'Nueva tesis' : `Nuevo ${modality.label}`}</Button>
+        {!residency && <Button icon={FiPlus} onClick={() => setSheet({ type: 'form', id: null, thesis })}>{thesis ? 'Nueva tesis' : `Nuevo ${modality.label}`}</Button>}
         <Button variant="ghost" icon={FiUploadCloud} onClick={() => setSheet({ type: 'import' })}>Cargar Excel</Button>
         <Button variant="ghost" icon={FiDownload} onClick={template}>Plantilla</Button>
       </>}>
       <Tabs value={view} onChange={changeView} items={[
         { key: 'integrator', label: 'Proyecto integrador' }, { key: 'dual', label: 'Modalidad Dual' }, { key: 'case', label: 'Caso integrador' },
+        { key: 'residency', label: 'Residencias' },
         // Las tesis las administra la jefatura; la coordinación no las ve.
         !isProjectCoordinator(user) && { key: 'thesis', label: 'Tesis' },
       ]} />
@@ -121,7 +158,7 @@ function Projects() {
         <SearchInput value={search} onChange={(value) => { setSearch(value); setPage(1) }} placeholder={`${thesis ? 'Tesis' : 'Proyecto'}, estudiante, asesor, empresa o año`} />
         <select className="control" aria-label="Semestre" value={semester} onChange={(event) => { setSemester(event.target.value); setPage(1) }}>
           <option value="">Todos los semestres</option>
-          {(thesis ? THESIS_SEMESTERS : PROJECT_SEMESTERS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          {semesterOptions(view).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </div>
       <Card flush>
@@ -132,7 +169,7 @@ function Projects() {
       </Card>
 
       {sheet?.type === 'details' && <ProjectDetails projectId={sheet.id} onClose={closeSheet} />}
-      {sheet?.type === 'form' && <ProjectForm projectId={sheet.id} asThesis={sheet.thesis} defaultModality={thesis ? 'proyecto_integrador' : modality.value} onClose={closeSheet} onSaved={refresh} />}
+      {sheet?.type === 'form' && <ProjectForm projectId={sheet.id} asThesis={sheet.thesis} defaultModality={thesis || residency ? 'proyecto_integrador' : modality.value} onClose={closeSheet} onSaved={refresh} />}
       {sheet?.type === 'subjects' && <ProjectSubjects projectId={sheet.id} onClose={closeSheet} onSaved={refresh} />}
       {sheet?.type === 'import' && <ProjectsImport onClose={closeSheet} onImported={refresh} />}
     </Page>

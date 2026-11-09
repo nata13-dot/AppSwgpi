@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiAward, FiEdit2, FiMail, FiPlus, FiShield, FiToggleLeft, FiToggleRight, FiUploadCloud, FiUsers, FiX } from 'react-icons/fi'
+import { FiArchive, FiAward, FiEdit2, FiMail, FiPlus, FiShield, FiToggleLeft, FiToggleRight, FiUploadCloud, FiUsers, FiX } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
-import { canGovernUsers, isGeneralAdmin, profileLabel } from '../../lib/permissions'
+import { canGovernUsers, isAdmin, isGeneralAdmin, profileLabel } from '../../lib/permissions'
+import { sendToArchive } from '../../services/archive'
 import { ordinal, useSemesters } from '../../lib/semesters'
 import { fullName } from '../../utils/formatters'
 import { Badge, Button, Card, Chips, DataTable, ErrorState, IconButton, Loading, Page, Pager, promptPassword, SearchInput, useDebounced, useSelection } from '../../components/ui'
@@ -45,6 +46,10 @@ export default function Users() {
   const rows = query.data?.data || []
   const refresh = () => client.invalidateQueries({ queryKey: ['users'] })
   const changeFilter = (setter) => (value) => { setter(value); setPage(1) }
+  const canArchive = (row) => isAdmin(user) && String(row.id) !== String(user?.id) && !row.es_administrador_general
+  const archive = async (rows, name) => {
+    if (await sendToArchive({ tipo: 'usuarios', ids: rows.map((row) => row.id), name })) { selection.clear(); refresh() }
+  }
 
   const toggleStatus = async (row, adminPassword = null) => {
     try {
@@ -104,6 +109,7 @@ export default function Users() {
       {generalAdmin && String(row.id) !== String(user?.id) && Number(row.perfil_id) !== 3 && (
         <IconButton icon={FiAward} className={row.es_administrador_general ? 'success' : ''} label={row.es_administrador_general ? 'Administrador general. Toca para retirarlo' : 'Nombrar administrador general'} onClick={() => setGeneralAdmin(row)} />
       )}
+      {canArchive(row) && <IconButton icon={FiArchive} label="Enviar al archivo histórico" onClick={() => archive([row], fullName(row))} />}
     </>
   } : null
 
@@ -139,6 +145,7 @@ export default function Users() {
           <span>{selection.selected.size} usuario{selection.selected.size === 1 ? '' : 's'} seleccionado{selection.selected.size === 1 ? '' : 's'}</span>
           <Button size="sm" variant="ghost" onClick={() => selection.setAll(rows.map((row) => row.id), true)}>Seleccionar página</Button>
           <Button size="sm" variant="ghost" onClick={selection.clear}>Limpiar</Button>
+          {isAdmin(user) && selection.selected.size > 0 && <Button size="sm" variant="ghost" icon={FiArchive} onClick={() => archive([...selection.selected].map((id) => ({ id })), `${selection.selected.size} usuario(s)`)}>Archivar</Button>}
           <IconButton icon={FiX} label="Cancelar selección" onClick={cancelSelection} />
         </div>
       )}

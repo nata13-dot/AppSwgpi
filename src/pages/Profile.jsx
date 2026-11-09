@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiCamera, FiSave, FiSmartphone } from 'react-icons/fi'
+import { FiBell, FiCamera, FiMusic, FiPlay, FiRotateCcw, FiSave, FiSmartphone } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { appLockAvailable, disableAppLock, enableAppLock, isAppLockEnabled, isNativeApp } from '../services/appLock'
+import { NotificationTone, refreshPushChannel } from '../services/pushNotifications'
 import { roleLabel, viewAs } from '../lib/permissions'
 import { accountAppearance, deviceFontPercent, fontScalePreference, setAppearance, themePreference } from '../lib/theme'
 import { fullName, publicAssetUrl } from '../utils/formatters'
@@ -19,6 +20,7 @@ export default function Profile() {
       {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : <ProfileForm profile={query.data} readOnly={Boolean(viewAs(user))} onSaved={async () => { await refreshUser(); query.refetch() }} />}
       <AppearanceCard readOnly={Boolean(viewAs(user))} />
       {!viewAs(user) && <QuickUnlockCard userId={user?.id} />}
+      {!viewAs(user) && <NotificationSoundCard />}
       {!viewAs(user) && <NotificationPreferences />}
     </Page>
   )
@@ -74,6 +76,43 @@ function NotificationPreferences() {
       <div className="stack">{query.data.map((item) => (
         <Switch key={item.key} checked={item.enabled} onChange={() => toggle(item)} label={item.label} hint={item.hint} />
       ))}</div>
+    </Card>
+  )
+}
+
+/** Sólo en la app: tono (el predeterminado, uno del teléfono o un audio propio) y vibración de los avisos. */
+function NotificationSoundCard() {
+  const [settings, setSettings] = useState(null)
+  const [busy, setBusy] = useState('')
+  useEffect(() => { if (isNativeApp()) NotificationTone.getSettings().then(setSettings).catch(() => {}) }, [])
+  if (!isNativeApp() || !settings) return null
+  const run = async (key, action, message) => {
+    setBusy(key)
+    try {
+      const next = await action()
+      setSettings(next)
+      // El canal cambia con el tono: la API debe enviar los avisos al nuevo.
+      await refreshPushChannel().catch(() => {})
+      if (message) toast.success(message)
+    } catch (error) { toast.error(error.message || 'No se pudo cambiar el tono.') } finally { setBusy('') }
+  }
+  const kinds = { default: 'Tono predeterminado del teléfono', system: 'Tono del teléfono', custom: 'Audio personalizado' }
+  return (
+    <Card title="Sonido de las notificaciones" subtitle="Cómo suenan los avisos de SGPI en este teléfono.">
+      <div className="stack">
+        <div className="list-row">
+          <FiMusic aria-hidden="true" />
+          <div><strong>{settings.title}</strong><small>{kinds[settings.kind] || 'Tono'}</small></div>
+          <Button size="sm" variant="ghost" icon={FiPlay} onClick={() => NotificationTone.preview().catch(() => {})}>Probar</Button>
+        </div>
+        <div className="row-wrap">
+          <Button variant="soft" icon={FiBell} loading={busy === 'system'} onClick={() => run('system', () => NotificationTone.pickSystemTone())}>Elegir tono del teléfono</Button>
+          <Button variant="soft" icon={FiMusic} loading={busy === 'custom'} onClick={() => run('custom', () => NotificationTone.pickCustomTone())}>Usar un audio propio</Button>
+          {settings.kind !== 'default' && <Button variant="ghost" icon={FiRotateCcw} loading={busy === 'default'} onClick={() => run('default', () => NotificationTone.resetTone(), 'Se usará el tono predeterminado.')}>Predeterminado</Button>}
+        </div>
+        <Switch checked={settings.vibrate} onChange={() => run('vibrate', () => NotificationTone.setVibrate({ vibrate: !settings.vibrate }))} label="Vibrar con cada aviso" />
+        <small className="muted">El audio propio debe pesar menos de 5 MB. Si el teléfono está en silencio o en No molestar, Android puede callar el tono.</small>
+      </div>
     </Card>
   )
 }

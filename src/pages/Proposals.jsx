@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiCheck, FiClock, FiEdit3, FiLock, FiPlus, FiRefreshCw, FiSend, FiSettings, FiTrash2, FiUnlock, FiUserCheck, FiUserPlus, FiUsers, FiX } from 'react-icons/fi'
+import { FiArchive, FiCheck, FiClock, FiEdit3, FiLock, FiPlus, FiRefreshCw, FiSend, FiSettings, FiTrash2, FiUnlock, FiUserCheck, FiUserPlus, FiUsers, FiX } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
-import { canManageProjects, isStudent, viewAs } from '../lib/permissions'
+import { canManageProjects, isAdmin, isStudent, viewAs } from '../lib/permissions'
+import { sendToArchive } from '../services/archive'
 import { formatDateTime, fullName } from '../utils/formatters'
 import { Badge, Button, Card, Chips, confirmAction, Empty, ErrorState, Field, IconButton, Loading, Page, promptText, Tabs } from '../components/ui'
 
@@ -233,6 +234,10 @@ function ProposalReview() {
     } catch (error) { toast.error(apiError(error)) }
   }
 
+  const archive = async (project) => {
+    if (await sendToArchive({ tipo: 'propuestas', ids: [project.id], name: `La propuesta «${project.title}»` })) client.invalidateQueries({ queryKey: ['proposal-teacher-projects'] })
+  }
+
   if (query.isLoading) return <Loading rows={4} />
   if (query.isError) return <ErrorState error={query.error} onRetry={query.refetch} />
   if (!query.data?.is_validator) return <Empty title="No validas propuestas" message="La coordinación o la jefatura deben designarte como docente validador de la carrera." icon={FiLock} />
@@ -256,6 +261,7 @@ function ProposalReview() {
                   <Button size="sm" variant="success" icon={FiCheck} onClick={() => review(project, 'aprobado')}>Aprobar</Button>
                   <Button size="sm" variant="warning" icon={FiEdit3} onClick={() => review(project, 'requiere_cambios')}>Solicitar cambios</Button>
                   {project.proposal_status !== 'rechazado' && <Button size="sm" variant="ghost-danger" icon={FiX} onClick={() => review(project, 'rechazado')}>Rechazar</Button>}
+                  {isAdmin(user) && <Button size="sm" variant="ghost" icon={FiArchive} onClick={() => archive(project)}>Archivar</Button>}
                 </div>
               )}
             </Card>

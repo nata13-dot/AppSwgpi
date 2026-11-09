@@ -68,6 +68,7 @@ function managementMenu(user) {
     isAdmin(user) && item('Ajustes', '/settings', FiSliders, 'configuracion', ['configuración', 'sesión']),
     isAdmin(user) && item('Módulos de carrera', '/career-modules', FiGrid),
     isAdmin(user) && item('Carga inicial', '/career-setup', FiCloud, 'academico', ['plan de estudios', 'csv']),
+    isAdmin(user) && item('Archivo histórico', '/archive', FiArchive, null, ['archivados', 'egresados', 'restaurar', 'histórico']),
     item('Repositorio', '/repository', FiArchive, 'repositorio', ['documentos']),
   ].filter(Boolean) })
   menu.push(item('Mi perfil', '/profile', FiUser, null, ['cuenta', 'foto', 'contraseña']))

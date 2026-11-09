@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiChevronRight, FiEdit2, FiFileText, FiLayers, FiPlus, FiSave, FiStar, FiTrash2, FiGitBranch } from 'react-icons/fi'
+import { FiArchive, FiChevronRight, FiEdit2, FiFileText, FiLayers, FiPlus, FiSave, FiStar, FiTrash2, FiGitBranch } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
+import { sendToArchive } from '../services/archive'
+import { useAuth } from '../hooks/useAuth'
+import { isAdmin } from '../lib/permissions'
 import { matchesSearch } from '../utils/formatters'
 import { Badge, Button, Card, confirmAction, DataTable, Empty, ErrorState, Field, IconButton, Loading, Page, Pager, SearchInput, Sheet } from '../components/ui'
 
@@ -160,6 +163,7 @@ function Structure({ subjectId, onClose }) {
 /** Cargas de asignaturas por semestre y grupo (groupsModal). Los semestres son los del periodo abierto. */
 function SubjectGroups({ onClose }) {
   const client = useQueryClient()
+  const { user } = useAuth()
   const settings = useQuery({ queryKey: ['settings-current'], queryFn: () => api.get('/settings/current').then((response) => response.data), staleTime: 60_000 })
   const catalog = useQuery({ queryKey: ['asignaturas', 'all'], queryFn: allSubjects, staleTime: 30_000 })
   const period = settings.data?.academic_period_info
@@ -194,6 +198,10 @@ function SubjectGroups({ onClose }) {
   const remove = async (group) => {
     if (!(await confirmAction({ title: 'Eliminar carga', text: '¿Eliminar esta carga de asignaturas?', confirmText: 'Sí, eliminar', danger: true }))) return
     try { await api.delete(`/subject-groups/${group.id}`); toast.success('Carga eliminada'); reload() } catch (error) { toast.error(apiError(error)) }
+  }
+  // Las cargas de periodos anteriores se mandan al archivo histórico para que dejen de estorbar.
+  const archive = async (group) => {
+    if (await sendToArchive({ tipo: 'grupos', ids: [group.id], name: `El grupo ${group.nombre}` })) reload()
   }
   const edit = (group) => setForm({ id: group.id, semestre: String(group.semestre), grupo: group.grupo || '', nombre: group.nombre || '', periodo: group.periodo || period?.code || '', asignaturas: (group.asignaturas || []).map((item) => Number(item.id)) })
 
@@ -233,6 +241,7 @@ function SubjectGroups({ onClose }) {
                 <li key={group.id} className="list-row">
                   <div><strong>{group.nombre}</strong><small>{[group.periodo, (group.asignaturas || []).map((item) => item.nombre).join(', ')].filter(Boolean).join(' · ') || 'Sin asignaturas'}</small></div>
                   <IconButton icon={FiEdit2} label="Editar" onClick={() => edit(group)} />
+                  {isAdmin(user) && <IconButton icon={FiArchive} label="Enviar al archivo histórico" onClick={() => archive(group)} />}
                   <IconButton icon={FiTrash2} className="danger" label="Eliminar" onClick={() => remove(group)} />
                 </li>
               ))}

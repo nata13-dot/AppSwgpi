@@ -1,12 +1,43 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { App as CapacitorApp } from '@capacitor/app'
-import { FiLock, FiLogOut } from 'react-icons/fi'
+import { FiLogOut, FiShield } from 'react-icons/fi'
+import { MdFingerprint } from 'react-icons/md'
 import { toast } from 'react-toastify'
 import { useAuth } from '../../hooks/useAuth'
 import { biometricsChanged, isAppLockEnabled, revokeAppLock, verifyDevice } from '../../services/appLock'
-import { Button } from '../ui'
+import { publicAssetUrl } from '../../utils/formatters'
 
 const LOCK_AFTER_MS = 5 * 60 * 1000
+
+const PHOTO_SIZE = 192
+const photoKey = (userId) => `sgpi-lock-photo:${userId}`
+const readCachedPhoto = (userId) => {
+  try { return JSON.parse(localStorage.getItem(photoKey(userId)) || 'null') } catch { return null }
+}
+
+/** Copia reducida de la foto en el teléfono: la pantalla de bloqueo la muestra al instante y sin conexión. */
+async function cachePhoto(userId, path) {
+  if (!path) { try { localStorage.removeItem(photoKey(userId)) } catch { /* sin almacenamiento */ } return }
+  if (readCachedPhoto(userId)?.path === path) return
+  const blob = await fetch(publicAssetUrl(path)).then((response) => {
+    if (!response.ok) throw new Error('Foto no disponible')
+    return response.blob()
+  })
+  const bitmap = await createImageBitmap(blob)
+  const side = Math.min(bitmap.width, bitmap.height)
+  const canvas = document.createElement('canvas')
+  canvas.width = PHOTO_SIZE
+  canvas.height = PHOTO_SIZE
+  canvas.getContext('2d').drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, PHOTO_SIZE, PHOTO_SIZE)
+  bitmap.close()
+  localStorage.setItem(photoKey(userId), JSON.stringify({ path, data: canvas.toDataURL('image/jpeg', 0.85) }))
+}
+
+function greeting(hour) {
+  if (hour < 12) return 'Buenos días'
+  if (hour < 19) return 'Buenas tardes'
+  return 'Buenas noches'
+}
 
 /**
  * Pide la huella o el bloqueo del teléfono al abrir la app y al volver tras 5 minutos en segundo plano.
@@ -15,11 +46,12 @@ const LOCK_AFTER_MS = 5 * 60 * 1000
  * la persona acaba de verificarse: no se le vuelve a pedir. Si cambiaron las huellas, termina la sesión.
  */
 export default function AppLockGate({ children }) {
-  const { user, token, logout } = useAuth()
+  const { user, token, logout, refreshUser } = useAuth()
   const enabled = Boolean(token) && isAppLockEnabled(user?.id)
   const [locked, setLocked] = useState(enabled)
   const [mounted, setMounted] = useState(!enabled)
   const [message, setMessage] = useState('')
+  const [photoFailed, setPhotoFailed] = useState(false)
   const verifying = useRef(false)
   const leftAt = useRef(null)
 
@@ -46,6 +78,9 @@ export default function AppLockGate({ children }) {
       setMessage('')
       setLocked(false)
       setMounted(true)
+      setPhotoFailed(false)
+      // Trae la foto vigente por si se cambió desde otro dispositivo.
+      refreshUser().catch(() => {})
     } catch (error) {
       setMessage(error.code === 'CANCELED' ? '' : error.code === 'UNAVAILABLE'
         ? 'Tu teléfono ya no tiene bloqueo de pantalla. Entra con tu contraseña.'
@@ -53,7 +88,13 @@ export default function AppLockGate({ children }) {
     } finally {
       verifying.current = false
     }
-  }, [closeIfBiometricsChanged])
+  }, [closeIfBiometricsChanged, refreshUser])
+
+  const photoPath = user?.photo_path || user?.foto_ruta
+  useEffect(() => {
+    if (!enabled || !userId) return
+    cachePhoto(userId, photoPath).catch(() => {})
+  }, [enabled, userId, photoPath])
 
   useEffect(() => {
     if (!enabled) return undefined
@@ -68,6 +109,9 @@ export default function AppLockGate({ children }) {
   }, [closeIfBiometricsChanged, enabled])
 
   const showLock = enabled && locked
+  const cached = showLock && userId ? readCachedPhoto(userId) : null
+  const photo = photoFailed || !photoPath ? '' : (cached?.path === photoPath ? cached.data : publicAssetUrl(photoPath))
+  const initials = [user?.nombres, user?.apa].map((part) => (part || '').trim().charAt(0)).join('').toUpperCase() || '?'
   useEffect(() => {
     if (!showLock) return undefined
     // Diferido y cancelable: el modo estricto de React monta dos veces y abriría el diálogo dos veces.
@@ -81,12 +125,25 @@ export default function AppLockGate({ children }) {
       {mounted && children}
       {showLock && (
         <main className="app-lock" role="dialog" aria-modal="true" aria-label="Aplicación bloqueada">
-          <img src="/images/itssmt.webp" alt="" />
-          <h1>SGPI bloqueado</h1>
-          <p>{user?.nombres ? `Hola, ${user.nombres}. ` : ''}Desbloquea para continuar.</p>
-          {message && <p className="text-danger" role="alert">{message}</p>}
-          <Button size="lg" icon={FiLock} onClick={unlock}>Desbloquear</Button>
-          <Button variant="ghost" icon={FiLogOut} onClick={() => logout()}>Entrar con mi contraseña</Button>
+          <header className="app-lock-brand">
+            <img src="/images/itssmt.webp" alt="" />
+            <span><strong>SGPI</strong><small>Gestión de Proyectos Integradores</small></span>
+          </header>
+          <section className="app-lock-user">
+            <span className="app-lock-avatar">{photo ? <img src={photo} alt="" onError={() => setPhotoFailed(true)} /> : initials}</span>
+            <small>{greeting(new Date().getHours())}</small>
+            <h1>{user?.nombres || 'SGPI bloqueado'}</h1>
+            <p><FiShield aria-hidden="true" /> Tu sesión está protegida</p>
+          </section>
+          <section className="app-lock-actions">
+            <button type="button" className="app-lock-finger" onClick={unlock} aria-label="Desbloquear">
+              <MdFingerprint aria-hidden="true" />
+            </button>
+            <strong>Toca para desbloquear</strong>
+            <span>Usa tu huella o el bloqueo de tu teléfono.</span>
+            {message && <p className="app-lock-error" role="alert">{message}</p>}
+            <button type="button" className="app-lock-exit" onClick={() => logout()}><FiLogOut aria-hidden="true" /> Entrar con mi contraseña</button>
+          </section>
         </main>
       )}
     </>

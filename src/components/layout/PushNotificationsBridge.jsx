@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { useAuth } from '../../hooks/useAuth'
 import { isNativeApp } from '../../services/appLock'
-import { registerPushDevice, safeNotificationPath, sendPushToken } from '../../services/pushNotifications'
+import { NotificationTone, registerPushDevice, safeNotificationPath, sendPushToken } from '../../services/pushNotifications'
 
 /** Conecta las notificaciones del teléfono con la sesión: registra el token, avisa en primer plano y abre la pantalla al tocarlas. */
 export default function PushNotificationsBridge() {
@@ -18,8 +18,9 @@ export default function PushNotificationsBridge() {
     if (!active) return undefined
     const handles = [
       PushNotifications.addListener('registration', ({ value }) => { sendPushToken(value).catch(() => {}) }),
-      // Con la app abierta Android no la muestra: se avisa dentro de la app.
+      // Con la app abierta Android no la muestra: se avisa dentro de la app, con el mismo tono y vibración.
       PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        NotificationTone.preview().catch(() => {})
         if (notification.title) toast.info(notification.title)
         client.invalidateQueries({ queryKey: ['activity-notifications'] })
       }),

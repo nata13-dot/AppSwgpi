@@ -38,6 +38,7 @@ const CareerSetup = CareerPage('CareerSetupPage')
 const Profile = lazy(() => import('./pages/Profile'))
 const RegistrationRequests = lazy(() => import('./pages/RegistrationRequests'))
 const Companies = lazy(() => import('./pages/Companies'))
+const Archive = lazy(() => import('./pages/Archive'))
 const Repository = lazy(() => import('./pages/Repository'))
 const RepositoryDetail = lazy(() => import('./pages/Repository').then((module) => ({ default: module.RepositoryDetail })))
 const Evaluations = lazy(() => import('./pages/evaluations/Evaluations'))
@@ -75,6 +76,7 @@ const routes = [
   ['/tags', TagsPage, isAdmin],
   ['/career-modules', CareerModules, isAdmin],
   ['/career-setup', CareerSetup, isAdmin],
+  ['/archive', Archive, isAdmin],
   ['/evaluations-archived', ArchivedEvaluations, staffOrTeacher],
   ['/companies', Companies, isManagementStaff],
   ['/profile', Profile],
