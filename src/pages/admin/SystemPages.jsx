@@ -27,7 +27,7 @@ export function SettingsPage() {
 function SelfRegistrationRules() {
   const query = useQuery({ queryKey: ['self-registration-rules'], queryFn: () => api.get('/admin/self-registration-rules').then((response) => response.data) })
   return (
-    <Card title="Autoregistro: formato del correo por carrera" subtitle="El número de control es generación (2) + clave de la carrera (2) + consecutivo (4). El correo siempre es «l» seguida del número completo, o «lb» si inicia con b.">
+    <Card title="Autoregistro: formato del correo por carrera" subtitle="El número de control es generación (2) + clave de la carrera (2) + consecutivo (4). El correo siempre es «l» seguida del número completo: «lb» si inicia con b y «lc» si inicia con c.">
       {query.isLoading ? <Loading rows={2} /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
         <div className="stack">{query.data.map((item) => <RuleEditor key={item.career.id} item={item} onSaved={query.refetch} />)}</div>
       )}
@@ -47,9 +47,9 @@ function RuleEditor({ item, onSaved }) {
       onSaved()
     } catch (error) { toast.error(apiError(error)) } finally { setSaving(false) }
   }
-  // La «l» del correo es fija y todas las carreras aceptan números con b al inicio (correo «lb…»).
+  // La «l» del correo es fija y todas las carreras aceptan números con b o c al inicio (correo «lb…» o «lc…»).
   const number = `AA${rule.career_code || 'CC'}NNNN`
-  const sample = `l${number}@${rule.domain} · lb${number}@${rule.domain}`
+  const sample = `l${number}@${rule.domain} · lb${number}@${rule.domain} · lc${number}@${rule.domain}`
   return (
     <section className="rule-editor">
       <header className="row-wrap"><strong>{item.career.nombre}</strong>{item.open_until && new Date(item.open_until) > new Date() && <Badge tone="success">Abierto hasta {formatDateTime(item.open_until)}</Badge>}</header>
