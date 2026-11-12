@@ -10,28 +10,52 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
   const student = profile === 3
   const el = (tag, text, attrs = {}) => Object.assign(document.createElement(tag), attrs, text === undefined ? {} : { textContent: String(text) })
   const error = (e) => e.response?.data?.message || e.response?.data?.error || Object.values(e.response?.data?.errors || {}).flat().join(' ') || e.message || 'No fue posible completar la operación.'
-  const panel = (title, parent) => { const node = el('section', undefined, { className: 'panel', style: 'padding:20px;margin-bottom:16px' }); node.append(el('h2', title)); parent.append(node); return node }
-  const button = (label, action, parent) => {
-    const node = el('button', label, { type: 'button', className: 'btn btn-outline-primary', style: 'margin:4px' })
+  const ICONS = {
+    info: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z',
+    what: 'M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z',
+    how: 'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z',
+    why: 'M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z',
+  }
+  const icon = (name) => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('class', 'ac-icon')
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    path.setAttribute('d', ICONS[name]); path.setAttribute('fill', 'currentColor'); svg.append(path)
+    return svg
+  }
+  const panel = (title, parent, chip) => {
+    const node = el('section', undefined, { className: 'ac-panel' })
+    const head = el('div', undefined, { className: 'ac-panel-head' })
+    head.append(el('h2', title)); if (chip) head.append(el('span', chip, { className: `ac-chip ${chip}` }))
+    node.append(head); parent.append(node); return node
+  }
+  // Aviso breve dentro de una sección: qué pasa al usar el formulario.
+  const hint = (parent, text) => { const node = el('div', undefined, { className: 'ac-hint', role: 'note' }); node.append(icon('info'), el('p', text)); parent.append(node); return node }
+  const button = (label, action, parent, kind = 'ghost') => {
+    const node = el('button', label, { type: 'button', className: `ac-btn ${kind}` })
     node.onclick = async () => { node.disabled = true; try { await action() } catch (e) { status.textContent = error(e) } finally { node.disabled = false } }
     parent.append(node); return node
   }
   const input = (form, title, name, type = 'text', value = '', required = true) => {
-    const label = el('label', title, { style: 'display:block;margin:10px 0' })
-    const field = el('input', undefined, { name, type, value: type === 'checkbox' ? 'on' : (value ?? ''), required, className: 'form-control' })
-    label.append(field); form.append(label); return field
+    const field = el('input', undefined, { name, type, value: type === 'checkbox' ? 'on' : (value ?? ''), required, className: type === 'checkbox' ? 'ac-checkbox' : 'ac-input' })
+    const label = el('label', undefined, { className: type === 'checkbox' ? 'ac-check' : 'ac-field' })
+    if (type === 'checkbox') label.append(field, el('span', title))
+    else label.append(el('span', title), field)
+    form.append(label); return field
   }
   const select = (form, title, name, options, value = '', required = true) => {
-    const label = el('label', title, { style: 'display:block;margin:10px 0' })
-    const field = el('select', undefined, { name, required, className: 'form-select' })
+    const label = el('label', undefined, { className: 'ac-field' })
+    label.append(el('span', title))
+    const field = el('select', undefined, { name, required, className: 'ac-input' })
     field.append(el('option', 'Selecciona', { value: '' }))
     for (const [id, text] of options) field.append(el('option', text, { value: String(id) }))
     field.value = value == null ? '' : String(value); label.append(field); form.append(label); return field
   }
   const form = (parent, submitLabel, submit) => {
-    const node = el('form'); parent.append(node)
+    const node = el('form', undefined, { className: 'ac-form' }); parent.append(node)
     const finish = () => {
-      const send = el('button', submitLabel, { type: 'submit', className: 'btn btn-primary' }); node.append(send)
+      const send = el('button', submitLabel, { type: 'submit', className: 'ac-btn primary' })
+      const actions = el('div', undefined, { className: 'ac-actions' }); actions.append(send); node.append(actions)
       node.onsubmit = async (event) => {
         event.preventDefault(); send.disabled = true; status.textContent = 'Guardando…'
         try { await submit(Object.fromEntries(new FormData(node))); notice('Cambios guardados.'); await render() }
@@ -47,10 +71,12 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
   const groups = (items = catalog.groups) => items.map(g => [g.id, `${g.nombre} · ${g.semestre}° ${g.grupo || g.clave_grupo || ''}`])
   const date = value => value ? new Date(value).toLocaleString('es-MX') : '—'
   const request = (method, url, body) => api(method, url, body)
-  const status = el('p', '', { role: 'status', ariaLive: 'polite' })
-  const nav = el('nav', undefined, { ariaLabel: 'Operación académica', style: 'margin-bottom:16px' })
+  const status = el('p', '', { role: 'status', ariaLive: 'polite', className: 'ac-status' })
+  const nav = el('nav', undefined, { ariaLabel: 'Operación académica', className: 'ac-tabs' })
+  const guide = el('div')
   let content = el('div')
-  root.replaceChildren(nav, status, content)
+  root.classList.add('academic-console')
+  root.replaceChildren(nav, guide, status, content)
   // Lo que el usuario ya eligió en otros formularios sobrevive a la actualización tras guardar.
   const touched = (event) => { if (event.target.name) event.target.dataset.touched = '1' }
   root.addEventListener('input', touched)
@@ -58,25 +84,77 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
   // Aviso flotante: tras guardar abajo en la página, el estado de arriba no se ve.
   const notice = (text) => {
     status.textContent = text
-    const toast = el('div', text, { role: 'status', style: 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2000;background:#1B396A;color:#fff;padding:10px 18px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-weight:600;max-width:90vw;text-align:center' })
+    const toast = el('div', text, { role: 'status', className: 'ac-toast' })
     document.body.append(toast)
     setTimeout(() => toast.remove(), 2600)
   }
   const tabs = [...(academic ? [['periods', 'Periodos y matrícula']] : []), ['courses', student ? 'Mis materias' : 'Inscripciones'], ...(!student ? [['authorizations', 'Autorizaciones']] : []), ...(manager ? [['memberships', 'Perfiles']] : []), ['residencies', 'Residencias'], ...(!student ? [['continuity', 'Continuidad']] : [])]
   if (!tabs.some(([id]) => id === tab)) tab = tabs[0][0]
-  for (const [id, label] of tabs) button(label, async () => { tab = id; await render(false) }, nav)
+  const tabButtons = new Map(tabs.map(([id, label]) => [id, button(label, async () => {
+    tab = id
+    // La pestaña queda en la dirección para volver a ella al recargar o compartir el enlace.
+    try { const url = new URL(window.location.href); url.searchParams.set('tab', id); window.history.replaceState(window.history.state, '', url) } catch { /* sin historial */ }
+    await render(false)
+  }, nav, 'ac-tab')]))
+
+  // Guía de cada pestaña: qué es, cómo se usa y por qué importa. Se puede ocultar y se recuerda por pestaña.
+  const GUIDES = {
+    periods: ['El periodo abierto de la carrera, el paso de semestre de los alumnos y su grupo en cada periodo.',
+      'Los periodos se abren y se cierran solos por fecha, y los alumnos pasan a su nuevo grupo automáticamente. Aquí sólo acomodas a quienes quedaron pendientes; las opciones manuales son para casos especiales.',
+      'Cada alumno necesita un grupo en el periodo para aparecer en materias, proyectos, entregas y evaluaciones.'],
+    courses: student
+      ? ['Las materias del periodo abierto en las que puedes inscribirte.', 'Escribe la clave que te dio tu docente mientras la inscripción esté abierta. Si necesitas darte de baja, indica el motivo.', 'Al inscribirte recibes los entregables y las calificaciones de esa materia.']
+      : ['Los cursos del periodo abierto y su autoinscripción con clave.', 'Abre la inscripción con una clave y una ventana de fechas y compártela con el grupo. Desde "Ver inscritos" revisas la lista y registras bajas.', 'Sólo los alumnos inscritos reciben los entregables del curso y pueden ser calificados.'],
+    authorizations: ['Excepciones a las reglas normales: presentar en otra etapa, reprogramar, un nuevo intento o inscribirse en otro semestre.',
+      'Registra la solicitud con su motivo y vigencia; jefatura o administración la aprueba o la rechaza en la lista de abajo. Cada aprobación se usa una sola vez.',
+      'Queda constancia de quién pidió y quién autorizó cada excepción, y no se aplica a todo el equipo sin confirmarlo.'],
+    memberships: ['El perfil con el que trabaja cada miembro de la carrera: docente, estudiante, asistencia o coordinación.',
+      'Elige a la persona y su nuevo perfil. Antes de cambiarlo, consulta sus compromisos (cursos, salas, asesorías o residencias) y reasígnalos.',
+      'Un cambio de perfil con compromisos pendientes dejaría cursos o proyectos sin responsable.'],
+    residencies: ['El expediente individual de residencia profesional de cada alumno.',
+      'Se crea el expediente con su proyecto y asesor. El alumno sube versiones de cada requisito y el asesor las valida o pide correcciones.',
+      'Reúne en un solo lugar los documentos y las revisiones que exige la residencia, con su historial.'],
+    continuity: ['La continuación de un proyecto integrador en el nuevo periodo.',
+      'Elige el proyecto y el grupo del periodo abierto en el que seguirá.',
+      'Conserva el grupo, los documentos y las evaluaciones de los periodos anteriores sin crear un proyecto nuevo.'],
+  }
+  const storage = (action, key, value) => { try { return action === 'get' ? window.localStorage.getItem(key) : window.localStorage[value ? 'setItem' : 'removeItem'](key, '1') } catch { return null } }
+  function renderGuide() {
+    for (const [id, node] of tabButtons) { node.classList.toggle('active', id === tab); node.setAttribute('aria-current', id === tab ? 'page' : 'false') }
+    const [what, how, why] = GUIDES[tab] || []
+    if (!what) { guide.replaceChildren(); return }
+    const key = `sgpi-ac-guide-hidden:${tab}`
+    const hidden = storage('get', key) === '1'
+    const box = el('aside', undefined, { className: `ac-guide${hidden ? ' collapsed' : ''}` })
+    const head = el('div', undefined, { className: 'ac-guide-head' })
+    const title = el('strong', '¿Para qué sirve esta sección?')
+    const toggle = el('button', hidden ? 'Ver guía' : 'Ocultar', { type: 'button', className: 'ac-link' })
+    toggle.onclick = () => { storage('set', key, !hidden); renderGuide() }
+    head.append(icon('info'), title, toggle)
+    box.append(head)
+    if (!hidden) {
+      const grid = el('div', undefined, { className: 'ac-guide-grid' })
+      for (const [name, label, text] of [['what', 'Qué es', what], ['how', 'Cómo se usa', how], ['why', 'Por qué importa', why]]) {
+        const item = el('div', undefined, { className: `ac-guide-item ${name}` })
+        const caption = el('span', undefined, { className: 'ac-guide-label' }); caption.append(icon(name), el('span', label))
+        item.append(caption, el('p', text)); grid.append(item)
+      }
+      box.append(grid)
+    }
+    guide.replaceChildren(box)
+  }
 
   async function renderPeriods() {
     const data = await request('GET', '/semester-management')
-    if (data.scheduler) content.append(el('p', `Última preparación automática: ${date(data.scheduler.updated_at)} · ${data.scheduler.estado}`))
-    else content.append(el('p', 'Todavía no se ha registrado una preparación automática.'))
+    if (data.scheduler) content.append(el('p', `Última preparación automática: ${date(data.scheduler.updated_at)} · ${data.scheduler.estado}`, { className: 'ac-muted' }))
+    else content.append(el('p', 'Todavía no se ha registrado una preparación automática.', { className: 'ac-muted' }))
     await renderAutomation()
     // Lo manual queda disponible para casos especiales; el trabajo normal es automático.
-    const advanced = el('details', undefined, { style: 'margin-bottom:16px' })
+    const advanced = el('details', undefined, { className: 'ac-details' })
     advanced.append(el('summary', 'Opciones manuales de periodos')); content.append(advanced)
     const section = panel('Periodos por carrera', advanced)
     for (const p of data.periods) {
-      const row = el('article', undefined, { style: 'padding:12px;border-bottom:1px solid #aaa' })
+      const row = el('article', undefined, { className: 'ac-row' })
       row.append(el('strong', `${p.nombre} · ${p.operacion?.estado || 'sin preparar'} · ${p.operacion?.conciliado ? 'conciliado' : 'requiere conciliación'}`))
       if (manager) {
         button('Conciliar', () => reconciliation(p), row)
@@ -99,11 +177,11 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
     if (!auto?.plan) return
     const { plan, unplaced, open_period: open } = auto
     const box = panel(open ? `Periodo abierto: ${open.nombre}` : `Abrir periodo: ${plan.period.nombre}`, content)
-    box.append(el('p', auto.scheduled ? 'Los periodos se abren y se cierran solos por fecha.' : 'La apertura automática por fecha está apagada; puedes abrirlo con este botón.'))
+    hint(box, auto.scheduled ? 'Los periodos se abren y se cierran solos por fecha.' : 'La apertura automática por fecha está apagada; puedes abrirlo con este botón.')
     const reasons = (rows) => { const list = el('ul'); for (const row of rows) list.append(el('li', `${row.name} (${row.student_id}): ${row.reason}`)); return list }
     if (open) {
       if (!unplaced.length) { box.append(el('p', 'Todos los alumnos activos tienen grupo en este periodo.')); return }
-      box.append(el('p', `${unplaced.length} alumno(s) por acomodar. Elige su grupo; el resto ya quedó inscrito.`))
+      hint(box, `${unplaced.length} alumno(s) por acomodar: elige el grupo de cada uno y guarda. El resto ya quedó inscrito.`)
       const options = groups(catalog.groups.filter(g => Number(g.periodo_id) === Number(open.id)))
       for (const row of unplaced) {
         const [f, done] = form(box, 'Guardar', d => request('POST', '/academic-operations/enrollments', { student_id: row.student_id, group_id: Number(d.group_id) }))
@@ -133,7 +211,7 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
   async function promotion(period) {
     const preview = await request('GET', `/semester-management/periods/${period.id}/promotion-preview`)
     content.replaceChildren(); const p = panel(`Promoción a ${period.nombre}`, content)
-    p.append(el('p', 'Resuelve todos los movimientos. Noveno permanece en seguimiento; no se declara egreso.'))
+    hint(p, 'Resuelve todos los movimientos. Noveno permanece en seguimiento; no se declara egreso.')
     // Al cambiar de mitad de año cambia la paridad (6° A → 7° A): se crean los grupos destino que falten.
     if (manager && preview.movements.some(m => !m.group_id && m.action === 'avance')) {
       button('Generar grupos destino que faltan', async () => {
@@ -160,7 +238,7 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
   async function reconciliation(period) {
     const report = await request('GET', `/academic-operations/periods/${period.id}/reconciliation`)
     content.replaceChildren(); const p = panel(`Conciliación · ${period.nombre}`, content)
-    p.append(el('p', 'Compara cada matrícula. Dejar grupo vacío excluye al alumno de este periodo y requiere un motivo.'))
+    hint(p, 'Compara cada matrícula. Dejar grupo vacío excluye al alumno de este periodo y requiere un motivo.')
     for (const old of report.legacy_exceptions) p.append(el('p', `Autorización histórica #${old.id}, proyecto ${old.proyecto_id}: ${old.motivo}. Debe revisarse y solicitarse nuevamente con alcance explícito.`))
     const [f, done] = form(p, 'Aplicar conciliación', async d => {
       await request('POST', `/academic-operations/periods/${period.id}/reconciliation`, { snapshot: report.snapshot,
@@ -187,12 +265,12 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
     if (!data.data.length) content.append(el('p', 'No hay cursos en el periodo abierto de esta carrera.'))
     for (const c of data.data) {
       const p = panel(`${c.subject?.nombre || 'Materia'} · ${c.group?.semestre}° ${c.group?.grupo || ''}`, content)
-      p.append(el('p', `Ventana: ${date(c.inscripcion_desde)} — ${date(c.inscripcion_hasta)}`))
+      p.append(el('p', `Inscripción: ${date(c.inscripcion_desde)} — ${date(c.inscripcion_hasta)}`, { className: 'ac-muted' }))
       if (student) {
         if (!c.inscrito) {
           const [f, done] = form(p, 'Inscribirme', d => request('POST', `/course-enrollments/${c.id}`, d)); input(f, 'Clave del docente', 'password', 'password'); done()
         } else {
-          p.append(el('strong', 'Inscrito'))
+          p.append(el('span', 'inscrito', { className: 'ac-chip aprobada' }))
           const [f, done] = form(p, 'Solicitar baja directa', d => request('DELETE', `/course-enrollments/${c.id}`, d)); input(f, 'Motivo de baja', 'reason'); done()
         }
       } else {
@@ -211,16 +289,19 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
     }
   }
 
+  const AUTHORIZATION_TYPES = { presentacion_semestre: 'Presentación en otra etapa', reprogramacion: 'Reprogramación', reintento: 'Nuevo intento', inscripcion_semestre: 'Inscripción en otro semestre' }
+
   async function renderAuthorizations() {
     const data = await request('GET', '/academic-operations/authorizations')
     const p = panel('Solicitar autorización', content)
+    hint(p, 'Llena sólo lo que aplique al tipo: las evaluaciones piden proyecto; la inscripción excepcional pide materia. Si eliges un alumno, la excepción no se extiende al resto del equipo.')
     const [f, done] = form(p, 'Registrar solicitud', d => request('POST', '/academic-operations/authorizations', {
       ...d, period_id: Number(d.period_id), project_id: d.project_id ? Number(d.project_id) : null,
       presentation_semester: d.presentation_semester ? Number(d.presentation_semester) : null,
       evaluation_id: d.evaluation_id ? Number(d.evaluation_id) : null, student_id: d.student_id || null,
       course_id: d.course_id ? Number(d.course_id) : null,
     }))
-    select(f, 'Periodo', 'period_id', periods()); select(f, 'Tipo', 'type', [['presentacion_semestre', 'Presentación en otra etapa'], ['reprogramacion', 'Reprogramación'], ['reintento', 'Nuevo intento'], ...(manager ? [['inscripcion_semestre', 'Inscripción en otro semestre']] : [])])
+    select(f, 'Periodo', 'period_id', periods()); select(f, 'Tipo', 'type', Object.entries(AUTHORIZATION_TYPES).filter(([type]) => manager || type !== 'inscripcion_semestre'))
     select(f, 'Proyecto (obligatorio para evaluaciones)', 'project_id', projects(), '', false)
     select(f, 'Alumno involucrado (no autoriza automáticamente al equipo)', 'student_id', members([3]), '', false)
     select(f, 'Etapa de presentación', 'presentation_semester', [5, 6, 7, 8].map(n => [n, `${n}°`]), '', false)
@@ -228,7 +309,7 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
     select(f, 'Materia (para inscripción excepcional)', 'course_id', (catalog.courses || []).map(c => [c.id, `${c.subject?.nombre} · ${c.group?.semestre}° ${c.group?.grupo || ''}`]), '', false)
     input(f, 'Motivo', 'reason'); input(f, 'Vigencia hasta', 'expires_at', 'datetime-local'); done()
     for (const a of data.data) {
-      const box = panel(`${a.tipo} · ${a.estado}`, content); box.append(el('p', `Proyecto ${a.proyecto_id || '—'} · ${a.motivo} · vigencia ${date(a.vigente_hasta)}`))
+      const box = panel(AUTHORIZATION_TYPES[a.tipo] || a.tipo, content, a.estado); box.append(el('p', `Proyecto ${a.proyecto_id || '—'} · ${a.motivo} · vigencia ${date(a.vigente_hasta)}`, { className: 'ac-muted' }))
       if (manager && ['solicitada', 'aprobada'].includes(a.estado) && !a.consumida_en) {
         const [f, done] = form(box, 'Registrar resolución', d => request('PUT', `/semester-management/exceptions/${a.id}/decision`, { version: a.version, status: d.status, reason: d.reason, project_scope: d.scope === 'on' }))
         select(f, 'Decisión', 'status', a.estado === 'solicitada' ? [['aprobada', 'Aprobar'], ['rechazada', 'Rechazar']] : [['revocada', 'Revocar']]); input(f, 'Motivo de resolución', 'reason'); input(f, 'Confirmo el alcance sobre todo el proyecto al aprobar', 'scope', 'checkbox', '', false); done()
@@ -238,7 +319,7 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
 
   async function renderMemberships() {
     const p = panel('Perfiles operativos de miembros actuales', content)
-    p.append(el('p', 'Administración general gestiona altas, cambios de carrera, jefaturas y administradores. Los compromisos pendientes deben reasignarse antes de cambiar un perfil.'))
+    hint(p, 'Administración general gestiona altas, cambios de carrera, jefaturas y administradores. Los compromisos pendientes deben reasignarse antes de cambiar un perfil.')
     const [f, done] = form(p, 'Asignar perfil', d => request('PUT', `/academic-operations/memberships/${d.membership}`, { profile_id: Number(d.profile_id) }))
     const field = select(f, 'Persona', 'membership', catalog.members.filter(m => [2, 3, 6, 7].includes(Number(m.perfil_id))).map(m => [m.id, `${m.nombres} ${m.apellido_paterno} · perfil ${m.perfil_id}`]))
     select(f, 'Perfil', 'profile_id', [[2, 'Docente'], [3, 'Estudiante'], [6, 'Asistencia'], [7, 'Coordinación']]); done()
@@ -248,9 +329,9 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
 
   async function renderContinuity() {
     const p = panel('Seguimiento del proyecto en el periodo abierto', content)
+    hint(p, 'La continuidad conserva el grupo, documentos y evaluaciones de los periodos anteriores.')
     const [f, done] = form(p, 'Registrar continuidad', d => request('POST', '/academic-operations/project-period', { project_id: Number(d.project_id), group_id: Number(d.group_id) }))
     select(f, 'Proyecto', 'project_id', projects()); select(f, 'Grupo del periodo', 'group_id', groups()); done()
-    p.append(el('p', 'La continuidad conserva el grupo, documentos y evaluaciones de los periodos anteriores.'))
   }
 
   async function renderResidencies() {
@@ -268,7 +349,7 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
       input(f, 'Alcance y cambios propuestos (mínimo 20 caracteres)', 'changes').minLength = 20; done()
     }
     for (const r of data.data) {
-      const box = panel(`Residencia · ${r.estudiante_id} · ${r.estado}`, content)
+      const box = panel(`Residencia · ${r.estudiante_id}`, content, r.estado)
       box.append(el('p', r.cambios_propuestos))
       for (const item of r.requirements) {
         const sub = panel(`${item.nombre}${item.obligatorio ? ' · obligatorio' : ''}`, box)
@@ -311,6 +392,7 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
    */
   async function draw(soft) {
     if (disposed) return
+    renderGuide()
     const previous = content
     const keep = soft && previous.childElementCount > 0
     if (!keep) previous.replaceChildren(el('p', 'Cargando…'))
