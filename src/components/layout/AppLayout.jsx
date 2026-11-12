@@ -18,6 +18,7 @@ import { fullName, matchesSearch, publicAssetUrl } from '../../utils/formatters'
 import { recordPath } from '../../lib/searchRoutes'
 import { Button, confirmAction, Empty, IconButton, Sheet, Tabs, useDebounced } from '../ui'
 import HelpCenter from './HelpCenter'
+import LiveSync from './LiveSync'
 
 const careerColor = (career) => career?.color_acento || career?.color_primario || '#1B396A'
 
@@ -53,9 +54,9 @@ export default function AppLayout() {
   const bottomItems = useMemo(() => bottomNavPaths(user).map((path) => flatMenu.find((entry) => entry.path === path)).filter(Boolean), [flatMenu, user])
 
   const settings = useQuery({ queryKey: ['public-settings'], queryFn: () => api.get('/settings/public').then((response) => response.data), staleTime: 300_000 })
-  const activity = useQuery({ queryKey: ['activity-notifications'], queryFn: () => api.get('/activity-notifications', { params: { per_page: 8 } }).then((response) => response.data), refetchInterval: 60_000 })
+  const activity = useQuery({ queryKey: ['activity-notifications'], queryFn: () => api.get('/activity-notifications', { params: { per_page: 8 } }).then((response) => response.data), refetchInterval: 120_000 })
   // Pendientes que se marcan en el menú: solicitudes de cuenta y propuestas por validar.
-  const badges = useQuery({ queryKey: ['management-badges'], queryFn: () => api.get('/period-center/badges').then((response) => response.data), enabled: isManagementStaff(user), refetchInterval: 60_000, staleTime: 30_000 })
+  const badges = useQuery({ queryKey: ['management-badges'], queryFn: () => api.get('/period-center/badges').then((response) => response.data), enabled: isManagementStaff(user), refetchInterval: 120_000, staleTime: 30_000 })
   const operations = useQuery({ queryKey: ['operational-alerts-summary'], queryFn: () => api.get('/admin/operational-alerts/summary').then((response) => response.data), enabled: generalAdmin && !simulation, refetchInterval: 60_000 })
   const notices = useMemo(() => noticesForUser(settings.data?.system_notices, user), [settings.data, user])
   const [readKeys, setReadKeys] = useState(readNoticeKeys)
@@ -120,6 +121,7 @@ export default function AppLayout() {
 
   return (
     <div className={`shell ${collapsed ? 'collapsed' : ''} ${simulation ? 'simulating' : ''}`} style={{ '--career-color': careerColor(user?.active_career) }}>
+      <LiveSync enabled={Boolean(user)} />
       {settings.data?.global_notice && <div className="global-notice" role="status">{settings.data.global_notice}</div>}
       <aside className="sidebar-app" aria-label="Menú principal">
         <NavLink to={homePath(user)} className="sidebar-brand">

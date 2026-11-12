@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { viewAs } from '../../lib/permissions'
 import { isNativeApp } from '../../services/appLock'
 import { safeNotificationPath } from '../../services/pushNotifications'
+import { LIVE_EVENT } from './LiveSync'
 
 /** Widget de la pantalla de inicio (HomeWidgetPlugin.java). */
 const HomeWidget = registerPlugin('HomeWidget')
@@ -43,8 +44,11 @@ export default function HomeWidgetBridge() {
     refresh()
     const timer = setInterval(refresh, REFRESH_MS)
     const resume = CapacitorApp.addListener('appStateChange', ({ isActive }) => { if (isActive) refresh() })
+    // Si el pulso detecta un cambio (una solicitud nueva, una entrega…), el widget se pone al día de inmediato.
+    window.addEventListener(LIVE_EVENT, refresh)
     return () => {
       clearInterval(timer)
+      window.removeEventListener(LIVE_EVENT, refresh)
       resume.then((handle) => handle.remove())
     }
   }, [native, token, active])
