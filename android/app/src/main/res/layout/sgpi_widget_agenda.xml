@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Agenda de fechas (SgpiAgendaWidget.java): próximas fechas del perfil en orden. -->
+<!-- Agenda de fechas (SgpiAgendaWidget.java): próximas fechas del perfil, con el color del tipo de evento. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/agenda_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
+    android:clipToOutline="true"
     android:orientation="vertical"
     android:padding="10dp">
     <LinearLayout
@@ -12,39 +13,48 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingBottom="6dp">
+        android:paddingBottom="8dp">
         <ImageView
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:background="@drawable/widget_logo_bg"
-            android:contentDescription="ITSSMT"
-            android:padding="2dp"
-            android:src="@drawable/splash_logo" />
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/widget_accent_violet"
+            android:contentDescription="Próximas fechas"
+            android:padding="6dp"
+            android:src="@drawable/ic_widget_event" />
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="7dp"
+            android:layout_marginStart="9dp"
             android:layout_weight="1"
             android:orientation="vertical">
             <TextView
                 android:id="@+id/agenda_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:maxLines="1"
                 android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
                 android:text="Próximas fechas"
                 android:textColor="#FFFFFF"
-                android:textSize="12sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
-            <TextView android:id="@+id/agenda_title_sub" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxLines="1" android:ellipsize="end" android:textColor="#B7C8E2" android:textSize="10sp" />
+            <TextView
+                android:id="@+id/agenda_title_sub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#BFD4F5"
+                android:textSize="10sp" />
         </LinearLayout>
     </LinearLayout>
     <TextView
         android:id="@+id/agenda_empty"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="@drawable/widget_tile"
         android:gravity="center"
-        android:padding="8dp"
+        android:padding="12dp"
         android:text="Sin fechas próximas."
         android:textColor="#FFFFFF"
         android:textSize="12sp"
@@ -58,271 +68,436 @@
             android:id="@+id/agenda_row1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="5dp"
             android:background="@drawable/widget_tile"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:padding="7dp">
+            android:padding="6dp">
             <LinearLayout
-                android:layout_width="44dp"
-                android:layout_height="wrap_content"
+                android:id="@+id/agenda_date1"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/widget_accent_cyan"
                 android:gravity="center"
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/agenda_day1"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-black"
+                    android:includeFontPadding="false"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textSize="17sp" />
                 <TextView
                     android:id="@+id/agenda_month1"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#9CC2FF"
-                    android:textSize="10sp"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="0.08"
+                    android:textColor="#FFFFFF"
+                    android:textSize="9sp"
                     android:textStyle="bold" />
             </LinearLayout>
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="10dp"
                 android:layout_weight="1"
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/agenda_title1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
                     android:ellipsize="end"
+                    android:maxLines="1"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:id="@+id/agenda_detail1"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:textColor="#D9E4F5"
-                    android:textSize="10sp" />
+                    android:layout_marginTop="2dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <ImageView
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
+                        android:alpha="0.75"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_widget_clock" />
+                    <TextView
+                        android:id="@+id/agenda_detail1"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="#BFD4F5"
+                        android:textSize="10sp" />
+                </LinearLayout>
             </LinearLayout>
+            <TextView
+                android:id="@+id/agenda_left1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/widget_pill"
+                android:paddingStart="7dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="7dp"
+                android:paddingBottom="2dp"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold" />
         </LinearLayout>
         <LinearLayout
             android:id="@+id/agenda_row2"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="5dp"
             android:background="@drawable/widget_tile"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:padding="7dp">
+            android:padding="6dp">
             <LinearLayout
-                android:layout_width="44dp"
-                android:layout_height="wrap_content"
+                android:id="@+id/agenda_date2"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/widget_accent_cyan"
                 android:gravity="center"
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/agenda_day2"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-black"
+                    android:includeFontPadding="false"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textSize="17sp" />
                 <TextView
                     android:id="@+id/agenda_month2"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#9CC2FF"
-                    android:textSize="10sp"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="0.08"
+                    android:textColor="#FFFFFF"
+                    android:textSize="9sp"
                     android:textStyle="bold" />
             </LinearLayout>
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="10dp"
                 android:layout_weight="1"
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/agenda_title2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
                     android:ellipsize="end"
+                    android:maxLines="1"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:id="@+id/agenda_detail2"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:textColor="#D9E4F5"
-                    android:textSize="10sp" />
+                    android:layout_marginTop="2dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <ImageView
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
+                        android:alpha="0.75"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_widget_clock" />
+                    <TextView
+                        android:id="@+id/agenda_detail2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="#BFD4F5"
+                        android:textSize="10sp" />
+                </LinearLayout>
             </LinearLayout>
+            <TextView
+                android:id="@+id/agenda_left2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/widget_pill"
+                android:paddingStart="7dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="7dp"
+                android:paddingBottom="2dp"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold" />
         </LinearLayout>
         <LinearLayout
             android:id="@+id/agenda_row3"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="5dp"
             android:background="@drawable/widget_tile"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:padding="7dp">
+            android:padding="6dp">
             <LinearLayout
-                android:layout_width="44dp"
-                android:layout_height="wrap_content"
+                android:id="@+id/agenda_date3"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/widget_accent_cyan"
                 android:gravity="center"
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/agenda_day3"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-black"
+                    android:includeFontPadding="false"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textSize="17sp" />
                 <TextView
                     android:id="@+id/agenda_month3"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#9CC2FF"
-                    android:textSize="10sp"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="0.08"
+                    android:textColor="#FFFFFF"
+                    android:textSize="9sp"
                     android:textStyle="bold" />
             </LinearLayout>
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="10dp"
                 android:layout_weight="1"
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/agenda_title3"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
                     android:ellipsize="end"
+                    android:maxLines="1"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:id="@+id/agenda_detail3"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:textColor="#D9E4F5"
-                    android:textSize="10sp" />
+                    android:layout_marginTop="2dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <ImageView
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
+                        android:alpha="0.75"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_widget_clock" />
+                    <TextView
+                        android:id="@+id/agenda_detail3"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="#BFD4F5"
+                        android:textSize="10sp" />
+                </LinearLayout>
             </LinearLayout>
+            <TextView
+                android:id="@+id/agenda_left3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/widget_pill"
+                android:paddingStart="7dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="7dp"
+                android:paddingBottom="2dp"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold" />
         </LinearLayout>
         <LinearLayout
             android:id="@+id/agenda_row4"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="5dp"
             android:background="@drawable/widget_tile"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:padding="7dp">
+            android:padding="6dp">
             <LinearLayout
-                android:layout_width="44dp"
-                android:layout_height="wrap_content"
+                android:id="@+id/agenda_date4"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/widget_accent_cyan"
                 android:gravity="center"
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/agenda_day4"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-black"
+                    android:includeFontPadding="false"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textSize="17sp" />
                 <TextView
                     android:id="@+id/agenda_month4"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#9CC2FF"
-                    android:textSize="10sp"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="0.08"
+                    android:textColor="#FFFFFF"
+                    android:textSize="9sp"
                     android:textStyle="bold" />
             </LinearLayout>
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="10dp"
                 android:layout_weight="1"
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/agenda_title4"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
                     android:ellipsize="end"
+                    android:maxLines="1"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:id="@+id/agenda_detail4"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:textColor="#D9E4F5"
-                    android:textSize="10sp" />
+                    android:layout_marginTop="2dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <ImageView
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
+                        android:alpha="0.75"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_widget_clock" />
+                    <TextView
+                        android:id="@+id/agenda_detail4"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="#BFD4F5"
+                        android:textSize="10sp" />
+                </LinearLayout>
             </LinearLayout>
+            <TextView
+                android:id="@+id/agenda_left4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/widget_pill"
+                android:paddingStart="7dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="7dp"
+                android:paddingBottom="2dp"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold" />
         </LinearLayout>
         <LinearLayout
             android:id="@+id/agenda_row5"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="5dp"
             android:background="@drawable/widget_tile"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:padding="7dp">
+            android:padding="6dp">
             <LinearLayout
-                android:layout_width="44dp"
-                android:layout_height="wrap_content"
+                android:id="@+id/agenda_date5"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/widget_accent_cyan"
                 android:gravity="center"
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/agenda_day5"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-black"
+                    android:includeFontPadding="false"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:textSize="17sp" />
                 <TextView
                     android:id="@+id/agenda_month5"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="#9CC2FF"
-                    android:textSize="10sp"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="0.08"
+                    android:textColor="#FFFFFF"
+                    android:textSize="9sp"
                     android:textStyle="bold" />
             </LinearLayout>
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="10dp"
                 android:layout_weight="1"
                 android:orientation="vertical">
                 <TextView
                     android:id="@+id/agenda_title5"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
                     android:ellipsize="end"
+                    android:maxLines="1"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:id="@+id/agenda_detail5"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:maxLines="1"
-                    android:ellipsize="end"
-                    android:textColor="#D9E4F5"
-                    android:textSize="10sp" />
+                    android:layout_marginTop="2dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <ImageView
+                        android:layout_width="11dp"
+                        android:layout_height="11dp"
+                        android:alpha="0.75"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_widget_clock" />
+                    <TextView
+                        android:id="@+id/agenda_detail5"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:textColor="#BFD4F5"
+                        android:textSize="10sp" />
+                </LinearLayout>
             </LinearLayout>
+            <TextView
+                android:id="@+id/agenda_left5"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/widget_pill"
+                android:paddingStart="7dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="7dp"
+                android:paddingBottom="2dp"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

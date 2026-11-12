@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Acento amber (WidgetStore.accent): chips de ícono y de fecha. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:angle="315" android:startColor="#FFC857" android:endColor="#FF8A3D" />
+    <corners android:radius="12dp" />
+</shape>

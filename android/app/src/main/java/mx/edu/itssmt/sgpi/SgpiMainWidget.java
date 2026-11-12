@@ -34,13 +34,15 @@ public class SgpiMainWidget extends AppWidgetProvider {
         if (item == null && items.length() > 0) item = items.optJSONObject(0);
 
         if (item == null) {
+            WidgetStore.chip(views, R.id.main_icon, "");
             views.setTextViewText(R.id.main_label, "SGPI");
             views.setTextViewText(R.id.main_value, "—");
             views.setTextViewText(R.id.main_detail, "Inicia sesión en la app");
             views.setOnClickPendingIntent(R.id.main_root, WidgetStore.open(context, "/dashboard", widgetId * 10));
             return views;
         }
-        views.setTextViewText(R.id.main_label, "SGPI · " + item.optString("label"));
+        WidgetStore.chip(views, R.id.main_icon, item.optString("key"));
+        views.setTextViewText(R.id.main_label, item.optString("label").toUpperCase(WidgetStore.ES));
         views.setTextViewText(R.id.main_value, item.optString("value", "—"));
         views.setTextViewText(R.id.main_detail, item.optString("detail"));
         views.setOnClickPendingIntent(R.id.main_root, WidgetStore.open(context, item.optString("path", "/dashboard"), widgetId * 10));

@@ -97,6 +97,53 @@ final class WidgetStore {
         return new SimpleDateFormat("HH:mm", ES).format(new Date(millis));
     }
 
+    /** Ícono de un pendiente o acceso según su clave (las mismas de WidgetController). */
+    static int icon(String key) {
+        switch (key) {
+            case "deliverable": case "deliverables": case "review": return R.drawable.ic_widget_task;
+            case "project": case "projects": case "advised": case "career": return R.drawable.ic_widget_folder;
+            case "proposals": return R.drawable.ic_widget_idea;
+            case "grades": case "evaluations": return R.drawable.ic_widget_star;
+            case "presentation": case "rooms": case "period": return R.drawable.ic_widget_event;
+            case "requests": return R.drawable.ic_widget_person_add;
+            case "users": case "profile": return R.drawable.ic_widget_person;
+            case "repository": return R.drawable.ic_widget_library;
+            case "alerts": return R.drawable.ic_widget_warning;
+            default: return R.drawable.ic_widget_bolt;
+        }
+    }
+
+    /** Color de acento de un pendiente, acceso o tipo de evento de la agenda. */
+    static int accent(String key) {
+        switch (key) {
+            case "deliverable": case "deliverables": case "review": return R.drawable.widget_accent_amber;
+            case "proposals": case "presentation": case "requests": return R.drawable.widget_accent_violet;
+            case "grades": case "evaluations": case "room": case "rooms": case "repository": return R.drawable.widget_accent_teal;
+            case "alerts": case "period_end": return R.drawable.widget_accent_rose;
+            default: return R.drawable.widget_accent_cyan;
+        }
+    }
+
+    static void chip(android.widget.RemoteViews views, int viewId, String key) {
+        views.setImageViewResource(viewId, icon(key));
+        views.setInt(viewId, "setBackgroundResource", accent(key));
+    }
+
+    /** "Hoy", "Mañana" o "En 5 d" para la etiqueta de la agenda. */
+    static String relative(long millis) {
+        java.util.Calendar today = java.util.Calendar.getInstance();
+        java.util.Calendar day = java.util.Calendar.getInstance();
+        day.setTimeInMillis(millis);
+        for (java.util.Calendar calendar : new java.util.Calendar[]{today, day}) {
+            calendar.set(java.util.Calendar.HOUR_OF_DAY, 0);
+            calendar.set(java.util.Calendar.MINUTE, 0);
+            calendar.set(java.util.Calendar.SECOND, 0);
+            calendar.set(java.util.Calendar.MILLISECOND, 0);
+        }
+        long days = Math.round((day.getTimeInMillis() - today.getTimeInMillis()) / 86400000.0);
+        return days <= 0 ? "Hoy" : days == 1 ? "Mañana" : "En " + days + " d";
+    }
+
     /** Abre la app en la pantalla indicada; la app sólo acepta rutas internas. */
     static PendingIntent open(Context context, String path, int requestCode) {
         Intent intent = new Intent(context, MainActivity.class);

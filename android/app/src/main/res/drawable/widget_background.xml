@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Fondo del widget: el azul institucional en degradado. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <gradient android:angle="315" android:startColor="#1B396A" android:endColor="#2D5A96" />
-    <corners android:radius="22dp" />
-</shape>
+<!-- Fondo de los widgets: azul institucional en degradado con un brillo arriba. En Android 12+ se usa la
+     versión de drawable-v31, que agrega círculos decorativos (ahí el widget recorta a sus esquinas). -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient android:angle="315" android:startColor="#0F2A55" android:centerColor="#1B396A" android:endColor="#2F6DB5" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient android:angle="270" android:startColor="#1FFFFFFF" android:centerColor="#00FFFFFF" android:endColor="#00FFFFFF" />
+            <corners android:radius="24dp" />
+            <stroke android:width="1dp" android:color="#2EFFFFFF" />
+        </shape>
+    </item>
+</layer-list>

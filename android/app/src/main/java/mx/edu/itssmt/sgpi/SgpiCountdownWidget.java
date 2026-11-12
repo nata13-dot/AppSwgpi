@@ -38,26 +38,35 @@ public class SgpiCountdownWidget extends AppWidgetProvider {
         }
         views.setOnClickPendingIntent(R.id.countdown_root, WidgetStore.open(context, event == null ? "/dashboard" : event.optString("path", "/dashboard"), widgetId * 10));
         if (event == null) {
+            views.setInt(R.id.countdown_root, "setBackgroundResource", R.drawable.widget_background);
             views.setTextViewText(R.id.countdown_caption, "SGPI");
             views.setTextViewText(R.id.countdown_value, "—");
+            views.setTextViewText(R.id.countdown_unit, "");
+            views.setTextViewText(R.id.countdown_rest, "");
             views.setTextViewText(R.id.countdown_title, data == null ? "Inicia sesión en la app" : "Sin " + label(data, kind).toLowerCase(WidgetStore.ES) + " próxima");
             views.setTextViewText(R.id.countdown_detail, "");
             return views;
         }
-        views.setTextViewText(R.id.countdown_caption, "Faltan");
-        views.setTextViewText(R.id.countdown_value, remaining(at - now));
+        String[] parts = remaining(at - now);
+        // El último día el fondo pasa a tonos cálidos para que se note la urgencia.
+        views.setInt(R.id.countdown_root, "setBackgroundResource", at - now < 86400000L ? R.drawable.widget_background_urgent : R.drawable.widget_background);
+        views.setTextViewText(R.id.countdown_caption, "FALTAN");
+        views.setTextViewText(R.id.countdown_value, parts[0]);
+        views.setTextViewText(R.id.countdown_unit, parts[1]);
+        views.setTextViewText(R.id.countdown_rest, parts[2]);
         views.setTextViewText(R.id.countdown_title, event.optString("title"));
         views.setTextViewText(R.id.countdown_detail, WidgetStore.dayLabel(at) + " · " + WidgetStore.timeLabel(at));
         return views;
     }
 
-    static String remaining(long millis) {
+    /** Número grande, su unidad y el resto: {"2", "días", "y 14 h"}. */
+    static String[] remaining(long millis) {
         long minutes = Math.max(0, millis / 60000);
         long days = minutes / 1440;
         long hours = (minutes % 1440) / 60;
-        if (days > 0) return days + " d " + hours + " h";
-        if (hours > 0) return hours + " h " + (minutes % 60) + " min";
-        return minutes + " min";
+        if (days > 0) return new String[]{String.valueOf(days), days == 1 ? "día" : "días", hours > 0 ? "y " + hours + " h" : ""};
+        if (hours > 0) return new String[]{String.valueOf(hours), hours == 1 ? "hora" : "horas", minutes % 60 > 0 ? "y " + (minutes % 60) + " min" : ""};
+        return new String[]{String.valueOf(minutes), "min", ""};
     }
 
     private static String label(JSONObject data, String kind) {

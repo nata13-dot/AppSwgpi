@@ -18,6 +18,7 @@ public class SgpiShortcutsWidget extends AppWidgetProvider {
     static final int MAX = 4;
     private static final int[] TILES = {R.id.shortcut1, R.id.shortcut2, R.id.shortcut3, R.id.shortcut4};
     private static final int[] LABELS = {R.id.shortcut_label1, R.id.shortcut_label2, R.id.shortcut_label3, R.id.shortcut_label4};
+    private static final int[] ICONS = {R.id.shortcut_icon1, R.id.shortcut_icon2, R.id.shortcut_icon3, R.id.shortcut_icon4};
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
@@ -31,7 +32,9 @@ public class SgpiShortcutsWidget extends AppWidgetProvider {
 
     private static RemoteViews render(Context context, int widgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.sgpi_widget_shortcuts);
-        JSONArray all = WidgetStore.array(WidgetStore.data(context), "shortcuts");
+        JSONObject data = WidgetStore.data(context);
+        JSONArray all = WidgetStore.array(data, "shortcuts");
+        views.setTextViewText(R.id.shortcuts_sub, WidgetStore.subtitle(data));
         String choice = WidgetStore.choice(context, widgetId);
         List<String> wanted = "auto".equals(choice) ? new ArrayList<>() : Arrays.asList(choice.split(","));
         List<JSONObject> shortcuts = new ArrayList<>();
@@ -51,6 +54,7 @@ public class SgpiShortcutsWidget extends AppWidgetProvider {
             views.setViewVisibility(TILES[index], shortcut == null ? View.INVISIBLE : View.VISIBLE);
             if (shortcut == null) continue;
             views.setTextViewText(LABELS[index], shortcut.optString("label"));
+            WidgetStore.chip(views, ICONS[index], shortcut.optString("key"));
             views.setOnClickPendingIntent(TILES[index], WidgetStore.open(context, shortcut.optString("path", "/dashboard"), widgetId * 10 + index + 1));
         }
         views.setViewVisibility(R.id.shortcuts_row2, shortcuts.size() > 2 ? View.VISIBLE : View.GONE);

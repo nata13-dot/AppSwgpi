@@ -15,6 +15,7 @@ public class SgpiWidget extends AppWidgetProvider {
     private static final int[] VALUES = {R.id.value1, R.id.value2, R.id.value3, R.id.value4};
     private static final int[] LABELS = {R.id.label1, R.id.label2, R.id.label3, R.id.label4};
     private static final int[] DETAILS = {R.id.detail1, R.id.detail2, R.id.detail3, R.id.detail4};
+    private static final int[] CHIPS = {R.id.chip1, R.id.chip2, R.id.chip3, R.id.chip4};
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
@@ -42,6 +43,7 @@ public class SgpiWidget extends AppWidgetProvider {
             views.setTextViewText(VALUES[index], item.optString("value", "—"));
             views.setTextViewText(LABELS[index], item.optString("label", ""));
             views.setTextViewText(DETAILS[index], item.optString("detail", ""));
+            WidgetStore.chip(views, CHIPS[index], item.optString("key"));
             views.setOnClickPendingIntent(TILES[index], WidgetStore.open(context, item.optString("path", "/dashboard"), widgetId * 10 + index + 1));
         }
         views.setViewVisibility(R.id.widget_row2, items.length() > 2 ? View.VISIBLE : View.GONE);

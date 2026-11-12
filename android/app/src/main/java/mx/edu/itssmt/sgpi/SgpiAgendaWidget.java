@@ -16,6 +16,8 @@ public class SgpiAgendaWidget extends AppWidgetProvider {
     private static final int[] MONTHS = {R.id.agenda_month1, R.id.agenda_month2, R.id.agenda_month3, R.id.agenda_month4, R.id.agenda_month5};
     private static final int[] TITLES = {R.id.agenda_title1, R.id.agenda_title2, R.id.agenda_title3, R.id.agenda_title4, R.id.agenda_title5};
     private static final int[] DETAILS = {R.id.agenda_detail1, R.id.agenda_detail2, R.id.agenda_detail3, R.id.agenda_detail4, R.id.agenda_detail5};
+    private static final int[] DATES = {R.id.agenda_date1, R.id.agenda_date2, R.id.agenda_date3, R.id.agenda_date4, R.id.agenda_date5};
+    private static final int[] LEFT = {R.id.agenda_left1, R.id.agenda_left2, R.id.agenda_left3, R.id.agenda_left4, R.id.agenda_left5};
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
@@ -41,6 +43,8 @@ public class SgpiAgendaWidget extends AppWidgetProvider {
             views.setTextViewText(MONTHS[shown], day.length > 1 ? day[1].toUpperCase(WidgetStore.ES) : "");
             views.setTextViewText(TITLES[shown], event.optString("title"));
             views.setTextViewText(DETAILS[shown], event.optString("detail") + " · " + WidgetStore.timeLabel(at));
+            views.setInt(DATES[shown], "setBackgroundResource", WidgetStore.accent(event.optString("kind")));
+            views.setTextViewText(LEFT[shown], WidgetStore.relative(at));
             views.setOnClickPendingIntent(ROWS[shown], WidgetStore.open(context, event.optString("path", "/dashboard"), widgetId * 10 + shown + 1));
             shown++;
         }

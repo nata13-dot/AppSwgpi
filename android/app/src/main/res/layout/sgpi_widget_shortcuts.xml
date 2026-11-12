@@ -5,46 +5,56 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
+    android:clipToOutline="true"
     android:orientation="vertical"
-    android:padding="8dp">
+    android:padding="9dp">
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingBottom="6dp">
+        android:paddingBottom="8dp">
         <ImageView
-            android:layout_width="22dp"
-            android:layout_height="22dp"
-            android:background="@drawable/widget_logo_bg"
-            android:contentDescription="ITSSMT"
-            android:padding="2dp"
-            android:src="@drawable/splash_logo" />
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@drawable/widget_accent_amber"
+            android:contentDescription="Accesos rápidos"
+            android:padding="6dp"
+            android:src="@drawable/ic_widget_bolt" />
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="7dp"
+            android:layout_marginStart="9dp"
             android:layout_weight="1"
             android:orientation="vertical">
             <TextView
                 android:id="@+id/shortcuts_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:maxLines="1"
                 android:ellipsize="end"
-                android:text="SGPI · Accesos"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Accesos rápidos"
                 android:textColor="#FFFFFF"
-                android:textSize="12sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
-            
+            <TextView
+                android:id="@+id/shortcuts_sub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#BFD4F5"
+                android:textSize="10sp" />
         </LinearLayout>
     </LinearLayout>
     <TextView
         android:id="@+id/shortcuts_empty"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="@drawable/widget_tile"
         android:gravity="center"
-        android:padding="8dp"
+        android:padding="12dp"
         android:text="Abre SGPI e inicia sesión para usar los accesos."
         android:textColor="#FFFFFF"
         android:textSize="12sp"
@@ -58,7 +68,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:minHeight="40dp"
+            android:minHeight="44dp"
             android:orientation="horizontal">
             <LinearLayout
                 android:id="@+id/shortcut1"
@@ -69,25 +79,33 @@
                 android:background="@drawable/widget_tile"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="10dp"
+                android:paddingStart="8dp"
                 android:paddingEnd="8dp">
+                <ImageView
+                android:id="@+id/shortcut_icon1"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/widget_accent_cyan"
+                android:contentDescription="@null"
+                android:padding="7dp"
+                android:src="@drawable/ic_widget_bolt" />
                 <TextView
                     android:id="@+id/shortcut_label1"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    android:maxLines="2"
                     android:ellipsize="end"
+                    android:maxLines="2"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="›"
-                    android:textColor="#9CC2FF"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:alpha="0.6"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_arrow" />
             </LinearLayout>
             <LinearLayout
                 android:id="@+id/shortcut2"
@@ -98,25 +116,33 @@
                 android:background="@drawable/widget_tile"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="10dp"
+                android:paddingStart="8dp"
                 android:paddingEnd="8dp">
+                <ImageView
+                android:id="@+id/shortcut_icon2"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/widget_accent_cyan"
+                android:contentDescription="@null"
+                android:padding="7dp"
+                android:src="@drawable/ic_widget_bolt" />
                 <TextView
                     android:id="@+id/shortcut_label2"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    android:maxLines="2"
                     android:ellipsize="end"
+                    android:maxLines="2"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="›"
-                    android:textColor="#9CC2FF"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:alpha="0.6"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_arrow" />
             </LinearLayout>
         </LinearLayout>
         <LinearLayout
@@ -124,7 +150,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:minHeight="40dp"
+            android:minHeight="44dp"
             android:orientation="horizontal">
             <LinearLayout
                 android:id="@+id/shortcut3"
@@ -135,25 +161,33 @@
                 android:background="@drawable/widget_tile"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="10dp"
+                android:paddingStart="8dp"
                 android:paddingEnd="8dp">
+                <ImageView
+                android:id="@+id/shortcut_icon3"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/widget_accent_cyan"
+                android:contentDescription="@null"
+                android:padding="7dp"
+                android:src="@drawable/ic_widget_bolt" />
                 <TextView
                     android:id="@+id/shortcut_label3"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    android:maxLines="2"
                     android:ellipsize="end"
+                    android:maxLines="2"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="›"
-                    android:textColor="#9CC2FF"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:alpha="0.6"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_arrow" />
             </LinearLayout>
             <LinearLayout
                 android:id="@+id/shortcut4"
@@ -164,25 +198,33 @@
                 android:background="@drawable/widget_tile"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="10dp"
+                android:paddingStart="8dp"
                 android:paddingEnd="8dp">
+                <ImageView
+                android:id="@+id/shortcut_icon4"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/widget_accent_cyan"
+                android:contentDescription="@null"
+                android:padding="7dp"
+                android:src="@drawable/ic_widget_bolt" />
                 <TextView
                     android:id="@+id/shortcut_label4"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    android:maxLines="2"
                     android:ellipsize="end"
+                    android:maxLines="2"
                     android:textColor="#FFFFFF"
                     android:textSize="12sp"
                     android:textStyle="bold" />
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="›"
-                    android:textColor="#9CC2FF"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:alpha="0.6"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_arrow" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
