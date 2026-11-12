@@ -5,4 +5,8 @@
     <string name="package_name">mx.edu.itssmt.sgpi</string>
     <string name="custom_url_scheme">mx.edu.itssmt.sgpi</string>
     <string name="widget_description">Tus pendientes de SGPI según tu perfil</string>
+    <string name="widget_main_description">Un pendiente en grande; eliges cuál al colocarlo</string>
+    <string name="widget_agenda_description">Tus próximas fechas: entregas, presentaciones y cierres</string>
+    <string name="widget_shortcuts_description">Hasta cuatro pantallas de SGPI a un toque</string>
+    <string name="widget_countdown_description">Días y horas que faltan para una fecha que elijas</string>
 </resources>

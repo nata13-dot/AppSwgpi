@@ -56,6 +56,66 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/sgpi_widget_info" />
         </receiver>
+
+        <receiver
+            android:name=".SgpiMainWidget"
+            android:exported="false"
+            android:label="SGPI · Pendiente principal">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sgpi_widget_main_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SgpiAgendaWidget"
+            android:exported="false"
+            android:label="SGPI · Próximas fechas">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sgpi_widget_agenda_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SgpiShortcutsWidget"
+            android:exported="false"
+            android:label="SGPI · Accesos rápidos">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sgpi_widget_shortcuts_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SgpiCountdownWidget"
+            android:exported="false"
+            android:label="SGPI · Cuenta regresiva">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sgpi_widget_countdown_info" />
+        </receiver>
+
+        <!-- Elegir qué muestra un widget al colocarlo; el launcher la abre con APPWIDGET_CONFIGURE. -->
+        <activity
+            android:name=".WidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="Configurar widget de SGPI"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
     </application>
 
     <!-- Permissions -->

@@ -45,7 +45,7 @@ public class HomeWidgetPlugin extends Plugin {
             JSONObject stored = new JSONObject(data.toString());
             stored.put("saved_at", System.currentTimeMillis());
             prefs().edit().putString("data", stored.toString()).apply();
-            SgpiWidget.refreshAll(getContext());
+            WidgetStore.refreshAll(getContext());
             call.resolve();
         } catch (Exception exception) {
             call.reject("No se pudo actualizar el widget.", exception);
@@ -55,7 +55,7 @@ public class HomeWidgetPlugin extends Plugin {
     @PluginMethod
     public void clear(PluginCall call) {
         prefs().edit().remove("data").apply();
-        SgpiWidget.refreshAll(getContext());
+        WidgetStore.refreshAll(getContext());
         call.resolve();
     }
 
@@ -69,13 +69,13 @@ public class HomeWidgetPlugin extends Plugin {
     }
 
     private String takePath(Intent intent) {
-        if (intent == null || !intent.hasExtra(SgpiWidget.EXTRA_PATH)) return null;
-        String path = intent.getStringExtra(SgpiWidget.EXTRA_PATH);
-        intent.removeExtra(SgpiWidget.EXTRA_PATH);
+        if (intent == null || !intent.hasExtra(WidgetStore.EXTRA_PATH)) return null;
+        String path = intent.getStringExtra(WidgetStore.EXTRA_PATH);
+        intent.removeExtra(WidgetStore.EXTRA_PATH);
         return path;
     }
 
     private android.content.SharedPreferences prefs() {
-        return getContext().getSharedPreferences(SgpiWidget.PREFS, Context.MODE_PRIVATE);
+        return WidgetStore.prefs(getContext());
     }
 }
