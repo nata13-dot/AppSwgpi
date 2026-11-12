@@ -129,7 +129,7 @@ export function NoticesPage() {
               actions={<div className="row-wrap"><Badge tone={TYPES[notice.type]?.[1]}>{TYPES[notice.type]?.[0] || notice.type}</Badge><Badge>{AUDIENCES[notice.audience] || notice.audience}</Badge></div>}>
               <p>{notice.message}</p>
               <div className="row-wrap">
-                <small className="muted">{notice.starts_at ? `Desde ${formatDate(notice.starts_at)}` : 'Sin inicio'} · {notice.ends_at ? `hasta ${formatDate(notice.ends_at)}` : 'sin fin'} · {notice.duration_seconds || 4} s</small>
+                <small className="muted">Vigencia: {notice.starts_at ? formatDate(notice.starts_at) : 'desde que se publica'} – {notice.ends_at ? formatDate(notice.ends_at) : 'sin fecha de cierre'} · {notice.duration_seconds || 4} s en pantalla{notice.updated_at ? ` · actualizado ${formatDateTime(notice.updated_at)}` : ''}</small>
                 <span className="spacer" />
                 <Switch checked={notice.active !== false} onChange={() => toggle(index)} label="Activo" />
                 <IconButton icon={FiEdit2} label="Editar" onClick={() => setEditing({ index, notice })} />
@@ -147,17 +147,22 @@ export function NoticesPage() {
 function NoticeForm({ notice, onClose, onSave }) {
   const [form, setForm] = useState(() => notice || { id: `notice_${Date.now()}`, title: '', message: '', audience: 'all', type: 'info', duration_seconds: 4, starts_at: '', ends_at: '', active: true })
   const set = (key) => (event) => setForm({ ...form, [key]: event.target.value })
-  const now = new Date().toISOString()
+  const today = new Date().toLocaleDateString('en-CA')
   return (
     <Sheet open title={notice ? 'Editar aviso' : 'Nuevo aviso'} onClose={onClose} size="md"
       footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button type="submit" form="notice-form" icon={FiSave}>Guardar aviso</Button></>}>
-      <form id="notice-form" className="form-grid" onSubmit={(event) => { event.preventDefault(); onSave({ ...form, duration_seconds: Number(form.duration_seconds), created_at: form.created_at || now, updated_at: now }) }}>
+      <form id="notice-form" className="form-grid" onSubmit={(event) => {
+        event.preventDefault()
+        if (form.starts_at && form.ends_at && form.ends_at < form.starts_at) return toast.warning('El cierre del aviso no puede ser antes de su apertura.')
+        // La API pone las marcas de creación y actualización; al guardar cambios el aviso se vuelve a mostrar a todos.
+        return onSave({ ...form, duration_seconds: Number(form.duration_seconds) })
+      }}>
         <Field label="Título" full><input className="control" maxLength={120} value={form.title} onChange={set('title')} /></Field>
         <Field label="Mensaje" full><textarea className="control" rows={3} required value={form.message} onChange={set('message')} /></Field>
         <Field label="Audiencia"><select className="control" value={form.audience} onChange={set('audience')}>{Object.entries(AUDIENCES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
         <Field label="Tipo"><select className="control" value={form.type} onChange={set('type')}>{Object.entries(TYPES).map(([key, [label]]) => <option key={key} value={key}>{label}</option>)}</select></Field>
-        <Field label="Inicia"><input className="control" type="date" min={form.starts_at && form.starts_at === notice?.starts_at ? undefined : new Date().toLocaleDateString('en-CA')} value={form.starts_at || ''} onChange={set('starts_at')} /></Field>
-        <Field label="Finaliza"><input className="control" type="date" value={form.ends_at || ''} onChange={set('ends_at')} /></Field>
+        <Field label="Inicia"><input className="control" type="date" min={form.starts_at && form.starts_at === notice?.starts_at ? undefined : today} value={form.starts_at || ''} onChange={set('starts_at')} /></Field>
+        <Field label="Finaliza" hint="No puede ser antes de la apertura ni de hoy."><input className="control" type="date" min={form.ends_at && form.ends_at === notice?.ends_at ? undefined : [today, form.starts_at || ''].sort().pop()} value={form.ends_at || ''} onChange={set('ends_at')} /></Field>
         <Field label="Duración en pantalla (segundos)"><input className="control" type="number" min={2} max={30} value={form.duration_seconds} onChange={set('duration_seconds')} /></Field>
         <div className="field align-end"><Switch checked={form.active} onChange={(value) => setForm({ ...form, active: value })} label="Activo" /></div>
       </form>

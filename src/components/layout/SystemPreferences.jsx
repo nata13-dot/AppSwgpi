@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import api from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
-import { noticesForUser } from '../../lib/notices'
+import { noticeKey, noticesForUser, noticeValidity } from '../../lib/notices'
 import { setAppearance } from '../../lib/theme'
 
 /**
@@ -42,9 +42,11 @@ export default function SystemPreferences() {
     let shown
     try { shown = new Set(JSON.parse(sessionStorage.getItem('shown_system_notices') || '[]')) } catch { shown = new Set() }
     noticesForUser(settings.system_notices, isAuthenticated ? user : null).forEach((notice) => {
-      if (shown.has(notice.id)) return
-      toast(notice.message, { type: notice.type === 'danger' ? 'error' : notice.type || 'info', autoClose: Number(notice.duration_seconds || 4) * 1000 })
-      shown.add(notice.id)
+      // La clave lleva la marca de actualización: un aviso modificado se vuelve a mostrar como nuevo.
+      if (shown.has(noticeKey(notice))) return
+      toast(<div className="notice-toast">{notice.title && <strong>{notice.title}</strong>}<span>{notice.message}</span><small>{noticeValidity(notice)}</small></div>,
+        { type: notice.type === 'danger' ? 'error' : notice.type || 'info', autoClose: Number(notice.duration_seconds || 4) * 1000 })
+      shown.add(noticeKey(notice))
     })
     sessionStorage.setItem('shown_system_notices', JSON.stringify([...shown]))
   }, [isAuthenticated, settings, user])

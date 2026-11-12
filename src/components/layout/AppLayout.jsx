@@ -12,7 +12,7 @@ import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { bottomNavPaths, filterMenu, flattenMenu, menuForUser, SHORT_LABELS } from '../../lib/navigation'
 import { homePath, isGeneralAdmin, isManagementStaff, profileLabel, roleLabel, SIMULABLE_PROFILES, viewAs, activeProfileId, isAdmin } from '../../lib/permissions'
-import { markNoticesRead, noticeKey, noticesForUser, readNoticeKeys } from '../../lib/notices'
+import { markNoticesRead, noticeKey, noticesForUser, noticeValidity, readNoticeKeys } from '../../lib/notices'
 import { accountAppearance, setAppearance } from '../../lib/theme'
 import { fullName, matchesSearch, publicAssetUrl } from '../../utils/formatters'
 import { recordPath } from '../../lib/searchRoutes'
@@ -268,7 +268,7 @@ function NotificationsSheet({ open, onClose, notices, activity, operations, canM
         { key: 'activity', label: 'Actividad', count: activity.data?.unread_count || null },
         operations && { key: 'operations', label: 'Operación', icon: FiShield, count: operations.data?.total || null },
       ]} />
-      {tab === 'notices' && (notices.length ? <ul className="notice-list">{notices.slice(0, 8).map((notice) => <li key={noticeKey(notice)} className={notice.type || 'info'}><strong>{notice.title || 'Aviso del sistema'}</strong><p>{notice.message}</p></li>)}</ul> : <Empty title="Sin avisos" message="No hay notificaciones nuevas." />)}
+      {tab === 'notices' && (notices.length ? <ul className="notice-list">{notices.slice(0, 8).map((notice) => <li key={noticeKey(notice)} className={notice.type || 'info'}><strong>{notice.title || 'Aviso del sistema'}</strong><p>{notice.message}</p><small className="muted">{noticeValidity(notice)}</small></li>)}</ul> : <Empty title="Sin avisos" message="No hay notificaciones nuevas." />)}
       {tab === 'notices' && canManageNotices && <Button variant="ghost" size="sm" className="mt-2" onClick={() => navigate('/notices')}>Gestionar avisos</Button>}
       {tab === 'activity' && (activityItems.length ? (
         <>

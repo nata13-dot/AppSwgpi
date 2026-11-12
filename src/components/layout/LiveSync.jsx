@@ -9,6 +9,7 @@ const PULSE_MS = 10_000
 // Consultas que se recargan cuando cambia la huella de cada canal de /live.
 const CHANNEL_QUERIES = {
   notifications: ['activity-notifications'],
+  notices: ['public-settings', 'notices'],
   registration_requests: ['registration-requests', 'management-badges'],
   proposals: ['proposal-teacher-projects', 'proposal-group-projects', 'proposal-student-status', 'management-badges', 'dashboard-teacher', 'dashboard-student'],
   join_requests: ['proposal-student-status', 'proposal-group-projects'],
