@@ -806,3 +806,47 @@ a.btn-app { text-decoration: none; }
 .link-btn { padding: 2px 0; border: 0; background: none; color: var(--brand-2); font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; }
 .link-btn:disabled { color: var(--muted); cursor: default; }
 .input-icon.no-lead .control { padding-left: 14px; padding-right: 44px; }
+
+/* Operación del periodo (periodCenter.js): igual en la app y en la web. */
+.period-center { --pc-brand: var(--brand, var(--primary-blue, #1B396A)); --pc-surface: var(--surface, var(--surface-bg, #fff)); --pc-line: var(--line, var(--border-color, #e2e6ee)); --pc-ink: var(--ink, var(--text-dark, #2b3040)); --pc-muted: var(--muted, var(--text-muted, #747b88)); --pc-ok: var(--success, var(--success-accent, #1f8a4c)); --pc-warn: var(--warning, var(--warning-accent, #a86e00)); color: var(--pc-ink); }
+.pc-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 12px; font-size: 1.05rem; }
+.pc-muted { color: var(--pc-muted); }
+.pc-status:empty { display: none; }
+.pc-warn { color: var(--pc-warn); font-weight: 600; }
+.pc-stages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.pc-stage { border: 1px solid var(--pc-line); border-left: 4px solid var(--pc-line); border-radius: 14px; background: var(--pc-surface); overflow: hidden; }
+.pc-stage.active { border-left-color: var(--pc-brand); }
+.pc-stage.done { border-left-color: var(--pc-ok); }
+.pc-stage.warn { border-left-color: var(--pc-warn); }
+.pc-stage.todo { border-left-color: var(--pc-brand); border-style: dashed solid dashed solid; }
+.pc-stage-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pc-step { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--pc-line); color: var(--pc-ink); font-weight: 800; }
+.pc-stage.active .pc-step, .pc-stage.todo .pc-step { background: var(--pc-brand); color: #fff; }
+.pc-stage.done .pc-step { background: var(--pc-ok); color: #fff; }
+.pc-stage.warn .pc-step { background: var(--pc-warn); color: #fff; }
+.pc-stage-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.pc-stage-text small { color: var(--pc-muted); }
+.pc-chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.pc-chip { padding: 3px 9px; border-radius: 999px; background: color-mix(in srgb, var(--pc-line) 60%, transparent); font-size: .76rem; font-weight: 700; white-space: nowrap; }
+.pc-chip.ok { background: color-mix(in srgb, var(--pc-ok) 16%, transparent); color: var(--pc-ok); }
+.pc-chip.warn { background: color-mix(in srgb, var(--pc-warn) 18%, transparent); color: var(--pc-warn); }
+.pc-caret::before { content: '▾'; display: inline-block; color: var(--pc-muted); transition: transform .15s; }
+.pc-stage.open .pc-caret::before { transform: rotate(180deg); }
+.pc-stage-body { display: none; padding: 0 16px 16px 58px; }
+.pc-stage.open .pc-stage-body { display: block; }
+.pc-stage-body p { margin: 0 0 8px; }
+.pc-stage-body h4 { margin: 14px 0 6px; font-size: .95rem; }
+.pc-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin: 10px 0; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--pc-line) 30%, transparent); }
+.pc-field { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: .85rem; font-weight: 600; }
+.pc-field small { color: var(--pc-muted); font-weight: 400; }
+.pc-input { min-height: 38px; padding: 6px 10px; border: 1px solid var(--pc-line); border-radius: 10px; background: var(--pc-surface); color: var(--pc-ink); font: inherit; }
+.pc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.pc-btn { min-height: 38px; padding: 7px 14px; border: 1px solid var(--pc-brand); border-radius: 10px; background: var(--pc-brand); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.pc-btn.ghost { background: transparent; color: var(--pc-brand); }
+.pc-btn.danger { border-color: #b23b3b; background: transparent; color: #b23b3b; }
+.pc-btn:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 575.98px) { .pc-stage-body { padding-left: 16px; } .pc-stage-head { position: relative; flex-wrap: wrap; padding-right: 36px; } .pc-chips { width: 100%; justify-content: flex-start; padding-left: 42px; } .pc-caret { position: absolute; top: 18px; right: 16px; } }
+
+/* Pendientes en el menú (solicitudes de cuenta, propuestas). */
+.menu-badge { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: inline-grid; place-items: center; background: #e64848; color: #fff; font-size: .7rem; font-weight: 800; }
+.menu-group-toggle .menu-badge + .chevron { margin-left: 6px; }

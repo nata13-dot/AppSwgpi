@@ -11,7 +11,7 @@ import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { bottomNavPaths, filterMenu, flattenMenu, menuForUser, SHORT_LABELS } from '../../lib/navigation'
-import { homePath, isGeneralAdmin, profileLabel, roleLabel, SIMULABLE_PROFILES, viewAs, activeProfileId, isAdmin } from '../../lib/permissions'
+import { homePath, isGeneralAdmin, isManagementStaff, profileLabel, roleLabel, SIMULABLE_PROFILES, viewAs, activeProfileId, isAdmin } from '../../lib/permissions'
 import { markNoticesRead, noticeKey, noticesForUser, readNoticeKeys } from '../../lib/notices'
 import { accountAppearance, setAppearance } from '../../lib/theme'
 import { fullName, matchesSearch, publicAssetUrl } from '../../utils/formatters'
@@ -54,6 +54,8 @@ export default function AppLayout() {
 
   const settings = useQuery({ queryKey: ['public-settings'], queryFn: () => api.get('/settings/public').then((response) => response.data), staleTime: 300_000 })
   const activity = useQuery({ queryKey: ['activity-notifications'], queryFn: () => api.get('/activity-notifications', { params: { per_page: 8 } }).then((response) => response.data), refetchInterval: 60_000 })
+  // Pendientes que se marcan en el menú: solicitudes de cuenta y propuestas por validar.
+  const badges = useQuery({ queryKey: ['management-badges'], queryFn: () => api.get('/period-center/badges').then((response) => response.data), enabled: isManagementStaff(user), refetchInterval: 60_000, staleTime: 30_000 })
   const operations = useQuery({ queryKey: ['operational-alerts-summary'], queryFn: () => api.get('/admin/operational-alerts/summary').then((response) => response.data), enabled: generalAdmin && !simulation, refetchInterval: 60_000 })
   const notices = useMemo(() => noticesForUser(settings.data?.system_notices, user), [settings.data, user])
   const [readKeys, setReadKeys] = useState(readNoticeKeys)
@@ -125,7 +127,7 @@ export default function AppLayout() {
           <span><strong>Gestión de Proyectos</strong><strong>{user?.active_career?.nombre_corto || 'Integradores ITSSMT'}</strong><small>{user?.active_career?.clave || 'Sistema institucional'}</small></span>
         </NavLink>
         <div className="sidebar-profile"><Avatar user={user} /><span><strong>{user?.nombres}</strong><small>{roleLabel(user)}</small></span></div>
-        <MenuList menu={menu} pathname={location.pathname} collapsed={collapsed} />
+        <MenuList menu={menu} pathname={location.pathname} collapsed={collapsed} badges={badges.data} />
         <footer className="sidebar-foot">
           <small>SGPI{appVersion ? ` · versión ${appVersion}` : ''}</small>
           <IconButton icon={FiChevronsLeft} label={collapsed ? 'Expandir menú' : 'Contraer menú'} className="collapse-toggle" onClick={() => setCollapsed((value) => !value)} />
@@ -169,7 +171,7 @@ export default function AppLayout() {
           <button type="button" onClick={flipTheme}>{dark ? <FiSun /> : <FiMoon />}<span>{dark ? 'Modo claro' : 'Modo oscuro'}</span></button>
           <button type="button" onClick={() => navigate('/profile')}><FiUser /><span>Mi perfil</span></button>
         </div>
-        <MenuList menu={menu} pathname={location.pathname} />
+        <MenuList menu={menu} pathname={location.pathname} badges={badges.data} />
         <Button variant="ghost-danger" icon={FiLogOut} className="w-100 mt-3" onClick={signout}>Cerrar sesión</Button>
       </Sheet>
 
@@ -206,21 +208,24 @@ export default function AppLayout() {
   )
 }
 
-function MenuList({ menu, pathname, collapsed = false }) {
+const badgeText = (count) => (count > 99 ? '99+' : String(count))
+
+function MenuList({ menu, pathname, collapsed = false, badges = {} }) {
   const [open, setOpen] = useState({})
   return (
     <nav className="menu-app">
       {menu.map((entry, index) => {
         if (entry.section) return <h6 key={`s${index}`} className="menu-section">{entry.section}</h6>
-        if (!entry.group) return <MenuLink key={entry.path} entry={entry} collapsed={collapsed} />
+        if (!entry.group) return <MenuLink key={entry.path} entry={entry} collapsed={collapsed} count={badges?.[entry.badge]} />
+        const pending = entry.items.reduce((sum, child) => sum + Number(badges?.[child.badge] || 0), 0)
         const active = entry.items.some((child) => pathname === child.path || pathname.startsWith(`${child.path}/`))
         const expanded = open[entry.group] ?? active
         return (
           <section key={entry.group} className={`menu-group ${expanded ? 'open' : ''}`}>
             <button type="button" className={`menu-group-toggle ${active ? 'has-active' : ''}`} aria-expanded={expanded} title={entry.group} onClick={() => setOpen((current) => ({ ...current, [entry.group]: !expanded }))}>
-              {createElement(entry.icon, { 'aria-hidden': true })}<span>{entry.group}</span><FiChevronDown className="chevron" aria-hidden="true" />
+              {createElement(entry.icon, { 'aria-hidden': true })}<span>{entry.group}</span>{!expanded && pending > 0 && <b className="menu-badge" aria-label={`${pending} pendientes`}>{badgeText(pending)}</b>}<FiChevronDown className="chevron" aria-hidden="true" />
             </button>
-            {expanded && <div className="menu-group-items">{entry.items.map((child) => <MenuLink key={child.path} entry={child} collapsed={collapsed} />)}</div>}
+            {expanded && <div className="menu-group-items">{entry.items.map((child) => <MenuLink key={child.path} entry={child} collapsed={collapsed} count={badges?.[child.badge]} />)}</div>}
           </section>
         )
       })}
@@ -228,8 +233,13 @@ function MenuList({ menu, pathname, collapsed = false }) {
   )
 }
 
-function MenuLink({ entry }) {
-  return <NavLink to={entry.path} end={entry.path === '/dashboard'} title={entry.label} className="menu-link">{createElement(entry.icon, { 'aria-hidden': true })}<span>{entry.label}</span></NavLink>
+function MenuLink({ entry, count = 0 }) {
+  return (
+    <NavLink to={entry.path} end={entry.path === '/dashboard'} title={entry.label} className="menu-link">
+      {createElement(entry.icon, { 'aria-hidden': true })}<span>{entry.label}</span>
+      {count > 0 && <b className="menu-badge" aria-label={`${count} pendientes`}>{badgeText(count)}</b>}
+    </NavLink>
+  )
 }
 
 function NotificationsSheet({ open, onClose, notices, activity, operations, canManageNotices }) {

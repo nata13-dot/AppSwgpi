@@ -4,4 +4,5 @@
     <string name="title_activity_main">SGPI ITSSMT</string>
     <string name="package_name">mx.edu.itssmt.sgpi</string>
     <string name="custom_url_scheme">mx.edu.itssmt.sgpi</string>
+    <string name="widget_description">Tus pendientes de SGPI según tu perfil</string>
 </resources>

@@ -1,7 +1,7 @@
 import {
   FiActivity, FiArchive, FiBookOpen, FiCalendar, FiCheckSquare, FiClipboard, FiCloud, FiDatabase,
   FiFileText, FiFolder, FiGrid, FiHome, FiLayers, FiShield, FiSliders, FiStar, FiTag, FiUser,
-  FiUserCheck, FiUsers, FiVolume2, FiBriefcase, FiEdit3, FiMail, FiMonitor,
+  FiUserCheck, FiUsers, FiVolume2, FiBriefcase, FiEdit3, FiMail, FiMonitor, FiFlag,
 } from 'react-icons/fi'
 import {
   canManageAcademics, canViewUsers, isAdmin, isGeneralAdmin, isManagementStaff, isStudent, isTeacher,
@@ -35,40 +35,37 @@ function managementMenu(user) {
   } else {
     menu.push({ section: 'Administración' }, item('Inicio', '/dashboard', FiHome))
   }
-  menu.push(item('Seguimiento académico', '/academic-workflows', FiCalendar, null, ['residencias', 'servicio']))
-  if (canViewUsers(user)) {
-    menu.push({ group: 'Personas', icon: FiUsers, module: 'usuarios', items: [
-      item('Usuarios', '/users', FiUsers, null, ['alumnos', 'docentes', 'cuentas', 'excel']),
-      canManageAcademics(user) && item('Solicitudes de cuenta', '/registration-requests', FiUserCheck, null, ['autoregistro', 'aprobar', 'alumnos']),
-      item('Asesores', '/advisors', FiUserCheck, null, ['asesorías', 'revisores']),
-    ].filter(Boolean) })
-  } else {
-    menu.push(item('Asesores', '/advisors', FiUserCheck, 'proyectos', ['asesorías']))
-  }
-  menu.push({ group: 'Proyectos y tesis', icon: FiBookOpen, items: [
-    item('Gestionar proyectos', '/projects', FiFolder, 'proyectos', ['tesis', 'dual', 'casos integradores']),
-    item('Propuestas', '/proposals', FiCheckSquare, 'proyectos', ['ventanas', 'excepciones']),
+  // Mismos grupos que Gestiones y el menú lateral del front de PHP (navbar.php y sidebar.php).
+  menu.push({ group: 'Periodo', icon: FiFlag, items: [
+    item('Operación del periodo', '/period-center', FiFlag, null, ['autoregistro', 'aperturas', 'promoción', 'cierre', 'ventanas']),
+    item('Seguimiento académico', '/academic-workflows', FiCalendar, null, ['residencias', 'servicio', 'matrícula']),
+    canManageAcademics(user) && item('Semestres y periodos', '/semesters', FiCalendar, 'academico', ['periodos', 'grupos', 'promoción', 'irregulares']),
+    canManageAcademics(user) && item('Asignaturas y competencias', '/subjects', FiStar, 'academico', ['materias', 'cargas', 'competencias']),
+    isAdmin(user) && item('Carga inicial', '/career-setup', FiCloud, 'academico', ['plan de estudios', 'csv']),
+  ].filter(Boolean) })
+  menu.push({ group: 'Personas', icon: FiUsers, items: [
+    canViewUsers(user) && item('Usuarios', '/users', FiUsers, 'usuarios', ['alumnos', 'docentes', 'cuentas', 'excel']),
+    canManageAcademics(user) && { ...item('Solicitudes de cuenta', '/registration-requests', FiUserCheck, null, ['autoregistro', 'aprobar', 'alumnos']), badge: 'registration_requests' },
+    item('Asesores', '/advisors', FiUserCheck, 'proyectos', ['asesorías', 'revisores']),
+    isAdmin(user) && item('Archivo histórico', '/archive', FiArchive, null, ['archivados', 'egresados', 'restaurar', 'histórico']),
+  ].filter(Boolean) })
+  menu.push({ group: 'Proyectos', icon: FiBookOpen, items: [
+    item('Proyectos y tesis', '/projects', FiFolder, 'proyectos', ['tesis', 'dual', 'casos integradores', 'residencias']),
+    { ...item('Propuestas', '/proposals', FiCheckSquare, 'proyectos', ['ventanas', 'excepciones', 'validadores']), badge: 'pending_proposals' },
+    item('Entregables', '/deliverables', FiFileText, 'entregables', ['fechas límite']),
+    item('Empresas', '/companies', FiBriefcase, 'proyectos', ['dual']),
+  ] })
+  menu.push({ group: 'Evaluación', icon: FiClipboard, items: [
     item('Evaluaciones', '/evaluations', FiClipboard, 'evaluaciones', ['rúbricas', 'calificaciones']),
     item('Salas y turnos', '/evaluation-rooms', FiCalendar, 'evaluaciones', ['horarios', 'presentaciones']),
-    item('Evaluaciones previas', '/evaluations-archived', FiArchive, 'evaluaciones', ['historial', 'archivadas']),
     item('Evidencias', '/evaluation-documents', FiFileText, 'evaluaciones', ['entregas', 'presentación', 'liberación']),
-    !canManageAcademics(user) && item('Entregables', '/deliverables', FiFileText, 'entregables'),
-    item('Empresas', '/companies', FiBriefcase, 'proyectos', ['dual']),
-  ].filter(Boolean) })
-  if (canManageAcademics(user)) {
-    menu.push({ group: 'Académico', icon: FiBookOpen, module: 'academico', items: [
-      item('Asignaturas y competencias', '/subjects', FiStar, null, ['materias', 'cargas', 'competencias']),
-      item('Semestres y periodos', '/semesters', FiCalendar, null, ['periodos', 'grupos', 'promoción', 'irregulares']),
-      item('Entregables', '/deliverables', FiFileText, 'entregables', ['fechas límite']),
-    ] })
-  }
+    item('Evaluaciones previas', '/evaluations-archived', FiArchive, 'evaluaciones', ['historial', 'archivadas']),
+  ] })
   menu.push({ group: 'Sistema', icon: FiSliders, items: [
-    isAdmin(user) && item('Etiquetas', '/tags', FiTag, 'repositorio'),
-    isAdmin(user) && item('Avisos', '/notices', FiVolume2, 'configuracion', ['notificaciones', 'anuncios']),
     isAdmin(user) && item('Ajustes', '/settings', FiSliders, 'configuracion', ['configuración', 'sesión']),
+    isAdmin(user) && item('Avisos', '/notices', FiVolume2, 'configuracion', ['notificaciones', 'anuncios']),
+    isAdmin(user) && item('Etiquetas', '/tags', FiTag, 'repositorio'),
     isAdmin(user) && item('Módulos de carrera', '/career-modules', FiGrid),
-    isAdmin(user) && item('Carga inicial', '/career-setup', FiCloud, 'academico', ['plan de estudios', 'csv']),
-    isAdmin(user) && item('Archivo histórico', '/archive', FiArchive, null, ['archivados', 'egresados', 'restaurar', 'histórico']),
     item('Repositorio', '/repository', FiArchive, 'repositorio', ['documentos']),
   ].filter(Boolean) })
   menu.push(item('Mi perfil', '/profile', FiUser, null, ['cuenta', 'foto', 'contraseña']))

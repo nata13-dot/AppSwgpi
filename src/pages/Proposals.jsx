@@ -273,8 +273,8 @@ function ProposalReview() {
 }
 
 /** Abre o cierra una ventana con fecha de cierre (autoregistro o registro de propuestas). */
-/** Grupos de 5° que elige un alumno nuevo al registrarse. */
-function NewStudentGroups({ groups, disabled, onChanged }) {
+/** Grupos que elige un alumno nuevo al registrarse. */
+function NewStudentGroups({ groups, semester, disabled, onChanged }) {
   const [value, setValue] = useState((groups || []).join(', '))
   const [saving, setSaving] = useState(false)
   const save = async () => {
@@ -287,19 +287,19 @@ function NewStudentGroups({ groups, disabled, onChanged }) {
   }
   return (
     <div className="row-wrap">
-      <Field label="Grupos de 5° para alumnos nuevos" hint="Separados por coma. El registro sólo se abre de julio a diciembre."><input className="control" disabled={disabled} value={value} onChange={(event) => setValue(event.target.value)} /></Field>
+      <Field label={`Grupos de ${semester}° para alumnos nuevos`} hint="Separados por coma."><input className="control" disabled={disabled} value={value} onChange={(event) => setValue(event.target.value)} /></Field>
       {!disabled && <Button size="sm" variant="ghost" loading={saving} onClick={save}>Guardar grupos</Button>}
     </div>
   )
 }
 
-function WindowControl({ title, subtitle, state, endpoint, disabled, onChanged, children }) {
+function WindowControl({ title, subtitle, state, endpoint, disabled, onChanged, payload = {}, children }) {
   const [until, setUntil] = useState('')
   const [saving, setSaving] = useState(false)
   const save = async (value) => {
     if (value === undefined && !until) return toast.warning('Indica la fecha y hora de cierre.')
     setSaving(true)
-    try { const response = await api.put(endpoint, { until: value === undefined ? until : value }); toast.success(response.data.message); setUntil(''); onChanged() } catch (error) { toast.error(apiError(error)) } finally { setSaving(false) }
+    try { const response = await api.put(endpoint, { until: value === undefined ? until : value, ...(value === null ? {} : payload) }); toast.success(response.data.message); setUntil(''); onChanged() } catch (error) { toast.error(apiError(error)) } finally { setSaving(false) }
     return undefined
   }
   return (
@@ -323,12 +323,17 @@ function ProposalSettings() {
   const query = useQuery({ queryKey: ['proposal-settings'], queryFn: () => api.get('/proposal/settings').then((response) => response.data) })
   const [validators, setValidators] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [freshSemester, setFreshSemester] = useState(null)
   const refresh = () => client.invalidateQueries({ queryKey: ['proposal-settings'] })
   const readOnly = Boolean(viewAs(user))
   if (query.isLoading) return <Loading rows={3} />
   if (query.isError) return <ErrorState error={query.error} onRetry={query.refetch} />
   const data = query.data
   const selected = validators ?? data.validator_ids.map(String)
+  const self = data.self_registration
+  const options = self.semester_options || []
+  // Si no se cambia, los alumnos nuevos entran a 5° (o al único semestre que admita el periodo).
+  const semester = freshSemester ?? (options.includes(5) ? 5 : options[0] ?? 5)
 
   const saveValidators = async () => {
     setSaving(true)
@@ -340,11 +345,17 @@ function ProposalSettings() {
       {!data.period && <div className="alert-app warning">La carrera no tiene un periodo abierto. Ábrelo en Operación académica antes de habilitar el autoregistro.</div>}
       <div className="grid-2">
         <WindowControl title="Autoregistro de alumnos" subtitle="Mientras esté abierto, el inicio de sesión muestra «Crear cuenta»." state={data.self_registration}
-          endpoint="/proposal/settings/self-registration" disabled={readOnly || !data.self_registration.can_manage} onChanged={refresh}>
+          endpoint="/proposal/settings/self-registration" disabled={readOnly || !data.self_registration.can_manage} onChanged={() => { setFreshSemester(null); refresh() }} payload={{ semester }}>
+          {self.open && <p className="small-text">Los alumnos nuevos entran a <strong>{self.semester}° semestre</strong>.</p>}
+          {!readOnly && self.can_manage && options.length > 0 && (
+            <Field label={self.open ? 'Semestre al actualizar' : 'Semestre de los alumnos nuevos'} hint={options.length > 1 ? 'Si no lo cambias, entran a 5°.' : `Este periodo sólo tiene ${options[0]}° para alumnos nuevos.`}>
+              <Chips options={options.map((value) => ({ value, label: `${value}°` }))} value={semester} onChange={setFreshSemester} />
+            </Field>
+          )}
           <p className="muted small-text">Correo esperado: <strong>{data.self_registration.rule.example}</strong>. {data.self_registration.rule.description}</p>
           {data.self_registration.blocker && <div className="alert-app warning"><strong>«Crear cuenta» no se está mostrando.</strong> {data.self_registration.blocker}</div>}
           {!data.self_registration.can_manage && <p className="muted small-text">Lo abre la administración general o la jefatura.</p>}
-          <NewStudentGroups groups={data.self_registration.groups} disabled={readOnly || !data.self_registration.can_manage} onChanged={refresh} />
+          <NewStudentGroups groups={data.self_registration.groups} semester={self.open ? self.semester : semester} disabled={readOnly || !data.self_registration.can_manage} onChanged={refresh} />
         </WindowControl>
         <WindowControl title="Registro de propuestas" subtitle={`Los alumnos registran su propuesta o piden unirse a la de un compañero (máximo ${data.max_project_members} integrantes).`}
           state={data.proposal_window} endpoint="/proposal/settings/proposal-window" disabled={readOnly} onChanged={refresh} />

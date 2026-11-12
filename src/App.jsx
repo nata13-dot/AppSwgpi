@@ -39,6 +39,7 @@ const Profile = lazy(() => import('./pages/Profile'))
 const RegistrationRequests = lazy(() => import('./pages/RegistrationRequests'))
 const Companies = lazy(() => import('./pages/Companies'))
 const Archive = lazy(() => import('./pages/Archive'))
+const PeriodCenter = lazy(() => import('./pages/PeriodCenter'))
 const Repository = lazy(() => import('./pages/Repository'))
 const RepositoryDetail = lazy(() => import('./pages/Repository').then((module) => ({ default: module.RepositoryDetail })))
 const Evaluations = lazy(() => import('./pages/evaluations/Evaluations'))
@@ -77,6 +78,7 @@ const routes = [
   ['/career-modules', CareerModules, isAdmin],
   ['/career-setup', CareerSetup, isAdmin],
   ['/archive', Archive, isAdmin],
+  ['/period-center', PeriodCenter, isManagementStaff],
   ['/evaluations-archived', ArchivedEvaluations, staffOrTeacher],
   ['/companies', Companies, isManagementStaff],
   ['/profile', Profile],

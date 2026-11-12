@@ -23,7 +23,7 @@ export default function SelfRegister() {
   const open = careers.data?.careers || []
   const career = open.find((item) => String(item.id) === String(form.carrera_id)) || (open.length === 1 ? open[0] : null)
   const rule = career?.rule
-  // Los alumnos nuevos entran a 5°: sólo eligen su grupo.
+  // Los alumnos nuevos entran al semestre que eligió la carrera al abrir el registro: sólo eligen su grupo.
   const groups = career?.groups || []
   const expected = expectedEmail(rule, form.id)
   const emailMismatch = form.email && expected && form.email.trim().toLowerCase() !== expected
@@ -93,7 +93,7 @@ export default function SelfRegister() {
           <Field label="Nombre(s)"><input className="control" required autoComplete="given-name" value={form.nombres} onChange={set('nombres')} /></Field>
           <Field label="Apellido paterno"><input className="control" required autoComplete="family-name" value={form.apa} onChange={set('apa')} /></Field>
           <Field label="Apellido materno"><input className="control" value={form.ama} onChange={set('ama')} /></Field>
-          <Field label="Grupo" hint="Los alumnos nuevos entran a 5° semestre.">
+          <Field label="Grupo" hint={`Los alumnos nuevos entran a ${career?.semester || groups[0]?.semestre || 5}° semestre.`}>
             <select className="control" required disabled={!career} value={form.grupo_id} onChange={set('grupo_id')}>
               <option value="">Elige tu grupo</option>
               {groups.map((group) => <option key={group.id} value={group.id}>{group.semestre}° {group.grupo}</option>)}
