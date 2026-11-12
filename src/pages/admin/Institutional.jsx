@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiActivity, FiAlertTriangle, FiCheckCircle, FiDatabase, FiDownload, FiEdit3, FiFileText, FiMail, FiPlus, FiPower, FiRefreshCw, FiSave, FiSearch, FiShield, FiTrash2 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
@@ -254,12 +254,35 @@ export function IntegrityPage() {
 
 export function BackupsPage() {
   const client = useQueryClient()
-  const backups = useQuery({ queryKey: ['database-backups'], queryFn: () => api.get('/admin/database-backups').then((response) => response.data.data || []) })
+  // El respaldo y la prueba de restauración corren en segundo plano en la API: mientras algo siga "en_proceso" la lista
+  // se consulta cada 3 s y, al terminar, se avisa el resultado.
+  const backups = useQuery({
+    queryKey: ['database-backups'], queryFn: () => api.get('/admin/database-backups').then((response) => response.data.data || []),
+    refetchInterval: (query) => ((query.state.data || []).some((row) => row.estado === 'en_proceso' || row.estado_verificacion === 'en_proceso') ? 3_000 : false),
+  })
   const health = useQuery({ queryKey: ['backups-health'], queryFn: () => api.get('/admin/database-backups-health').then((response) => response.data) })
   const reload = () => { client.invalidateQueries({ queryKey: ['database-backups'] }); client.invalidateQueries({ queryKey: ['backups-health'] }) }
-  // Un intento fallido también queda en el historial, así que la tabla se recarga en ambos casos.
-  const create = useMutation({ mutationFn: () => api.post('/admin/database-backups', {}, { timeout: 300_000 }), onSuccess: (response) => toast.success(`Respaldo generado (${bytes(response.data.backup?.tamano_bytes)}). Verifícalo para comprobar que se puede restaurar.`), onError: (error) => toast.error(apiError(error), { autoClose: 12_000 }), onSettled: reload })
-  const verify = useMutation({ mutationFn: (id) => api.post(`/admin/database-backups/${id}/verify`, {}, { timeout: 300_000 }), onSuccess: (response) => { const result = response.data.verification || {}; toast.success(`Restaurable: ${result.tablas_encontradas} tablas esenciales y ${Number(result.filas_verificadas).toLocaleString('es-MX')} filas comprobadas.`) }, onError: (error) => toast.error(apiError(error), { autoClose: 12_000 }), onSettled: reload })
+  const running = useRef(new Map())
+  useEffect(() => {
+    for (const row of backups.data || []) {
+      const key = `b${row.id}`
+      const verifyKey = `v${row.id}`
+      if (row.estado === 'en_proceso') running.current.set(key, true)
+      else if (running.current.delete(key)) {
+        if (row.estado === 'completado') toast.success(`Respaldo generado (${bytes(row.tamano_bytes)}). Verifícalo para comprobar que se puede restaurar.`)
+        else toast.error(`El respaldo no se generó: ${row.mensaje_error || 'sin detalle'}`, { autoClose: 12_000 })
+        client.invalidateQueries({ queryKey: ['backups-health'] })
+      }
+      if (row.estado_verificacion === 'en_proceso') running.current.set(verifyKey, true)
+      else if (running.current.delete(verifyKey)) {
+        if (row.estado_verificacion === 'correcto') toast.success(`Restaurable: ${row.tablas_encontradas} tablas esenciales y ${Number(row.filas_verificadas).toLocaleString('es-MX')} filas comprobadas.`)
+        else toast.error(`La prueba de restauración falló: ${row.error_verificacion || 'sin detalle'}`, { autoClose: 12_000 })
+        client.invalidateQueries({ queryKey: ['backups-health'] })
+      }
+    }
+  }, [backups.data, client])
+  const create = useMutation({ mutationFn: () => api.post('/admin/database-backups'), onSuccess: (response) => toast.info(response.data.message), onError: (error) => toast.error(apiError(error), { autoClose: 12_000 }), onSettled: reload })
+  const verify = useMutation({ mutationFn: (id) => api.post(`/admin/database-backups/${id}/verify`), onSuccess: (response) => toast.info(response.data.message), onError: (error) => toast.error(apiError(error), { autoClose: 12_000 }), onSettled: reload })
   const storage = health.data
   // La depuración exige escribir la frase exacta, igual que en el front de PHP.
   const cleanup = async () => {
@@ -274,7 +297,7 @@ export function BackupsPage() {
     } catch (error) { toast.error(apiError(error)) }
   }
   return (
-    <Page eyebrow="Continuidad operativa" title="Respaldos de base de datos" subtitle="Genera, verifica, conserva y descarga copias institucionales." actions={<Button icon={FiDatabase} loading={create.isPending} onClick={() => create.mutate()}>Crear respaldo ahora</Button>}>
+    <Page eyebrow="Continuidad operativa" title="Respaldos de base de datos" subtitle="Genera, verifica, conserva y descarga copias institucionales." actions={<Button icon={FiDatabase} loading={create.isPending || (backups.data || []).some((row) => row.estado === 'en_proceso')} onClick={() => create.mutate()}>Crear respaldo ahora</Button>}>
       {health.isLoading || backups.isLoading ? <Loading /> : health.isError || backups.isError ? <ErrorState error={health.error || backups.error} onRetry={reload} /> : (
         <>
           <section className={`health-banner ${storage.healthy ? 'ok' : 'bad'}`}>
@@ -285,19 +308,21 @@ export function BackupsPage() {
           <Card flush>
             <Rows headers={['Respaldo', 'Origen', 'Creado por', 'Tamaño', 'Verificación', 'Estado', 'Acciones']} rows={backups.data.map((backup) => {
               const completed = backup.estado === 'completado'
+              const working = backup.estado === 'en_proceso'
+              const verifying = backup.estado_verificacion === 'en_proceso'
               return [
                 <span className="cell-main" key="f"><strong>{formatDateTime(backup.creado_en)}</strong><code title={backup.checksum_sha256}>{backup.checksum_sha256 ? `${backup.checksum_sha256.slice(0, 12)}…` : '—'}</code></span>,
                 backup.origen, actor(backup, backup.creado_por || 'Sistema'), completed ? bytes(backup.tamano_bytes) : '—',
                 !completed ? '—' : <span className="cell-main" key="v">
-                  <Badge tone={backup.estado_verificacion === 'correcto' ? 'success' : backup.estado_verificacion === 'fallido' ? 'danger' : 'neutral'}>{backup.estado_verificacion === 'correcto' ? 'Restaurable' : backup.estado_verificacion === 'fallido' ? 'Falló prueba' : 'Sin verificar'}</Badge>
+                  <Badge tone={backup.estado_verificacion === 'correcto' ? 'success' : backup.estado_verificacion === 'fallido' ? 'danger' : verifying ? 'info' : 'neutral'}>{backup.estado_verificacion === 'correcto' ? 'Restaurable' : backup.estado_verificacion === 'fallido' ? 'Falló prueba' : verifying ? 'Probando restauración…' : 'Sin verificar'}</Badge>
                   {backup.estado_verificacion === 'correcto' && <small>{backup.tablas_encontradas} tablas · {Number(backup.filas_verificadas).toLocaleString('es-MX')} filas · {formatDateTime(backup.verificado_en)}</small>}
                   {backup.estado_verificacion === 'fallido' && <small className="text-danger wrap-anywhere">{backup.error_verificacion}</small>}
                 </span>,
-                <Badge key="e" tone={completed ? 'success' : 'danger'}>{completed ? 'Completado' : 'Fallido'}</Badge>,
+                <Badge key="e" tone={completed ? 'success' : working ? 'info' : 'danger'}>{completed ? 'Completado' : working ? 'Generando…' : 'Fallido'}</Badge>,
                 completed ? <span className="row-wrap" key="a">
-                  <Button size="sm" variant="ghost" icon={FiShield} loading={verify.isPending && verify.variables === backup.id} onClick={() => verify.mutate(backup.id)}>Verificar</Button>
+                  <Button size="sm" variant="ghost" icon={FiShield} loading={verifying || (verify.isPending && verify.variables === backup.id)} onClick={() => verify.mutate(backup.id)}>Verificar</Button>
                   <Button size="sm" variant="ghost" icon={FiDownload} onClick={() => fileDownload(`/admin/database-backups/${backup.id}/download`, backup.nombre_archivo || `respaldo_${backup.id}.sql.gz`)}>Descargar</Button>
-                </span> : <small key="x" className="text-danger wrap-anywhere">{backup.mensaje_error || 'No se registró el detalle del error.'}</small>,
+                </span> : working ? <small key="x" className="muted">Generando en el servidor…</small> : <small key="x" className="text-danger wrap-anywhere">{backup.mensaje_error || 'No se registró el detalle del error.'}</small>,
               ]
             })} />
           </Card>
