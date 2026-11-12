@@ -70,4 +70,27 @@ describe('shared academic client', () => {
     await waitFor(() => expect(root.textContent).toContain('Solicita a jefatura'))
     expect(findButton(root, 'Confirmar lote')).toBeUndefined()
   })
+  it('keeps the view and pending choices after saving one student', async () => {
+    catalog.groups = [{ id: 7, periodo_id: 2, nombre: '6° A', semestre: 6, clave_grupo: 'A' }, { id: 8, periodo_id: 2, nombre: '6° B', semestre: 6, clave_grupo: 'B' }]
+    let unplaced = [{ student_id: 'A1', name: 'Uno', reason: 'x' }, { student_id: 'B2', name: 'Dos', reason: 'y' }]
+    const { root, api } = setup(5, 'periods', {
+      '/semester-management': { periods: [] },
+      '/academic-operations/automation': () => ({ plan: {}, open_period: { id: 2, nombre: '2026-2' }, unplaced }),
+      '/academic-operations/enrollments': (method, data) => { unplaced = unplaced.filter(row => row.student_id !== data.student_id); return {} },
+    })
+    await waitFor(() => expect(root.querySelectorAll('select[name=group_id]').length).toBe(3))
+    const [first, second] = root.querySelectorAll('select[name=group_id]')
+    fireEvent.change(second, { target: { value: '8' } })
+    fireEvent.change(first, { target: { value: '7' } })
+    const before = root.querySelector('div > div')
+    fireEvent.submit(first.closest('form'))
+    expect(root.textContent).not.toContain('Cargando…')
+    await waitFor(() => expect(root.textContent).not.toContain('Uno (A1)'))
+    expect(api).toHaveBeenCalledWith('POST', '/academic-operations/enrollments', { student_id: 'A1', group_id: 7 })
+    expect(root.querySelector('div > div')).not.toBe(before)
+    const left = [...root.querySelectorAll('form')].find(form => form.textContent.includes('Dos (B2)'))
+    expect(left.querySelector('select').value).toBe('8')
+    expect(document.body.textContent).toContain('Cambios guardados.')
+    catalog.groups = []
+  })
 })

@@ -34,7 +34,7 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
       const send = el('button', submitLabel, { type: 'submit', className: 'btn btn-primary' }); node.append(send)
       node.onsubmit = async (event) => {
         event.preventDefault(); send.disabled = true; status.textContent = 'Guardando…'
-        try { await submit(Object.fromEntries(new FormData(node))); status.textContent = 'Operación completada.'; await render() }
+        try { await submit(Object.fromEntries(new FormData(node))); notice('Cambios guardados.'); await render() }
         catch (e) { status.textContent = error(e) }
         finally { send.disabled = false }
       }
@@ -49,11 +49,22 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
   const request = (method, url, body) => api(method, url, body)
   const status = el('p', '', { role: 'status', ariaLive: 'polite' })
   const nav = el('nav', undefined, { ariaLabel: 'Operación académica', style: 'margin-bottom:16px' })
-  const content = el('div')
+  let content = el('div')
   root.replaceChildren(nav, status, content)
+  // Lo que el usuario ya eligió en otros formularios sobrevive a la actualización tras guardar.
+  const touched = (event) => { if (event.target.name) event.target.dataset.touched = '1' }
+  root.addEventListener('input', touched)
+  root.addEventListener('change', touched)
+  // Aviso flotante: tras guardar abajo en la página, el estado de arriba no se ve.
+  const notice = (text) => {
+    status.textContent = text
+    const toast = el('div', text, { role: 'status', style: 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2000;background:#1B396A;color:#fff;padding:10px 18px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-weight:600;max-width:90vw;text-align:center' })
+    document.body.append(toast)
+    setTimeout(() => toast.remove(), 2600)
+  }
   const tabs = [...(academic ? [['periods', 'Periodos y matrícula']] : []), ['courses', student ? 'Mis materias' : 'Inscripciones'], ...(!student ? [['authorizations', 'Autorizaciones']] : []), ...(manager ? [['memberships', 'Perfiles']] : []), ['residencies', 'Residencias'], ...(!student ? [['continuity', 'Continuidad']] : [])]
   if (!tabs.some(([id]) => id === tab)) tab = tabs[0][0]
-  for (const [id, label] of tabs) button(label, async () => { tab = id; await render() }, nav)
+  for (const [id, label] of tabs) button(label, async () => { tab = id; await render(false) }, nav)
 
   async function renderPeriods() {
     const data = await request('GET', '/semester-management')
@@ -284,15 +295,48 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
     }
   }
 
-  async function render() {
+  // Mismo campo en el contenido nuevo: el mismo formulario (por su primer título) y el mismo nombre.
+  const fieldKey = (field) => `${field.form?.querySelector('strong, h2, h3')?.textContent || ''}|${field.name}`
+
+  // Una actualización a la vez: las secciones se arman sobre `content` y no deben mezclarse.
+  let queue = Promise.resolve()
+  function render(soft = true) {
+    queue = queue.then(() => draw(soft))
+    return queue
+  }
+
+  /**
+   * Al cambiar de pestaña se muestra "Cargando…". Después de guardar (soft) la vista no se vacía: el contenido
+   * nuevo se arma aparte y reemplaza al anterior, conservando la posición, las secciones abiertas y lo elegido.
+   */
+  async function draw(soft) {
     if (disposed) return
-    content.replaceChildren(el('p', 'Cargando…'))
+    const previous = content
+    const keep = soft && previous.childElementCount > 0
+    if (!keep) previous.replaceChildren(el('p', 'Cargando…'))
+    const opened = [...previous.querySelectorAll('details')].map(node => node.open)
+    const values = new Map([...previous.querySelectorAll('[data-touched]')].map(field => [fieldKey(field), field.value]))
+    content = el('div')
     try {
       catalog = await request('GET', '/academic-operations/catalog')
       if (disposed) return
-      content.replaceChildren()
       await ({ periods: renderPeriods, courses: renderCourses, authorizations: renderAuthorizations, memberships: renderMemberships, residencies: renderResidencies, continuity: renderContinuity })[tab]()
-    } catch (e) { if (!disposed) { content.replaceChildren(el('p', error(e))); button('Reintentar', render, content) } }
+      if (disposed) return
+      if (keep) {
+        content.querySelectorAll('details').forEach((node, index) => { if (opened[index]) node.open = true })
+        for (const field of content.querySelectorAll('input[name], select[name], textarea[name]')) {
+          const key = fieldKey(field)
+          if (!values.has(key) || field.type === 'checkbox' || field.type === 'hidden') continue
+          field.value = values.get(key)
+          // Si la opción ya no existe (p. ej. el grupo se llenó) el campo queda vacío y deja de contar como elegido.
+          if (field.value === values.get(key)) field.dataset.touched = '1'
+        }
+      }
+      previous.replaceWith(content)
+    } catch (e) {
+      content = previous
+      if (!disposed) { content.replaceChildren(el('p', error(e))); button('Reintentar', () => render(false), content) }
+    }
   }
   render()
   return () => { disposed = true; root.replaceChildren() }
