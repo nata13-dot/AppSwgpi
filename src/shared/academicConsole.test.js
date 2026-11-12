@@ -93,15 +93,13 @@ describe('shared academic client', () => {
     expect(document.body.textContent).toContain('Cambios guardados.')
     catalog.groups = []
   })
-  it('explains each tab and remembers when the guide is hidden', async () => {
+  it('marks the active tab and announces it to the section guide', async () => {
+    const seen = []
+    const listener = (event) => seen.push(event.detail.key)
+    window.addEventListener('sgpi:guide', listener)
     const { root } = setup(5, 'memberships')
-    await waitFor(() => expect(root.textContent).toContain('¿Para qué sirve esta sección?'))
+    await waitFor(() => expect(seen).toContain('academic:memberships'))
     expect(root.querySelector('.ac-tab.active').textContent).toBe('Perfiles')
-    expect([...root.querySelectorAll('.ac-guide-label')].map(label => label.textContent)).toEqual(['Qué es', 'Cómo se usa', 'Por qué importa'])
-    fireEvent.click(findButton(root, 'Ocultar'))
-    expect(root.querySelector('.ac-guide.collapsed')).not.toBeNull()
-    expect(localStorage.getItem('sgpi-ac-guide-hidden:memberships')).toBe('1')
-    fireEvent.click(findButton(root, 'Ver guía'))
-    expect(root.querySelector('.ac-guide-grid')).not.toBeNull()
+    window.removeEventListener('sgpi:guide', listener)
   })
 })

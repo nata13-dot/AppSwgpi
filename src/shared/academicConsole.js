@@ -12,9 +12,6 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
   const error = (e) => e.response?.data?.message || e.response?.data?.error || Object.values(e.response?.data?.errors || {}).flat().join(' ') || e.message || 'No fue posible completar la operación.'
   const ICONS = {
     info: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z',
-    what: 'M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z',
-    how: 'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z',
-    why: 'M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z',
   }
   const icon = (name) => {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
@@ -73,10 +70,9 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
   const request = (method, url, body) => api(method, url, body)
   const status = el('p', '', { role: 'status', ariaLive: 'polite', className: 'ac-status' })
   const nav = el('nav', undefined, { ariaLabel: 'Operación académica', className: 'ac-tabs' })
-  const guide = el('div')
   let content = el('div')
   root.classList.add('academic-console')
-  root.replaceChildren(nav, guide, status, content)
+  root.replaceChildren(nav, status, content)
   // Lo que el usuario ya eligió en otros formularios sobrevive a la actualización tras guardar.
   const touched = (event) => { if (event.target.name) event.target.dataset.touched = '1' }
   root.addEventListener('input', touched)
@@ -97,51 +93,10 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
     await render(false)
   }, nav, 'ac-tab')]))
 
-  // Guía de cada pestaña: qué es, cómo se usa y por qué importa. Se puede ocultar y se recuerda por pestaña.
-  const GUIDES = {
-    periods: ['El periodo abierto de la carrera, el paso de semestre de los alumnos y su grupo en cada periodo.',
-      'Los periodos se abren y se cierran solos por fecha, y los alumnos pasan a su nuevo grupo automáticamente. Aquí sólo acomodas a quienes quedaron pendientes; las opciones manuales son para casos especiales.',
-      'Cada alumno necesita un grupo en el periodo para aparecer en materias, proyectos, entregas y evaluaciones.'],
-    courses: student
-      ? ['Las materias del periodo abierto en las que puedes inscribirte.', 'Escribe la clave que te dio tu docente mientras la inscripción esté abierta. Si necesitas darte de baja, indica el motivo.', 'Al inscribirte recibes los entregables y las calificaciones de esa materia.']
-      : ['Los cursos del periodo abierto y su autoinscripción con clave.', 'Abre la inscripción con una clave y una ventana de fechas y compártela con el grupo. Desde "Ver inscritos" revisas la lista y registras bajas.', 'Sólo los alumnos inscritos reciben los entregables del curso y pueden ser calificados.'],
-    authorizations: ['Excepciones a las reglas normales: presentar en otra etapa, reprogramar, un nuevo intento o inscribirse en otro semestre.',
-      'Registra la solicitud con su motivo y vigencia; jefatura o administración la aprueba o la rechaza en la lista de abajo. Cada aprobación se usa una sola vez.',
-      'Queda constancia de quién pidió y quién autorizó cada excepción, y no se aplica a todo el equipo sin confirmarlo.'],
-    memberships: ['El perfil con el que trabaja cada miembro de la carrera: docente, estudiante, asistencia o coordinación.',
-      'Elige a la persona y su nuevo perfil. Antes de cambiarlo, consulta sus compromisos (cursos, salas, asesorías o residencias) y reasígnalos.',
-      'Un cambio de perfil con compromisos pendientes dejaría cursos o proyectos sin responsable.'],
-    residencies: ['El expediente individual de residencia profesional de cada alumno.',
-      'Se crea el expediente con su proyecto y asesor. El alumno sube versiones de cada requisito y el asesor las valida o pide correcciones.',
-      'Reúne en un solo lugar los documentos y las revisiones que exige la residencia, con su historial.'],
-    continuity: ['La continuación de un proyecto integrador en el nuevo periodo.',
-      'Elige el proyecto y el grupo del periodo abierto en el que seguirá.',
-      'Conserva el grupo, los documentos y las evaluaciones de los periodos anteriores sin crear un proyecto nuevo.'],
-  }
-  const storage = (action, key, value) => { try { return action === 'get' ? window.localStorage.getItem(key) : window.localStorage[value ? 'setItem' : 'removeItem'](key, '1') } catch { return null } }
+  // La guía "Cómo usar esta sección" (sectionGuide.js) cambia con la pestaña.
   function renderGuide() {
     for (const [id, node] of tabButtons) { node.classList.toggle('active', id === tab); node.setAttribute('aria-current', id === tab ? 'page' : 'false') }
-    const [what, how, why] = GUIDES[tab] || []
-    if (!what) { guide.replaceChildren(); return }
-    const key = `sgpi-ac-guide-hidden:${tab}`
-    const hidden = storage('get', key) === '1'
-    const box = el('aside', undefined, { className: `ac-guide${hidden ? ' collapsed' : ''}` })
-    const head = el('div', undefined, { className: 'ac-guide-head' })
-    const title = el('strong', '¿Para qué sirve esta sección?')
-    const toggle = el('button', hidden ? 'Ver guía' : 'Ocultar', { type: 'button', className: 'ac-link' })
-    toggle.onclick = () => { storage('set', key, !hidden); renderGuide() }
-    head.append(icon('info'), title, toggle)
-    box.append(head)
-    if (!hidden) {
-      const grid = el('div', undefined, { className: 'ac-guide-grid' })
-      for (const [name, label, text] of [['what', 'Qué es', what], ['how', 'Cómo se usa', how], ['why', 'Por qué importa', why]]) {
-        const item = el('div', undefined, { className: `ac-guide-item ${name}` })
-        const caption = el('span', undefined, { className: 'ac-guide-label' }); caption.append(icon(name), el('span', label))
-        item.append(caption, el('p', text)); grid.append(item)
-      }
-      box.append(grid)
-    }
-    guide.replaceChildren(box)
+    window.dispatchEvent(new CustomEvent('sgpi:guide', { detail: { key: `academic:${tab}` } }))
   }
 
   async function renderPeriods() {

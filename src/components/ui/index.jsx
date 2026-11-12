@@ -6,6 +6,7 @@ import Swal from 'sweetalert2'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { registerBackHandler } from '../../utils/backNavigation'
+import SectionGuide from '../SectionGuide'
 
 /* eslint-disable react-refresh/only-export-components */
 
@@ -31,6 +32,7 @@ export function Page({ title, subtitle, eyebrow, actions, back, children, classN
         </div>
         {actions && <div className="page-actions">{actions}</div>}
       </header>
+      <SectionGuide />
       {children}
     </div>
   )
