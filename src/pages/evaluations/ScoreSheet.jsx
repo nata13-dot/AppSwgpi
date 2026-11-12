@@ -6,6 +6,7 @@ import api, { apiError } from '../../services/api'
 import { fullName } from '../../utils/formatters'
 import { Badge, Button, confirmAction, Empty, Field, Loading, Progress, Sheet } from '../../components/ui'
 import { controlNumbers, SCALE_NAMES, scaleOf, scaleOptions, scalePercentage, Verdict, verdictFor } from './evaluationShared'
+import { LiveRoomTimer } from '../../components/RoomCountdown'
 
 const draftKey = (id) => `sgpi-score-draft:${id}`
 const readDraft = (id) => { try { return JSON.parse(localStorage.getItem(draftKey(id)) || '{}') } catch { return {} } }
@@ -82,6 +83,8 @@ export default function ScoreSheet({ evaluation, project, onClose, onSaved }) {
         <div><strong>{project?.title || 'N/A'}</strong><small>Integrantes: {(project?.students || []).map(fullName).join(', ') || '—'}</small>{controlNumbers(project) && <small>No. control: {controlNumbers(project)}</small>}</div>
         <Badge>Orden #{evaluation.presentation_order || '–'}</Badge>
       </div>
+      {/* El mismo tiempo que controla el encargado de la sala, para todos los evaluadores. */}
+      <LiveRoomTimer roomId={evaluation.room?.id || evaluation.evaluation_room_id} />
       {exhausted && <div className="alert-app danger">Ya alcanzaste el límite de {evaluation.max_attempts} oportunidad(es) para esta evaluación.</div>}
       {restored && <p className="muted small-text">Se restauró un progreso guardado en este dispositivo.</p>}
       {criteriaQuery.isLoading ? <Loading /> : !criteria.length ? <Empty title="Sin preguntas" message="Este semestre no tiene preguntas de rúbrica configuradas." /> : (

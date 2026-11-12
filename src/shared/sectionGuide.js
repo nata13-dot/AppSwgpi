@@ -97,8 +97,8 @@ const GUIDES = {
     affects: ['Es sólo consulta: lo archivado no cambia las evaluaciones del periodo actual.'],
   },
   'evaluation-rooms': {
-    how: ['Crea una sala con salón, fecha, responsable y docentes evaluadores.', 'Agrega los proyectos en el orden en que presentarán.', 'Durante el evento, inicia y cierra cada turno desde la sala.'],
-    affects: ['Los docentes asignados ven la sala en su agenda y pueden evaluar a esos proyectos.', 'Los alumnos ven su fecha y turno de presentación.', 'Cambiar horario u orden se refleja al momento en todas las pantallas de la sala.'],
+    how: ['Crea la sala con la fecha y la hora de inicio, el salón, los proyectos en su orden y los docentes; la hora de fin se calcula sola.', 'Cada turno es exposición + preguntas y respuestas; entre proyectos hay una tolerancia (3 min por defecto).', 'Al bloquear el orden empieza la sala: el encargado inicia la exposición, el temporizador pasa a preguntas (solo o a mano) y "Siguiente" avanza el turno.'],
+    affects: ['Todos los evaluadores ven el mismo temporizador en la sala y dentro de su rúbrica.', 'Los alumnos ven en su inicio qué turno va pasando, cuántos faltan y a qué hora pasarían; el siguiente equipo recibe "Te toca en el siguiente turno".', 'Los docentes y el salón quedan reservados en ese horario y no se pueden asignar a otra sala.'],
   },
   'evaluation-documents': (role) => role === 'student' ? {
     how: ['Sube la hoja de liberación, la presentación y, si tu etapa lo pide, el enlace o el reporte.', 'Revisa el estado de cada entrega y corrige las que tengan observaciones.'],

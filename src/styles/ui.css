@@ -987,3 +987,17 @@ a.btn-app { text-decoration: none; }
 .denial-box { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; }
 .alert-app.row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .alert-app.row-between small { color: var(--muted); }
+
+/* Temporizador de turno por fases (components/RoomCountdown): exposición en verde, preguntas en azul, rojo al terminar. */
+.room-timer .timer-display { font-family: var(--font-head); font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.room-timer-title { display: flex; flex-direction: column; line-height: 1.2; }
+.room-timer-title small { color: var(--muted); font-size: .74rem; }
+.room-timer.running.phase-preguntas { border-color: var(--info); background: var(--info-soft); }
+.room-timer.expired .timer-display, .room-timer.expired .room-timer-title strong { color: var(--danger); }
+.room-timer.expired { animation: timer-alert 1s ease-in-out 5; }
+@keyframes timer-alert { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 30%, transparent); } }
+.readonly-value { display: flex; align-items: center; background: var(--surface-2); color: var(--ink); font-weight: 700; }
+/* Turno en vivo del alumno en su inicio. */
+.live-turn { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 12px; border-radius: 12px; background: var(--info-soft); border-left: 4px solid var(--brand); margin-top: 8px; }
+.live-turn.now { background: var(--success-soft); border-left-color: var(--success); }
+.live-turn strong { font-size: 1.05rem; }

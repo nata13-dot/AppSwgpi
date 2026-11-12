@@ -4,7 +4,7 @@ import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useSemesters } from '../../lib/semesters'
 import { matchesSearch } from '../../utils/formatters'
-import { Badge, Button, Field, SearchInput, Sheet, Steps } from '../../components/ui'
+import { Badge, Button, Field, SearchInput, Sheet, Steps, Switch } from '../../components/ui'
 import { roomName } from '../evaluations/evaluationShared'
 import {
   academicSemester, addMinutes, apiToInput, authorsOf, busyFor, categoryOf, companyOf, EVALUATOR_PROFILES, nextMinute, normalizeRoomName,
@@ -15,12 +15,11 @@ const STEPS = ['Cuándo y dónde', 'Proyectos', 'Evaluadores']
 const matches = matchesSearch
 
 function initialState(room) {
-  if (!room) return { name: '', nameAuto: true, classroom: '', semester: '', start: '', end: '', endAuto: true, teacherMinutes: 15, presentationMinutes: 20, attempts: 1, projects: [], special: {}, teachers: [], responsible: '' }
-  const start = parseDate(room.fecha_evaluacion)
+  if (!room) return { name: '', nameAuto: true, classroom: '', semester: '', start: '', teacherMinutes: 10, presentationMinutes: 15, tolerance: 3, autoQuestions: true, attempts: 1, projects: [], special: {}, teachers: [], responsible: '' }
   return {
     name: room.nombre || '', nameAuto: false, classroom: room.salon_id ? String(room.salon_id) : '', semester: String(room.semestre || ''),
-    start: apiToInput(room.fecha_evaluacion), end: room.fecha_fin_evaluacion ? apiToInput(room.fecha_fin_evaluacion) : start ? toInput(addMinutes(start, 60)) : '',
-    endAuto: false, teacherMinutes: room.teacher_evaluation_minutes || 15, presentationMinutes: room.project_presentation_minutes || 20, attempts: room.max_attempts || 1,
+    start: apiToInput(room.fecha_evaluacion), teacherMinutes: room.teacher_evaluation_minutes || 10, presentationMinutes: room.project_presentation_minutes || 15,
+    tolerance: room.tolerance_minutes ?? 3, autoQuestions: room.auto_questions ?? true, attempts: room.max_attempts || 1,
     projects: orderedProjects(room).map((project) => Number(project.id)), special: {},
     teachers: (room.teachers || []).map((teacher) => String(teacher.id)), responsible: String(room.responsible_teacher_id || room.responsible_teacher?.id || ''),
   }
@@ -43,14 +42,15 @@ export default function RoomWizard({ room, rooms, projects, teachers, classrooms
 
   const specialIds = Object.keys(form.special).map(Number)
   const count = form.projects.length + specialIds.length
+  // Cada turno es exposición + preguntas y respuestas; entre proyectos hay tolerancia. El fin se calcula igual que la
+  // API (App\Support\RoomTimeline): no se captura.
   const perProject = Number(form.teacherMinutes || 0) + Number(form.presentationMinutes || 0)
-  const required = count * perProject
+  const tolerance = Math.max(0, Number(form.tolerance) || 0)
+  const required = Math.max(1, count) * perProject + Math.max(0, Math.max(1, count) - 1) * tolerance
   const startDate = parseDate(form.start)
-  // Mientras no se edite a mano, el fin se ajusta al tiempo que necesitan los proyectos marcados
-  // y el nombre propone el número de sala libre en ese horario.
-  const end = form.endAuto && !editing && startDate ? toInput(addMinutes(startDate, Math.max(30, required))) : form.end
+  const end = startDate ? toInput(addMinutes(startDate, required)) : ''
   const endDate = parseDate(end)
-  const available = startDate && endDate ? Math.round((endDate - startDate) / 60000) : 0
+  // El nombre propone el número de sala libre en ese horario.
   const busy = busyFor(rooms, { id: room?.id, start: form.start, end })
   const name = form.nameAuto && !editing ? suggestRoomName(busy.rooms) : form.name
 
@@ -94,7 +94,6 @@ export default function RoomWizard({ room, rooms, projects, teachers, classrooms
     set({ teachers: teachersNext, responsible: teachersNext.includes(form.responsible) ? form.responsible : teachersNext[0] || '' })
   }
   const changeSemester = (value) => { if (!editing && value !== semester) set({ semester: value, projects: [], special: {} }) }
-  const fitEnd = () => startDate && set({ end: toInput(addMinutes(startDate, Math.max(60, required))), endAuto: false })
 
   const classroom = classrooms.find((item) => String(item.id) === form.classroom)
   const responsible = teachers.find((teacher) => String(teacher.id) === form.responsible)
@@ -111,10 +110,10 @@ export default function RoomWizard({ room, rooms, projects, teachers, classrooms
 
   const save = async () => {
     const fail = (message, goTo) => { if (goTo !== undefined) setStep(goTo); toast.warning(message) }
-    if (!startDate || !endDate || endDate <= startDate) return fail('La hora de fin de la sala debe ser posterior a la hora de inicio.', 0)
+    if (!startDate) return fail('Indica la fecha y la hora de inicio de la sala.', 0)
+    if (Number(form.presentationMinutes) < 1 || Number(form.teacherMinutes) < 1) return fail('La exposición y las preguntas deben durar al menos 1 minuto.', 0)
     const specialCases = specialIds.map((id) => ({ project_id: id, reason: String(form.special[id] || '').trim() }))
     if (specialCases.some((item) => item.reason.length < 10)) { setSpecialOpen(true); return fail('Escribe el motivo de cada caso especial (mínimo 10 caracteres).', 1) }
-    if (!editing && available < required) return fail(`El horario no alcanza: se necesitan ${required} min para ${count} proyecto(s) y hay ${available} min. Usa "Ajustar fin" o reduce los tiempos.`, 0)
     if (!form.classroom) return fail('Elige el salón institucional de la sala.', 0)
     if (!name.trim() || !form.start) return fail('Indica el nombre de la sala y la fecha de evaluación.', 0)
     if (!editing && startDate < new Date()) return fail('La fecha de la sala debe ser posterior al momento actual.', 0)
@@ -124,8 +123,9 @@ export default function RoomWizard({ room, rooms, projects, teachers, classrooms
     const ids = [...form.projects, ...specialIds]
     const payload = {
       nombre: normalizeRoomName(name), salon_id: Number(form.classroom), semestre: semester, responsible_teacher_id: form.responsible,
-      fecha_evaluacion: form.start, fecha_fin_evaluacion: end, teacher_evaluation_minutes: Number(form.teacherMinutes),
-      project_presentation_minutes: Number(form.presentationMinutes), max_attempts: Number(form.attempts), teacher_ids: form.teachers,
+      fecha_evaluacion: form.start, teacher_evaluation_minutes: Number(form.teacherMinutes),
+      project_presentation_minutes: Number(form.presentationMinutes), tolerance_minutes: tolerance, auto_questions: Boolean(form.autoQuestions),
+      max_attempts: Number(form.attempts), teacher_ids: form.teachers,
       project_ids: ids, project_order: Object.fromEntries(ids.map((id, index) => [id, index + 1])), special_cases: specialCases,
     }
     setSaving(true)
@@ -167,11 +167,11 @@ export default function RoomWizard({ room, rooms, projects, teachers, classrooms
                 </div>
               </div>
               <div className="form-grid">
-                <Field label="Inicio" hint={editing ? 'Para cambiar el horario usa el botón Horario de la sala.' : 'Debe ser posterior a la fecha actual.'}>
+                <Field label="Fecha y hora de inicio" hint={editing ? 'Para cambiar el horario usa el botón Horario de la sala.' : 'Debe ser posterior a la fecha actual.'}>
                   <input className="control" type="datetime-local" min={editing ? undefined : nextMinute()} readOnly={editing} value={form.start} onChange={(event) => set({ start: event.target.value })} />
                 </Field>
-                <Field label="Fin" hint="Se calcula solo con los proyectos; puedes cambiarlo.">
-                  <input className="control" type="datetime-local" readOnly={editing} value={end} onChange={(event) => set({ end: event.target.value, endAuto: false })} />
+                <Field label="Termina aproximadamente" hint={count ? `${count} proyecto(s) × ${perProject} min + ${Math.max(0, count - 1)} tolerancia(s) de ${tolerance} min = ${required} min.` : 'Se calcula al marcar los proyectos.'}>
+                  <output className="control readonly-value">{endDate ? endDate.toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}</output>
                 </Field>
                 <Field label="Salón" hint="Los salones ocupados en ese horario aparecen bloqueados.">
                   <select className="control" value={form.classroom} onChange={(event) => set({ classroom: event.target.value })}>
@@ -185,11 +185,13 @@ export default function RoomWizard({ room, rooms, projects, teachers, classrooms
                 <Field label="Nombre de la sala" hint="Te sugerimos el siguiente número libre."><input className="control upper" placeholder="SALA 1" value={name} onChange={(event) => set({ name: event.target.value, nameAuto: false })} /></Field>
               </div>
               <details className="times-box">
-                <summary>Tiempos por proyecto: <strong>{form.presentationMinutes} min de presentación + {form.teacherMinutes} de evaluación · {form.attempts} oportunidad{Number(form.attempts) === 1 ? '' : 'es'}</strong></summary>
+                <summary>Tiempos por proyecto: <strong>{form.presentationMinutes} min de exposición + {form.teacherMinutes} de preguntas · {tolerance} min de tolerancia · {form.attempts} oportunidad{Number(form.attempts) === 1 ? '' : 'es'}</strong></summary>
                 <div className="form-grid three mt-2">
-                  <Field label="Presentación (min)"><input className="control" type="number" min={1} max={240} value={form.presentationMinutes} onChange={(event) => set({ presentationMinutes: event.target.value })} /></Field>
-                  <Field label="Evaluación docente (min)"><input className="control" type="number" min={1} max={240} value={form.teacherMinutes} onChange={(event) => set({ teacherMinutes: event.target.value })} /></Field>
+                  <Field label="Exposición (min)" hint="Lo que tiene cada equipo para presentar."><input className="control" type="number" min={1} max={240} value={form.presentationMinutes} onChange={(event) => set({ presentationMinutes: event.target.value })} /></Field>
+                  <Field label="Preguntas y respuestas (min)" hint="Los docentes califican durante la exposición y las preguntas."><input className="control" type="number" min={1} max={240} value={form.teacherMinutes} onChange={(event) => set({ teacherMinutes: event.target.value })} /></Field>
+                  <Field label="Tolerancia entre proyectos (min)" hint="Cambio de equipo; 3 por defecto."><input className="control" type="number" min={0} max={15} value={form.tolerance} onChange={(event) => set({ tolerance: event.target.value })} /></Field>
                   <Field label="Oportunidades"><input className="control" type="number" min={1} max={10} value={form.attempts} onChange={(event) => set({ attempts: event.target.value })} /></Field>
+                  <div className="full"><Switch checked={Boolean(form.autoQuestions)} onChange={(value) => set({ autoQuestions: value })} label="Pasar solo a preguntas" hint="Al terminar la exposición suena un aviso, se pone en rojo 5 segundos y empieza la cuenta de preguntas." /></div>
                 </div>
               </details>
               <AvailabilityHint start={form.start} end={end} busy={busy} />
@@ -282,10 +284,10 @@ export default function RoomWizard({ room, rooms, projects, teachers, classrooms
         <aside className="wizard-summary" aria-label="Resumen de la sala">
           <h3>Resumen</h3>
           <ul>{summary.map(([ok, label, value]) => <li key={label} className={ok ? 'ok' : 'missing'}>{ok ? <FiCheckCircle /> : <FiCircle />}<small>{label}</small><span>{value}</span></li>)}</ul>
-          <div className={`time-budget ${!count ? '' : available < required ? 'short' : 'ok'}`} aria-live="polite">
-            {!count ? 'Marca proyectos para calcular el tiempo necesario.' : <>
-              {available < required ? <FiAlertTriangle /> : <FiCheckCircle />} {count} proyecto(s) × {perProject} min = <strong>{required} min</strong> necesarios · disponibles <strong>{available} min</strong>
-              {available < required && startDate && !editing && <Button size="sm" variant="link" onClick={fitEnd}>Ajustar fin</Button>}
+          <div className={`time-budget ${count ? 'ok' : ''}`} aria-live="polite">
+            {!count ? 'Marca proyectos para calcular la duración.' : <>
+              <FiCheckCircle /> {count} turno(s) de {perProject} min + {Math.max(0, count - 1)} × {tolerance} min de tolerancia = <strong>{required} min</strong>
+              {endDate && <> · termina cerca de las <strong>{endDate.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</strong></>}
             </>}
           </div>
         </aside>

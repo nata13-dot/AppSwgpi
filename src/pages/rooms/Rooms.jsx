@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiArchive, FiArrowLeft, FiClock, FiEdit2, FiEyeOff, FiFileText, FiLock, FiPause, FiPlay, FiPlus, FiRotateCcw, FiSave, FiSkipForward, FiSquare, FiTrash2 } from 'react-icons/fi'
@@ -12,6 +12,7 @@ import { Badge, Button, Card, Chips, confirmAction, Empty, ErrorState, Field, Ic
 import { downloadReport, roomName } from '../evaluations/evaluationShared'
 import { apiToInput, authorsOf, EVALUATOR_PROFILES, nextMinute, orderedProjects, personName, projectSemester, ROOM_STAGES, roomPayload, roomSearchText } from './roomShared'
 import RoomWizard from './RoomWizard'
+import { RoomCountdown } from '../../components/RoomCountdown'
 
 /** Salas de evaluación (Frontend_Swgpi/pages/admin/evaluation-rooms.php). */
 export default function Rooms() {
@@ -58,7 +59,8 @@ export default function Rooms() {
     try { const response = await request(); toast.success(response?.data?.message || success); refresh() } catch (error) { toast.error(apiError(error)); refresh() }
   }
   const confirmAndAct = async (confirm, request, success) => { if (await confirmAction(confirm)) act(request, success) }
-  const timer = (room, action, minutes) => act(() => api.post(`/evaluations/rooms/${room.id}/timer`, { action, expected_sequence_version: room.sequence_version, ...(['start', 'reset'].includes(action) ? { duration_seconds: Math.max(1, Number(minutes) || 1) * 60 } : {}) }), 'Temporizador actualizado')
+  // La duración sale de la sala (exposición o preguntas); la API decide según la fase.
+  const timer = (room, action) => act(() => api.post(`/evaluations/rooms/${room.id}/timer`, { action, expected_sequence_version: room.sequence_version }), 'Temporizador actualizado')
   const assignProject = async (project, targetId, order) => {
     const current = roomOf(project.id)
     const target = targetId ? rooms.find((room) => Number(room.id) === Number(targetId)) : null
@@ -138,7 +140,7 @@ function RoomCard({ room, archived, manage, fullReports, onEdit, onSchedule, onT
       actions={<div className="row-wrap"><Badge>Semestre {room.semestre}</Badge>{room.sequence_locked && <Badge tone="info">Orden bloqueado</Badge>}{room.completed_at && <Badge tone="success">Finalizada</Badge>}</div>}>
       <dl className="meta-grid">
         <div><dt>Responsable</dt><dd>{personName(room.responsible_teacher) || '—'}</dd></div>
-        <div><dt>Tiempos</dt><dd>{room.project_presentation_minutes} min exposición / {room.teacher_evaluation_minutes} min evaluación</dd></div>
+        <div><dt>Tiempos por turno</dt><dd>{room.project_presentation_minutes} min exposición + {room.teacher_evaluation_minutes} min preguntas · {room.tolerance_minutes ?? 3} min de tolerancia</dd></div>
         <div className="wide"><dt>Evaluadores</dt><dd>{(room.teachers || []).map(personName).filter(Boolean).join(', ') || '—'}</dd></div>
       </dl>
       <p className={`small-text ${room.evaluation_window?.is_open ? 'text-success' : 'text-warning'}`}><FiClock /> {WINDOW_LABELS[windowStatus] || 'Horario cerrado'}{windowStatus === 'late_authorized' && room.late_evaluation_until ? ` hasta ${formatDateTime(room.late_evaluation_until)}` : ''}</p>
@@ -162,34 +164,24 @@ function RoomCard({ room, archived, manage, fullReports, onEdit, onSchedule, onT
   )
 }
 
-/** Tiempo del equipo en turno: cuenta regresiva local que se resincroniza con cada consulta de la sala. */
+/** Tiempo del equipo en turno (exposición y luego preguntas). Lo controla el encargado de la sala o un gestor. */
 function RoomTimer({ room, onTimer }) {
   const data = room.timer || {}
-  const [remaining, setRemaining] = useState(Number(data.remaining_seconds || 0))
-  const [minutes, setMinutes] = useState(Math.max(1, Math.ceil(Number(data.duration_seconds || room.project_presentation_minutes * 60) / 60)))
   const running = data.status === 'en_curso'
-  // Cada consulta de la sala resincroniza la cuenta regresiva local.
-  const [syncedTimer, setSyncedTimer] = useState(data)
-  if (syncedTimer !== data) { setSyncedTimer(data); setRemaining(Number(data.remaining_seconds || 0)) }
-  useEffect(() => {
-    if (!running) return undefined
-    const interval = setInterval(() => setRemaining((value) => Math.max(0, value - 1)), 1000)
-    return () => clearInterval(interval)
-  }, [running])
   return (
-    <div className={`room-timer ${running ? 'running' : ''} ${remaining === 0 ? 'expired' : ''}`}>
-      <div className="row-wrap"><span>Tiempo del equipo en turno</span><span className="spacer" /><strong className="timer-display" aria-live="off">{String(Math.floor(remaining / 60)).padStart(2, '0')}:{String(remaining % 60).padStart(2, '0')}</strong></div>
+    <RoomCountdown timer={data}>
       {room.can_control_room && (
         <div className="row-wrap mt-2">
-          <label className="timer-minutes">Min <input className="control compact" type="number" min={1} max={240} disabled={running} value={minutes} onChange={(event) => setMinutes(event.target.value)} /></label>
           {running ? <Button size="sm" variant="ghost" icon={FiPause} onClick={() => onTimer('pause')}>Pausar</Button>
             : data.status === 'pausado' ? <Button size="sm" variant="ghost" icon={FiPlay} onClick={() => onTimer('resume')}>Reanudar</Button>
-              : <Button size="sm" variant="success" icon={FiPlay} onClick={() => onTimer('start', minutes)}>Iniciar</Button>}
-          <IconButton icon={FiRotateCcw} label="Reiniciar" onClick={() => onTimer('reset', minutes)} />
-          <IconButton icon={FiSquare} className="danger" label="Finalizar" onClick={() => onTimer('finish')} />
+              : <Button size="sm" variant="success" icon={FiPlay} onClick={() => onTimer('start')}>{data.phase === 'preguntas' ? 'Iniciar preguntas' : 'Iniciar exposición'}</Button>}
+          {data.phase !== 'preguntas' && <Button size="sm" variant="ghost" icon={FiSkipForward} onClick={() => onTimer('questions')}>Pasar a preguntas</Button>}
+          <IconButton icon={FiRotateCcw} label="Reiniciar desde la exposición" onClick={() => onTimer('reset')} />
+          <IconButton icon={FiSquare} className="danger" label="Terminar tiempo" onClick={() => onTimer('finish')} />
+          <small className="muted">{data.auto_questions ? 'Pasa sola a preguntas al terminar la exposición.' : 'Las preguntas se inician a mano.'}</small>
         </div>
       )}
-    </div>
+    </RoomCountdown>
   )
 }
 
@@ -240,19 +232,22 @@ function TeacherView({ teachers, rooms, search }) {
 /** Horario de la sala y autorización de evaluación fuera de tiempo (roomScheduleModal). */
 function ScheduleSheet({ room, onClose, onSaved }) {
   const [form, setForm] = useState({
-    start: apiToInput(room.fecha_evaluacion), end: apiToInput(room.fecha_fin_evaluacion), late: Boolean(room.allow_late_evaluations),
+    start: apiToInput(room.fecha_evaluacion), late: Boolean(room.allow_late_evaluations),
     lateUntil: apiToInput(room.late_evaluation_until), reason: room.late_evaluation_reason || '',
   })
   const [saving, setSaving] = useState(false)
   const set = (patch) => setForm((current) => ({ ...current, ...patch }))
+  // El fin se calcula como en la API: turnos completos más la tolerancia entre ellos.
+  const count = Math.max(1, (room.projects || []).length)
+  const minutes = count * (Number(room.project_presentation_minutes) + Number(room.teacher_evaluation_minutes)) + (count - 1) * Number(room.tolerance_minutes ?? 3)
+  const end = form.start ? new Date(new Date(form.start).getTime() + minutes * 60000) : null
   const submit = async (event) => {
     event.preventDefault()
-    if (new Date(form.end) <= new Date(form.start)) return toast.warning('La hora de fin debe ser posterior al inicio.')
-    if (form.late && new Date(form.lateUntil) <= new Date(form.end)) return toast.warning('La autorización fuera de horario debe terminar después del horario ordinario.')
+    if (form.late && end && new Date(form.lateUntil) <= end) return toast.warning('La autorización fuera de horario debe terminar después de que termine la sala.')
     setSaving(true)
     try {
       const { data } = await api.put(`/evaluations/rooms/${room.id}/schedule`, {
-        fecha_evaluacion: form.start, fecha_fin_evaluacion: form.end, allow_late_evaluations: form.late,
+        fecha_evaluacion: form.start, allow_late_evaluations: form.late,
         late_evaluation_until: form.late ? form.lateUntil : null, late_evaluation_reason: form.late ? form.reason.trim() : null, expected_sequence_version: room.sequence_version,
       })
       toast.success(data.message || 'Horario actualizado')
@@ -266,13 +261,13 @@ function ScheduleSheet({ room, onClose, onSaved }) {
       footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button type="submit" form="schedule-form" icon={FiSave} loading={saving}>Guardar horario</Button></>}>
       <form id="schedule-form" className="form-grid" onSubmit={submit}>
         <Field label="Inicio"><input className="control" type="datetime-local" required min={form.start === apiToInput(room.fecha_evaluacion) ? undefined : nextMinute()} disabled={room.evaluation_window?.status !== 'scheduled'} value={form.start} onChange={(event) => set({ start: event.target.value })} /></Field>
-        <Field label="Fin ordinario"><input className="control" type="datetime-local" required value={form.end} onChange={(event) => set({ end: event.target.value })} /></Field>
+        <Field label="Termina aproximadamente" hint={`${count} turno(s), ${minutes} min en total.`}><output className="control readonly-value">{end ? end.toLocaleString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}</output></Field>
         <div className="full"><Switch checked={form.late} onChange={(value) => set({ late: value })} label="Permitir evaluaciones fuera del horario" /></div>
         {form.late && <>
           <Field label="Autorizada hasta"><input className="control" type="datetime-local" required min={form.lateUntil === apiToInput(room.late_evaluation_until) ? undefined : nextMinute()} value={form.lateUntil} onChange={(event) => set({ lateUntil: event.target.value })} /></Field>
           <Field label="Motivo" full><textarea className="control" rows={3} required minLength={10} maxLength={500} value={form.reason} onChange={(event) => set({ reason: event.target.value })} /></Field>
         </>}
-        <p className="muted small-text full">Si la sala ya comenzó, la hora de inicio queda protegida; todavía puedes extender el cierre o autorizar una captura tardía.</p>
+        <p className="muted small-text full">Si la sala ya comenzó, la hora de inicio queda protegida; todavía puedes autorizar una captura tardía.</p>
       </form>
     </Sheet>
   )

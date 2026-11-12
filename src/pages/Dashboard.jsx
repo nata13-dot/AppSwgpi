@@ -198,7 +198,11 @@ function StudentDashboard() {
   const navigate = useNavigate()
   const status = useQuery({ queryKey: ['proposal-student-status'], queryFn: () => api.get('/proposal/student-status').then((response) => response.data) })
   const query = useQuery({ queryKey: ['dashboard-student'], queryFn: () => api.get('/dashboard/student').then((response) => response.data) })
-  const schedule = useQuery({ queryKey: ['student-evaluation-schedule'], queryFn: () => api.get('/student/evaluation-schedule').then((response) => response.data) })
+  // Con una sala en curso el turno se consulta cada 20 s para que el alumno sepa en qué momento pasa.
+  const schedule = useQuery({
+    queryKey: ['student-evaluation-schedule'], queryFn: () => api.get('/student/evaluation-schedule').then((response) => response.data),
+    refetchInterval: (current) => (asList(current.state.data).some((item) => item.live && !item.live.done) ? 20_000 : false),
+  })
   const values = query.data?.stats || {}
   const next = !values.my_projects
     ? { title: 'Registra tu proyecto', text: 'Empieza creando tu propuesta para que pueda avanzar a revisión.', to: '/proposals', actionLabel: 'Registrar proyecto', icon: FiEdit3 }
@@ -228,7 +232,8 @@ function StudentDashboard() {
                     <div>
                       <strong>{item.project_title || 'Proyecto'}</strong>
                       <small>{item.room_name || 'Sala pendiente'} · {item.classroom || 'Salón pendiente'}</small>
-                      <small>Exposición: {item.presentation_minutes || '-'} min{item.evaluation_minutes ? ` · Evaluación docente: ${item.evaluation_minutes} min` : ''}</small>
+                      <small>Exposición: {item.presentation_minutes || '-'} min{item.questions_minutes ? ` · Preguntas y respuestas: ${item.questions_minutes} min` : ''}</small>
+                      <LiveTurn live={item.live} />
                     </div>
                     <span className="badge-app info">{item.date ? formatDateTime(item.date) : 'Fecha pendiente'}</span>
                   </li>
@@ -251,6 +256,20 @@ function StudentDashboard() {
 }
 
 /** Primer ingreso del alumno: completa nombre, semestre, grupo y foto (POST /profile/complete-initial). */
+/** Turno en vivo de la sala del alumno: qué número va pasando, cuántos faltan y su hora estimada recalculada. */
+function LiveTurn({ live }) {
+  if (!live || live.done) return null
+  const at = live.estimated_at ? new Date(live.estimated_at).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) : null
+  if (live.is_current) return <div className="live-turn now"><strong>¡Es tu turno!</strong><span>Tu equipo está presentando ahora.</span></div>
+  return (
+    <div className="live-turn">
+      <span>{live.started ? <>Va pasando el turno <strong>{live.current_order}</strong> de {live.total}</> : <>La sala aún no empieza</>}</span>
+      <span>Tu turno: <strong>{live.my_order}</strong>{live.turns_before === 1 ? ' · eres el siguiente' : live.turns_before > 1 ? ` · faltan ${live.turns_before} antes que tú` : ''}</span>
+      {at && <span>Pasarías cerca de las <strong>{at}</strong></span>}
+    </div>
+  )
+}
+
 function InitialProfile({ student }) {
   const client = useQueryClient()
   const { refreshUser } = useAuth()
