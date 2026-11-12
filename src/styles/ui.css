@@ -1005,3 +1005,4 @@ a.btn-app { text-decoration: none; }
 /* Aviso del sistema emergente: título, mensaje y vigencia. */
 .notice-toast { display: flex; flex-direction: column; gap: 2px; }
 .notice-toast small { color: var(--muted); font-weight: 600; font-size: .76rem; }
+.notice-list small { display: block; margin-top: 2px; }
