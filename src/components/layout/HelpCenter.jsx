@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { FiArrowRight, FiCompass, FiHelpCircle, FiSearch, FiSend } from 'react-icons/fi'
+import { FiArrowRight, FiCompass, FiHelpCircle, FiSearch } from 'react-icons/fi'
 import api, { apiError } from '../../services/api'
 import { activeProfileId } from '../../lib/permissions'
 import { registerBackHandler } from '../../utils/backNavigation'
-import { Button, IconButton, Sheet } from '../ui'
+import { Button, Sheet } from '../ui'
 
 /* Los temas y la comparación de preguntas viven en la API (resources/help); no intervienen servicios externos. */
 
@@ -107,7 +107,6 @@ export default function HelpCenter({ user = null, menuItems = [], simulated = fa
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [touring, setTouring] = useState(false)
-  const [draft, setDraft] = useState('')
   const [messages, setMessages] = useState([])
   const [asking, setAsking] = useState(false)
   const endRef = useRef(null)
@@ -158,28 +157,16 @@ export default function HelpCenter({ user = null, menuItems = [], simulated = fa
   const openCategory = (category) => push({ from: 'user', text: category.title }, { from: 'bot', category })
   const showCategories = () => push({ from: 'user', text: 'Ver todos los temas' }, { from: 'bot', menu: true })
 
-  const ask = (event) => {
-    event.preventDefault()
-    const question = draft.trim()
-    if (!question || asking) return
-    setDraft('')
-    push({ from: 'user', text: question })
-    request({ q: question }, (data) => {
-      if (data.topic) push({ from: 'bot', topic: data.topic, others: data.options })
-      else if (data.options?.length) push({ from: 'bot', options: data.options })
-      else push({ from: 'bot', notFound: true })
-    })
-  }
-
   return (
     <>
       <button type="button" className={`help-fab ${guest ? 'guest' : ''}`} aria-label="Ayuda" title="Ayuda" onClick={() => setOpen(true)}><FiHelpCircle aria-hidden="true" /></button>
-      <Sheet open={open} title="Asistente de ayuda" subtitle="Elige un tema o escribe tu pregunta." onClose={() => setOpen(false)} size="sm"
+      {/* Sin escritura libre: se navega por temas. El pie lleva de vuelta a la lista completa o al buscador. */}
+      <Sheet open={open} title="Asistente de ayuda" subtitle="Elige un tema para ver cómo hacerlo." onClose={() => setOpen(false)} size="sm"
         footer={(
-          <form className="help-compose" onSubmit={ask}>
-            <input className="control" value={draft} maxLength={200} onChange={(event) => setDraft(event.target.value)} placeholder="Escribe tu pregunta..." aria-label="Escribe tu pregunta" />
-            <IconButton type="submit" icon={FiSend} label="Enviar pregunta" disabled={!draft.trim() || asking} />
-          </form>
+          <>
+            <Button variant="ghost" size="sm" onClick={showCategories}>Ver todos los temas</Button>
+            {onOpenSearch && <Button variant="ghost" size="sm" icon={FiSearch} onClick={() => { setOpen(false); onOpenSearch() }}>Buscar pantallas</Button>}
+          </>
         )}>
         <div className="help-chat" aria-live="polite">
           <div className="help-bubble bot">
@@ -192,19 +179,9 @@ export default function HelpCenter({ user = null, menuItems = [], simulated = fa
           {messages.map((message, index) => (
             <div key={index} className={`help-bubble ${message.from}`}>
               {message.text && <p>{message.text}</p>}
-              {message.topic && <>
-                {message.others && <strong>{message.topic.question}</strong>}
-                <TopicAnswer topic={message.topic} canOpen={canOpen} onOpen={openPage} onPick={openTopic} />
-                {message.others?.length > 0 && <><small className="help-caption">¿Buscabas otra cosa?</small><Choices items={message.others} onPick={openTopic} /></>}
-              </>}
+              {message.topic && <TopicAnswer topic={message.topic} canOpen={canOpen} onOpen={openPage} onPick={openTopic} />}
               {message.category && <><p>Temas de {message.category.title}:</p><Choices items={message.category.topics} onPick={openTopic} /></>}
               {message.menu && <><p>Elige una sección:</p><Choices items={categories} onPick={openCategory} /></>}
-              {message.options && <><p>No estoy seguro de haberte entendido. ¿Te refieres a alguna de estas?</p><Choices items={message.options} onPick={openTopic} /></>}
-              {message.notFound && <>
-                <p>No encontré una respuesta para eso. Intenta con otras palabras o revisa los temas. Si es un problema con tu cuenta o tus datos, acude a tu jefatura.</p>
-                <Button variant="ghost" size="sm" onClick={showCategories}>Ver todos los temas</Button>
-                {onOpenSearch && <Button variant="ghost" size="sm" icon={FiSearch} onClick={() => { setOpen(false); onOpenSearch() }}>Abrir el buscador</Button>}
-              </>}
             </div>
           ))}
           {asking && <div className="help-bubble bot"><p className="muted">Buscando...</p></div>}

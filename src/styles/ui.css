@@ -779,7 +779,6 @@ a.btn-app { text-decoration: none; }
 .help-suggestions button { padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: .84rem; text-align: left; cursor: pointer; }
 .help-suggestions button:hover { border-color: var(--brand); }
 .help-suggestions small { color: var(--muted); }
-.help-compose { flex: 1; display: flex; gap: 8px; align-items: center; } .help-compose .control { flex: 1; min-width: 0; }
 .tour-layer { position: fixed; inset: 0; z-index: 1100; }
 .tour-backdrop { position: absolute; inset: 0; background: rgba(10, 18, 32, .6); }
 .tour-spotlight { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(10, 18, 32, .6); outline: 2px solid #fff; transition: all .2s ease; pointer-events: none; }
