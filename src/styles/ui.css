@@ -943,5 +943,43 @@ a.btn-app { text-decoration: none; }
 .tabs-app button.active { background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff; box-shadow: 0 6px 16px rgba(27, 57, 106, .22); }
 .tabs-app button.active small { background: rgba(255, 255, 255, .25); color: #fff; }
 .alert-app { border-radius: 12px; border: 0; border-left: 4px solid currentColor; background: var(--info-soft); }
-.sheet, .sheet-head { border-radius: 20px 20px 0 0; }
 .sheet-head h2 { font-weight: 800; }
+
+/* Ventanas de confirmación (SweetAlert, components/ui: confirmAction, promptText, promptPassword): mismo aspecto que las hojas. */
+.swal-app-backdrop { background: rgba(10, 18, 32, .5) !important; backdrop-filter: blur(2px); padding: 16px; }
+.swal2-popup.swal-app { width: min(440px, 100%); padding: 22px 20px 18px; border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lg); font-family: var(--font); border-top: 4px solid var(--brand); }
+.swal2-title.swal-app-title { padding: 6px 0 0; font-family: var(--font-head); font-size: 1.2rem; font-weight: 800; color: var(--ink); }
+.swal2-html-container.swal-app-text { margin: 8px 4px 0; font-size: .93rem; line-height: 1.5; color: var(--ink-2); }
+.swal2-icon.swal-app-icon { width: 54px; height: 54px; margin: 6px auto 4px; border-width: 3px; }
+.swal2-icon.swal-app-icon .swal2-icon-content { font-size: 2.2rem; }
+.swal2-icon.swal2-warning.swal-app-icon { border-color: var(--warning); color: var(--warning); }
+.swal2-icon.swal2-question.swal-app-icon, .swal2-icon.swal2-info.swal-app-icon { border-color: var(--brand-2); color: var(--brand-2); }
+.swal2-icon.swal2-error.swal-app-icon { border-color: var(--danger); }
+.swal2-icon.swal2-error.swal-app-icon [class^='swal2-x-mark-line'] { background-color: var(--danger); }
+.swal2-input.swal-app-input, .swal2-textarea.swal-app-input { width: auto; margin: 14px 4px 0; box-shadow: none; font-size: 16px; }
+.swal2-textarea.swal-app-input { min-height: 96px; }
+.swal2-validation-message.swal-app-validation { margin: 10px 4px 0; border-radius: 10px; background: var(--danger-soft); color: var(--danger); font-size: .85rem; }
+.swal2-actions.swal-app-actions { width: 100%; margin: 18px 0 0; gap: 8px; flex-wrap: nowrap; }
+.swal-app-actions .btn-app { flex: 1; margin: 0; }
+.swal-app-in { animation: swal-app-in .18s ease-out; }
+@keyframes swal-app-in { from { opacity: 0; transform: scale(.97); } }
+.swal-app-out { animation: fade-out .12s ease-in forwards; }
+@keyframes fade-out { to { opacity: 0; transform: scale(.98); } }
+
+/* Avisos emergentes (react-toastify): tarjeta clara con barra lateral del color del tipo. */
+.Toastify__toast { border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lg); border-left: 5px solid var(--brand); font-family: var(--font); font-weight: 600; font-size: .9rem; min-height: 56px; }
+.Toastify__toast--success { border-left-color: var(--success); }
+.Toastify__toast--error { border-left-color: var(--danger); }
+.Toastify__toast--warning { border-left-color: var(--warning); }
+.Toastify__toast--info { border-left-color: var(--info); }
+.Toastify__close-button { color: var(--muted); opacity: .8; }
+.Toastify__progress-bar { opacity: .35 !important; }
+
+/* Estado de las ventanas del periodo en Propuestas › Validadores. */
+.window-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.window-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-weight: 600; }
+.window-list li:last-child { border-bottom: 0; }
+
+/* Hojas (Sheet) con la misma franja superior que las confirmaciones; en el teléfono la marca el asa. */
+@media (min-width: 768px) { .sheet { border-top: 4px solid var(--brand); } .sheet-head h2 { color: var(--ink); } }
+.sheet-backdrop { backdrop-filter: blur(2px); }

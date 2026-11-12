@@ -100,11 +100,11 @@ final class WidgetStore {
     /** Ícono de un pendiente o acceso según su clave (las mismas de WidgetController). */
     static int icon(String key) {
         switch (key) {
-            case "deliverable": case "deliverables": case "review": return R.drawable.ic_widget_task;
+            case "deliverable": case "deliverables": case "review": case "evidence": return R.drawable.ic_widget_task;
             case "project": case "projects": case "advised": case "career": return R.drawable.ic_widget_folder;
             case "proposals": return R.drawable.ic_widget_idea;
             case "grades": case "evaluations": return R.drawable.ic_widget_star;
-            case "presentation": case "rooms": case "period": return R.drawable.ic_widget_event;
+            case "presentation": case "rooms": case "period": case "courses": return R.drawable.ic_widget_event;
             case "requests": return R.drawable.ic_widget_person_add;
             case "users": case "profile": return R.drawable.ic_widget_person;
             case "repository": return R.drawable.ic_widget_library;
@@ -118,7 +118,7 @@ final class WidgetStore {
         switch (key) {
             case "deliverable": case "deliverables": case "review": return R.drawable.widget_accent_amber;
             case "proposals": case "presentation": case "requests": return R.drawable.widget_accent_violet;
-            case "grades": case "evaluations": case "room": case "rooms": case "repository": return R.drawable.widget_accent_teal;
+            case "grades": case "evaluations": case "room": case "rooms": case "repository": case "evidence": return R.drawable.widget_accent_teal;
             case "alerts": case "period_end": return R.drawable.widget_accent_rose;
             default: return R.drawable.widget_accent_cyan;
         }

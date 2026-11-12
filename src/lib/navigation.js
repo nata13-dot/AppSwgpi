@@ -38,8 +38,7 @@ function managementMenu(user) {
   // Mismos grupos que Gestiones y el menú lateral del front de PHP (navbar.php y sidebar.php).
   menu.push({ group: 'Periodo', icon: FiFlag, items: [
     item('Operación del periodo', '/period-center', FiFlag, null, ['autoregistro', 'aperturas', 'promoción', 'cierre', 'ventanas']),
-    item('Seguimiento académico', '/academic-workflows', FiCalendar, null, ['residencias', 'servicio', 'matrícula']),
-    canManageAcademics(user) && item('Semestres y periodos', '/semesters', FiCalendar, 'academico', ['periodos', 'grupos', 'promoción', 'irregulares']),
+    item('Seguimiento académico', '/academic-workflows', FiCalendar, null, ['residencias', 'servicio', 'matrícula', 'semestres', 'periodos', 'grupos', 'promoción', 'irregulares']),
     canManageAcademics(user) && item('Asignaturas y competencias', '/subjects', FiStar, 'academico', ['materias', 'cargas', 'competencias']),
     isAdmin(user) && item('Carga inicial', '/career-setup', FiCloud, 'academico', ['plan de estudios', 'csv']),
   ].filter(Boolean) })
@@ -83,9 +82,9 @@ const teacherMenu = () => [
     item('Salas y turnos', '/evaluation-rooms', FiCalendar, 'evaluaciones'),
     item('Evaluaciones previas', '/evaluations-archived', FiArchive, 'evaluaciones'),
     item('Evidencias', '/evaluation-documents', FiFileText, 'evaluaciones'),
+    item('Entregables', '/deliverables', FiFileText, 'entregables', ['calificar']),
   ] },
-  { group: 'Académico', icon: FiBookOpen, items: [item('Entregables', '/deliverables', FiFileText, 'entregables', ['calificar'])] },
-  { group: 'Sistema', icon: FiSliders, items: [item('Repositorio', '/repository', FiArchive, 'repositorio')] },
+  item('Repositorio', '/repository', FiArchive, 'repositorio'),
   item('Mi perfil', '/profile', FiUser),
 ]
 
@@ -94,11 +93,12 @@ const studentMenu = () => [
   item('Inicio', '/dashboard', FiHome),
   item('Seguimiento académico', '/academic-workflows', FiCalendar),
   { group: 'Proyectos y tesis', icon: FiBookOpen, items: [
-    item('Registrar propuesta', '/proposals', FiEdit3, 'proyectos', ['proyecto', 'tesis']),
+    // La propuesta mientras se revisa y el proyecto cuando se aprueba: una sola entrada.
+    item('Mi proyecto', '/proposals', FiEdit3, 'proyectos', ['propuesta', 'registrar', 'tesis', 'equipo', 'unirse']),
+    item('Mis entregables', '/deliverables', FiFileText, 'entregables', ['subir']),
     item('Evidencias', '/evaluation-documents', FiFileText, 'evaluaciones', ['presentación', 'hoja de liberación']),
   ] },
-  { group: 'Académico', icon: FiBookOpen, items: [item('Mis entregables', '/deliverables', FiFileText, 'entregables', ['subir'])] },
-  { group: 'Sistema', icon: FiSliders, items: [item('Repositorio', '/repository', FiArchive, 'repositorio')] },
+  item('Repositorio', '/repository', FiArchive, 'repositorio'),
   item('Mi perfil', '/profile', FiUser),
 ]
 

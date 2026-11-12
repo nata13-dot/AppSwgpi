@@ -1,5 +1,7 @@
 // Shared by the React and PHP clients. All user-provided content is rendered as text.
-export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
+// `options.confirm(text)` muestra la confirmación con el estilo de cada cliente; sin ella se usa la del navegador.
+export function mountAcademicConsole(root, api, user, initialTab = 'periods', options = {}) {
+  const ask = (text) => (options.confirm ? options.confirm(text) : Promise.resolve(window.confirm(text)))
   let disposed = false
   let tab = initialTab
   let catalog
@@ -155,7 +157,7 @@ export function mountAcademicConsole(root, api, user, initialTab = 'periods') {
     if (plan.moves.some(move => move.to === 9)) box.append(el('p', 'Revisa a quienes pasan a 9°: si alguien ya egresó, desactívalo antes de abrir.'))
     if (plan.unplaced.length) { box.append(el('h3', 'Por acomodar después de abrir')); box.append(reasons(plan.unplaced)) }
     if (manager) button('Abrir periodo ahora', async () => {
-      if (!window.confirm(`Se abrirá ${plan.period.nombre} y ${plan.moves.length} alumno(s) quedarán inscritos en su nuevo grupo. ¿Continuar?`)) return
+      if (!await ask(`Se abrirá ${plan.period.nombre} y ${plan.moves.length} alumno(s) quedarán inscritos en su nuevo grupo. ¿Continuar?`)) return
       const result = await request('POST', '/academic-operations/automation', { snapshot: plan.snapshot })
       status.textContent = `Periodo abierto: ${result.promoted} inscrito(s), ${result.unplaced} por acomodar.`
       catalog = await request('GET', '/academic-operations/catalog')

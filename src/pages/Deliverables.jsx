@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import { isStudent, isTeacher } from '../lib/permissions'
 import { downloadApiFile } from '../utils/downloads'
 import { nextMinute } from './rooms/roomShared'
-import { formatDate, fullName } from '../utils/formatters'
+import { formatDate, formatDateTime, fullName } from '../utils/formatters'
 import { Badge, Button, Card, confirmAction, DataTable, Empty, ErrorState, Field, FileDrop, IconButton, Loading, Page, Pager, SearchInput, Sheet, useDebounced } from '../components/ui'
 
 export default function DeliverablesPage() {
@@ -265,14 +265,17 @@ function StudentDeliverables() {
               <Card key={item.id} title={item.nombre} subtitle={item.project?.title || 'N/A'} actions={<Badge tone={item.estado === 'completado' ? 'success' : 'warning'}>{item.estado === 'completado' ? 'Completado' : 'Pendiente'}</Badge>}>
                 <p className="muted small-text">{item.descripcion || 'Sin descripción'}</p>
                 <dl className="meta-grid">
+                  <div><dt>Fecha límite</dt><dd>{item.fecha_limite ? formatDateTime(item.fecha_limite) : 'Sin fecha'}</dd></div>
                   <div><dt>Calificación</dt><dd><GradeBadge grade={item.calificacion} /></dd></div>
                   <div><dt>Archivo</dt><dd>{item.file_path ? 'Presente' : '—'}</dd></div>
                 </dl>
+                {item.vencido && <div className="alert-app warning mt-2">La fecha límite ya pasó; pide a tu docente que la amplíe si aún necesitas entregar.</div>}
+                {!item.vencido && !item.project_id && <div className="alert-app mt-2">Podrás subir tu archivo cuando tengas un proyecto aprobado en este periodo.</div>}
                 {item.fecha_calificacion && <p className="small-text text-success"><FiCheckCircle /> Calificado el {formatDate(item.fecha_calificacion)} por {grader && typeof grader === 'object' ? fullName(grader) : 'Sistema'}</p>}
                 <small className="muted">Creado: {formatDate(item.created_at)}</small>
                 <div className="row-wrap mt-2">
                   {item.file_path && <Button size="sm" variant="ghost" icon={FiDownload} onClick={() => download(item)}>Descargar</Button>}
-                  <Button size="sm" icon={FiUploadCloud} className="grow-btn" onClick={() => setUploading(item)}>Subir o actualizar archivo</Button>
+                  {item.puede_subir !== false && <Button size="sm" icon={FiUploadCloud} className="grow-btn" onClick={() => setUploading(item)}>{item.file_path ? 'Actualizar archivo' : 'Subir archivo'}</Button>}
                 </div>
               </Card>
             )

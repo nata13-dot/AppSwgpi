@@ -307,13 +307,22 @@ export function FileDrop({ accept, onFile, file, hint, label = 'Toca para elegir
   )
 }
 
-const swalTheme = () => {
-  const dark = document.documentElement.dataset.theme === 'dark'
-  return { background: dark ? '#172033' : '#ffffff', color: dark ? '#edf2f7' : '#202733', confirmButtonColor: '#1B396A', cancelButtonColor: '#6c757d', reverseButtons: true }
-}
+// Las ventanas de confirmación usan las clases de la app (ui.css, "Ventanas de confirmación"): mismos botones,
+// tipografía y colores que las hojas (Sheet), en claro y oscuro.
+const swalTheme = (danger = false) => ({
+  buttonsStyling: false,
+  reverseButtons: true,
+  showClass: { popup: 'swal-app-in' },
+  hideClass: { popup: 'swal-app-out' },
+  customClass: {
+    container: 'swal-app-backdrop', popup: 'swal-app', title: 'swal-app-title', htmlContainer: 'swal-app-text', icon: 'swal-app-icon',
+    input: 'control swal-app-input', validationMessage: 'swal-app-validation', actions: 'swal-app-actions',
+    confirmButton: `btn-app ${danger ? 'danger' : 'primary'}`, cancelButton: 'btn-app ghost', denyButton: 'btn-app ghost-danger',
+  },
+})
 
 export const confirmAction = async ({ title = 'Confirmar acción', text = 'Esta operación no se puede deshacer.', confirmText = 'Sí, continuar', icon = 'warning', danger = false } = {}) => {
-  const result = await Swal.fire({ ...swalTheme(), title, text, icon, showCancelButton: true, confirmButtonText: confirmText, cancelButtonText: 'Cancelar', ...(danger ? { confirmButtonColor: '#ae4646' } : {}) })
+  const result = await Swal.fire({ ...swalTheme(danger), title, text, icon, showCancelButton: true, confirmButtonText: confirmText, cancelButtonText: 'Cancelar' })
   return result.isConfirmed
 }
 

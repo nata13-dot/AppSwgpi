@@ -31,7 +31,7 @@ createRoot(document.getElementById('root')).render(
           <ErrorBoundary>
             <SystemPreferences />
             <AppLockGate><PushNotificationsBridge /><HomeWidgetBridge /><App /></AppLockGate>
-            <ToastContainer position="bottom-center" autoClose={3500} theme="colored" newestOnTop />
+            <ToastContainer position="bottom-center" autoClose={3500} theme="light" newestOnTop />
           </ErrorBoundary>
         </BrowserRouter>
       </QueryClientProvider>

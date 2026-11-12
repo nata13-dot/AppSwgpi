@@ -62,7 +62,7 @@ const GUIDES = {
   },
   proposals: (role) => ({
     student: {
-      how: ['Mientras la ventana de propuestas esté abierta, registra la tuya con título, descripción e integrantes, o pide unirte a la de un compañero.', 'Revisa aquí el estado y las observaciones de quien la valida.'],
+      how: ['Aquí ves tu propuesta mientras se revisa y tu proyecto cuando se aprueba.', 'Mientras la ventana de propuestas esté abierta, registra la tuya con título, descripción e integrantes, o pide unirte a la de un compañero.', 'Revisa aquí el estado y las observaciones de quien la valida.'],
       affects: ['Sólo puedes estar en una propuesta; pedir unirte a otra queda pendiente hasta que un integrante responda.', 'Cuando la aprueban se convierte en tu proyecto y aparecen sus entregas.', 'Al cerrar la ventana ya no se pueden registrar ni cambiar propuestas.'],
     },
     teacher: {
@@ -70,8 +70,8 @@ const GUIDES = {
       affects: ['Al aprobar, la propuesta se vuelve proyecto y el equipo empieza a recibir entregas.', 'Si pides cambios, el equipo ve tus observaciones y puede corregirla mientras la ventana siga abierta.'],
     },
     staff: {
-      how: ['En "Revisión" aprueba o devuelve las propuestas pendientes.', 'En la configuración abre la ventana de propuestas, define el semestre de alumnos nuevos y designa a los docentes validadores.'],
-      affects: ['La ventana controla cuándo pueden registrar propuestas los alumnos; al cerrarla ya no se aceptan.', 'Los validadores designados pueden aprobar propuestas de la carrera.', 'Aprobar crea el proyecto con su equipo y lo suma a las listas de seguimiento.'],
+      how: ['En "Validar" aprueba o devuelve las propuestas pendientes.', 'En "Validadores" designa a los docentes que también pueden validar.', 'La ventana de propuestas se abre y se cierra en Operación del periodo.'],
+      affects: ['Aprobar crea el proyecto con su equipo y lo suma a las listas de seguimiento.', 'Si la devuelves, el equipo ve tus observaciones y puede corregirla mientras la ventana siga abierta.', 'Los validadores designados pueden aprobar propuestas de la carrera.'],
     },
   })[role],
   deliverables: (role) => ({
