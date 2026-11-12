@@ -100,9 +100,12 @@ const GUIDES = {
     how: ['Crea una sala con salón, fecha, responsable y docentes evaluadores.', 'Agrega los proyectos en el orden en que presentarán.', 'Durante el evento, inicia y cierra cada turno desde la sala.'],
     affects: ['Los docentes asignados ven la sala en su agenda y pueden evaluar a esos proyectos.', 'Los alumnos ven su fecha y turno de presentación.', 'Cambiar horario u orden se refleja al momento en todas las pantallas de la sala.'],
   },
-  'evaluation-documents': {
-    how: ['Elige el proyecto y la etapa, y sube la presentación o el documento de evaluación.'],
-    affects: ['Los evaluadores lo consultan durante la sala; subir otro reemplaza la versión anterior.'],
+  'evaluation-documents': (role) => role === 'student' ? {
+    how: ['Sube la hoja de liberación, la presentación y, si tu etapa lo pide, el enlace o el reporte.', 'Revisa el estado de cada entrega y corrige las que tengan observaciones.'],
+    affects: ['Tu equipo sólo puede presentar cuando todo está aprobado y al menos un integrante está liberado.', 'Subir otro archivo reemplaza el anterior y su revisión vuelve a empezar.', 'Si la coordinación niega tu presentación, aquí verás el aviso con el motivo.'],
+  } : {
+    how: ['Revisa cada entrega y apruébala o envía observaciones; en la hoja de liberación marca qué alumnos quedan liberados.', 'Con "Negar al equipo" o "Negar a" un alumno detienes su presentación por decisión administrativa; el motivo es opcional.', 'Con "Permitir de nuevo" retiras la negación.'],
+    affects: ['Un equipo negado no puede ponerse en sala ni evaluarse en este periodo; un alumno negado no puede liberarse, pero su equipo sí presenta.', 'Los alumnos reciben el aviso en la app y por correo, con tu motivo o con «Se te impide continuar por una decisión administrativa».', 'Cada negación y cada permiso quedan en la bitácora con quién y cuándo.'],
   },
   subjects: {
     how: ['Registra las materias del plan con su semestre y sus competencias.', 'Edita o desactiva las que ya no se impartan.'],

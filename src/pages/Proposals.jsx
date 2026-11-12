@@ -184,7 +184,8 @@ function StudentProposal() {
 
   return (
     // Una sola entrada para el alumno: la propuesta mientras se revisa y su proyecto cuando se aprueba. Se actualiza sola (LiveSync).
-    <Page title="Mi proyecto" subtitle={data?.project?.estado === 'aprobado' ? 'Tu proyecto integrador: equipo, estado y observaciones.' : 'Registra la propuesta de tu proyecto integrador o únete a la de tu compañero.'}>
+    <Page title="Mi proyecto" subtitle={data?.project?.proposal_status === 'aprobado' ? 'Tu proyecto integrador: equipo, estado y observaciones.' : 'Registra la propuesta de tu proyecto integrador o únete a la de tu compañero.'}>
+      {data?.presentation_denial && <div className="alert-app danger mb-3"><strong>{data.presentation_denial.scope === 'team' ? 'La presentación de tu equipo fue negada.' : 'Tu presentación fue negada.'}</strong> Motivo: {data.presentation_denial.reason}</div>}
       {status.isLoading ? <Loading /> : status.isError ? <ErrorState error={status.error} onRetry={status.refetch} /> : body()}
     </Page>
   )

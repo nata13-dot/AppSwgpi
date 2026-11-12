@@ -983,3 +983,8 @@ a.btn-app { text-decoration: none; }
 /* Hojas (Sheet) con la misma franja superior que las confirmaciones; en el teléfono la marca el asa. */
 @media (min-width: 768px) { .sheet { border-top: 4px solid var(--brand); } .sheet-head h2 { color: var(--ink); } }
 .sheet-backdrop { backdrop-filter: blur(2px); }
+
+/* Negar presentación (Evidencias): avisos rojos con su acción a la derecha. */
+.denial-box { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; }
+.alert-app.row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.alert-app.row-between small { color: var(--muted); }

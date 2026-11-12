@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiCheck, FiCheckCircle, FiClock, FiDownload, FiExternalLink, FiFileText, FiLink, FiMessageSquare, FiRefreshCw, FiSave, FiUploadCloud, FiUserCheck } from 'react-icons/fi'
+import { FiCheck, FiCheckCircle, FiClock, FiSlash, FiUnlock, FiDownload, FiExternalLink, FiFileText, FiLink, FiMessageSquare, FiRefreshCw, FiSave, FiUploadCloud, FiUserCheck } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
@@ -74,6 +74,7 @@ function ProjectDeliveries({ item, maxMb, onChanged }) {
         </div>
       </header>
       {!readiness.ready && (readiness.missing || []).length > 0 && <p className="muted small-text">Falta: {readiness.missing.join(', ')}.</p>}
+      <PresentationDecision item={item} onChanged={onChanged} />
       <div className="delivery-grid">
         <DeliverySlot item={item} type="release_sheet" number={1} maxMb={maxMb} onChanged={onChanged} />
         <DeliverySlot item={item} type="presentation" number={2} maxMb={maxMb} onChanged={onChanged} />
@@ -197,6 +198,75 @@ function ReviewBox({ item, type, onChanged }) {
   )
 }
 
+const DEFAULT_DENIAL = 'Se te impide continuar por una decisión administrativa.'
+
+/**
+ * Negar la presentación por decisión administrativa (PresentationDenialService en la API): a todo el equipo o a un
+ * alumno, con motivo opcional. Quien revisa puede permitirla de nuevo; el alumno ve el aviso con el motivo.
+ */
+function PresentationDecision({ item, onChanged }) {
+  const { user } = useAuth()
+  const [busy, setBusy] = useState(null)
+  const team = item.readiness?.denial
+  const students = item.readiness?.students || []
+  const deniedStudents = students.filter((student) => student.denial)
+  const deny = async (student) => {
+    const reason = await promptText({
+      title: student ? `Negar la presentación de ${student.name}` : 'Negar la presentación del equipo',
+      text: `${student ? 'El alumno no podrá ser liberado ni presentar; el resto del equipo sí presenta.' : 'El equipo no podrá ponerse en sala ni ser evaluado en este periodo.'} El motivo es opcional: si lo dejas vacío verán «${DEFAULT_DENIAL}»`,
+      placeholder: 'Motivo (opcional)', confirmText: 'Negar presentación', required: false, danger: true,
+    })
+    if (reason === null) return
+    setBusy(student?.id || 'team')
+    try {
+      const response = await api.post('/repositorio/evaluation-documents/denials', { project_id: item.project.id, student_id: student?.id || null, reason: reason || null })
+      toast.success(response.data.message)
+      onChanged()
+    } catch (error) { toast.error(apiError(error)) } finally { setBusy(null) }
+  }
+  const allow = async (denial, who) => {
+    if (!await confirmAction({ title: 'Permitir de nuevo', text: `La presentación ${who} vuelve a estar permitida y se le avisará en la app y por correo.`, confirmText: 'Sí, permitir', icon: 'question' })) return
+    setBusy(denial.id)
+    try {
+      const response = await api.delete(`/repositorio/evaluation-documents/denials/${denial.id}`)
+      toast.success(response.data.message)
+      onChanged()
+    } catch (error) { toast.error(apiError(error)) } finally { setBusy(null) }
+  }
+  const mine = team || students.find((student) => String(student.id) === String(user?.id))?.denial
+  if (!item.puede_revisar) {
+    return mine ? <div className="alert-app danger"><strong>{team ? 'La presentación de tu equipo fue negada.' : 'Tu presentación fue negada.'}</strong> Motivo: {mine.reason}</div> : null
+  }
+  return (
+    <div className="denial-box">
+      {team ? (
+        <div className="alert-app danger row-between">
+          <span><strong>Presentación del equipo negada.</strong> Motivo: {team.reason}{team.denied_by && <small> · {team.denied_by}, {formatDateTime(team.denied_at)}</small>}</span>
+          <Button size="sm" variant="ghost" icon={FiUnlock} loading={busy === team.id} onClick={() => allow(team, 'del equipo')}>Permitir de nuevo</Button>
+        </div>
+      ) : (
+        <div className="row-wrap">
+          <span className="muted small-text grow">Decisión administrativa</span>
+          <Button size="sm" variant="ghost-danger" icon={FiSlash} loading={busy === 'team'} onClick={() => deny(null)}>Negar al equipo</Button>
+        </div>
+      )}
+      {deniedStudents.map((student) => (
+        <div key={student.id} className="alert-app danger row-between">
+          <span><strong>{student.name}:</strong> presentación negada. Motivo: {student.denial.reason}</span>
+          <Button size="sm" variant="ghost" icon={FiUnlock} loading={busy === student.denial.id} onClick={() => allow(student.denial, `de ${student.name}`)}>Permitir de nuevo</Button>
+        </div>
+      ))}
+      {!team && students.length > 1 && (
+        <div className="row-wrap">
+          {students.filter((student) => !student.denial).map((student) => (
+            <Button key={student.id} size="sm" variant="link" icon={FiSlash} loading={busy === student.id} onClick={() => deny(student)}>Negar a {student.name.split(' ')[0]}</Button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ReleaseReview({ item, delivery, onChanged }) {
   const [released, setReleased] = useState(() => Object.fromEntries((delivery.students || []).map((student) => [student.id, Boolean(student.released)])))
   const [saving, setSaving] = useState(false)
@@ -206,7 +276,7 @@ function ReleaseReview({ item, delivery, onChanged }) {
   const save = async () => {
     setSaving(true)
     try {
-      await api.put(`/repositorio/evaluation-documents/${delivery.document.id}/release-status`, { students: Object.entries(released).map(([id, value]) => ({ student_id: id, released: value })) })
+      await api.put(`/repositorio/evaluation-documents/${delivery.document.id}/release-status`, { students: Object.entries(released).map(([id, value]) => ({ student_id: id, released: value && !(item.readiness?.students || []).some((entry) => String(entry.id) === String(id) && entry.denial) })) })
       toast.success('Liberación actualizada.')
       onChanged()
     } catch (error) { toast.error(apiError(error)) } finally { setSaving(false) }
@@ -215,7 +285,10 @@ function ReleaseReview({ item, delivery, onChanged }) {
     <div className="stack-tight">
       <h4 className="card-title-sm">Alumnos liberados</h4>
       {!item.puede_revisar && <p className="muted small-text">La liberación la deciden la jefatura, la asistencia o la coordinación de proyectos.</p>}
-      {(delivery.students || []).map((student) => <Switch key={student.id} checked={released[student.id]} disabled={!item.puede_revisar} onChange={(value) => setReleased({ ...released, [student.id]: value })} label={fullName(student)} />)}
+      {(delivery.students || []).map((student) => {
+        const denied = (item.readiness?.students || []).some((entry) => String(entry.id) === String(student.id) && entry.denial)
+        return <Switch key={student.id} checked={!denied && released[student.id]} disabled={!item.puede_revisar || denied} onChange={(value) => setReleased({ ...released, [student.id]: value })} label={denied ? `${fullName(student)} (presentación negada)` : fullName(student)} />
+      })}
       {item.puede_revisar && <Button size="sm" variant="success" icon={FiUserCheck} loading={saving} onClick={save}>Guardar liberación</Button>}
     </div>
   )

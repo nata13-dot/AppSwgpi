@@ -327,9 +327,9 @@ export const confirmAction = async ({ title = 'Confirmar acción', text = 'Esta 
 }
 
 /** Pide un texto (por ejemplo, un motivo). Devuelve null si se cancela. */
-export const promptText = async ({ title, text, placeholder = '', confirmText = 'Guardar', required = true, multiline = true, value = '', input }) => {
+export const promptText = async ({ title, text, placeholder = '', confirmText = 'Guardar', required = true, multiline = true, value = '', input, danger = false }) => {
   const result = await Swal.fire({
-    ...swalTheme(), title, text, input: input || (multiline ? 'textarea' : 'text'), inputValue: value, inputPlaceholder: placeholder,
+    ...swalTheme(danger), title, text, input: input || (multiline ? 'textarea' : 'text'), inputValue: value, inputPlaceholder: placeholder,
     showCancelButton: true, confirmButtonText: confirmText, cancelButtonText: 'Cancelar',
     inputValidator: (input) => (required && !String(input || '').trim() ? 'Este dato es obligatorio.' : undefined),
   })
