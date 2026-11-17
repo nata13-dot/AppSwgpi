@@ -292,7 +292,8 @@ export function BackupsPage() {
     if (confirmation === null) return
     try {
       const response = await api.post('/admin/database-backups-cleanup', { retention_days: days, confirmation })
-      toast.success(`Retención aplicada: ${response.data.result?.deleted || 0} copias eliminadas, ${bytes(response.data.result?.released_bytes)} liberados.`)
+      const result = response.data.result || {}
+      toast.success(`Retención aplicada: ${result.deleted || 0} copias vencidas, ${result.orphans_removed || 0} archivos huérfanos y ${result.databases_dropped || 0} bases temporales eliminadas; ${bytes(result.released_bytes)} liberados.`)
       reload()
     } catch (error) { toast.error(apiError(error)) }
   }
@@ -302,8 +303,12 @@ export function BackupsPage() {
         <>
           <section className={`health-banner ${storage.healthy ? 'ok' : 'bad'}`}>
             <FiDatabase />
-            <div><h2>Almacenamiento {storage.healthy ? 'saludable' : 'requiere revisión'}</h2><p>{storage.available} disponibles · {storage.verified} restaurables · {storage.missing} faltantes · {storage.altered} alterados · {bytes(storage.total_bytes)} usados · {bytes(storage.disk_free_bytes)} libres</p></div>
-            <Button variant="ghost-danger" icon={FiTrash2} disabled={!Number(storage.eligible_count)} onClick={cleanup}>Aplicar retención ({storage.retention_days} días)</Button>
+            <div>
+              <h2>Almacenamiento {storage.healthy ? 'saludable' : 'requiere revisión'}</h2>
+              <p>{storage.available} disponibles · {storage.verified} restaurables · {storage.missing} faltantes · {storage.altered} alterados{Number(storage.unreadable) > 0 && ` · ${storage.unreadable} sin permiso de lectura`}{Number(storage.orphans) > 0 && ` · ${storage.orphans} huérfanos (${bytes(storage.orphan_bytes)})`}{Number(storage.leftover_databases) > 0 && ` · ${storage.leftover_databases} bases temporales sobrantes`} · {bytes(storage.total_bytes)} usados · {bytes(storage.disk_free_bytes)} libres</p>
+              {storage.unreadable_hint && <div className="alert-app warning mt-2">{storage.unreadable_hint}</div>}
+            </div>
+            <Button variant="ghost-danger" icon={FiTrash2} disabled={!Number(storage.eligible_count) && !Number(storage.orphans) && !Number(storage.leftover_databases)} onClick={cleanup}>Aplicar retención ({storage.retention_days} días)</Button>
           </section>
           <Card flush>
             <Rows headers={['Respaldo', 'Origen', 'Creado por', 'Tamaño', 'Verificación', 'Estado', 'Acciones']} rows={backups.data.map((backup) => {
