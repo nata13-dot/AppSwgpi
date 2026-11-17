@@ -158,7 +158,7 @@ function StudentProposal() {
 
     return (
       <>
-        {data.last_rejected && <div className="alert-app danger"><strong>Tu propuesta anterior fue rechazada:</strong> {data.last_rejected.titulo}{data.last_rejected.comentario_revision && <><br />{data.last_rejected.comentario_revision}</>}</div>}
+        {data.last_rejected && <div className="alert-app danger"><strong>{data.last_rejected.estado === 'no_viable' ? 'Tu proyecto anterior se dictaminó no viable en la evaluación de 5°:' : 'Tu propuesta anterior fue rechazada:'}</strong> {data.last_rejected.titulo}{data.last_rejected.comentario_revision && <><br />{data.last_rejected.comentario_revision}</>}{data.last_rejected.estado === 'no_viable' && <><br /><small>Tu equipo quedó libre: registra una nueva propuesta cuando se abra el registro para tu semestre.</small></>}</div>}
         <div className="alert-app success">Registro abierto hasta {formatDateTime(data.window.closes_at)} · {data.subject_group.nombre}</div>
         <Card title="¿Desarrollas tu proyecto junto con un compañero?" subtitle="Si un compañero ya registró la propuesta, pide unirte a ella en lugar de registrarla otra vez.">
           <Chips options={[{ value: true, label: 'Sí, con un compañero' }, { value: false, label: 'No' }]} value={withPartner} onChange={setWithPartner} />

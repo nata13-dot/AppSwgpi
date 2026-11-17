@@ -3,7 +3,7 @@ import { FiLock, FiSave } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { Badge, Button, Empty, Field, Sheet } from '../../components/ui'
-import { VERDICT_RULE, Verdict, verdictFor } from './evaluationShared'
+import { VERDICT_RULE, Verdict, verdictFor, VIABILITY } from './evaluationShared'
 
 const aptVote = (value) => (value === true ? 'Sí' : value === false ? 'No' : 'Sin respuesta')
 
@@ -38,6 +38,7 @@ export default function BreakdownSheet({ evaluation, onClose, onSaved }) {
         {!teachers.length ? <Empty title="Sin calificaciones" message="Aún no hay evaluaciones registradas por docentes." /> : teachers.map((teacher, index) => (
           <section key={`${teacher.teacher_name}-${index}`} className="card-app">
             <header className="card-head"><h2>{teacher.teacher_name}</h2><div className="row-wrap"><Badge tone="info">{teacher.average}%</Badge><Verdict verdict={teacher.verdict || verdictFor(teacher.average)} /></div></header>
+            {teacher.viabilidad && <p className="small-text"><strong>Dictamen de viabilidad:</strong> <Badge tone={VIABILITY[teacher.viabilidad]?.tone}>{VIABILITY[teacher.viabilidad]?.label || teacher.viabilidad}</Badge></p>}
             {apt.applies && <p className="muted small-text"><strong>Recomendación:</strong> {aptVote(teacher.apto_titulacion)}</p>}
             {teacher.general_comment && <div className="quote"><strong>Comentario general</strong><p>{teacher.general_comment}</p></div>}
             {!teacher.can_view_score_detail ? (

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   FiArchive, FiCheckCircle, FiChevronDown, FiChevronRight, FiClipboard, FiEyeOff, FiFileText, FiGrid,
-  FiInfo, FiList, FiSkipForward, FiTrash2, FiArrowLeft, FiX,
+  FiInfo, FiList, FiSkipForward, FiTrash2, FiArrowLeft, FiX, FiFlag,
 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
@@ -12,10 +12,11 @@ import { canDownloadFullEvaluationReports, isAdmin, isEvaluationManager } from '
 import { useSemesters } from '../../lib/semesters'
 import { formatDateTime, fullName } from '../../utils/formatters'
 import { Badge, Button, Card, confirmAction, Empty, ErrorState, IconButton, Loading, Page, Sheet } from '../../components/ui'
-import { controlNumbers, downloadReport, projectCompany, projectDetailRows, roomName, stageLabel, Verdict, verdictFor } from './evaluationShared'
+import { controlNumbers, downloadReport, projectCompany, projectDetailRows, roomName, stageLabel, Verdict, verdictFor, VIABILITY } from './evaluationShared'
 import ScoreSheet from './ScoreSheet'
 import BreakdownSheet from './BreakdownSheet'
 import RubricManager from './RubricManager'
+import ViabilitySheet from './ViabilitySheet'
 
 const roomKeyOf = (evaluation) => String(evaluation.room?.id || evaluation.evaluation_room_id || 'sin-sala')
 
@@ -198,7 +199,7 @@ export default function Evaluations({ archived = false }) {
                           selecting={selecting && evaluation.can_manage_evaluations} checked={selected.has(Number(evaluation.id))} onCheck={(on) => toggleIds([Number(evaluation.id)], on)}
                           onScore={() => setSheet({ type: 'score', id: evaluation.id })} onBreakdown={() => setSheet({ type: 'breakdown', id: evaluation.id })}
                           onDetails={() => setSheet({ type: 'details', id: evaluation.id })} onRubric={() => setSheet({ type: 'rubric', projectId: evaluation.project_id })}
-                          onComplete={() => markCompleted(evaluation)} onArchive={() => archiveOne(evaluation)} onDelete={() => removeOne(evaluation)} />
+                          onViability={() => setSheet({ type: 'viability', id: evaluation.id })} onComplete={() => markCompleted(evaluation)} onArchive={() => archiveOne(evaluation)} onDelete={() => removeOne(evaluation)} />
                       ))}
                     </ul>
                   )}
@@ -212,17 +213,19 @@ export default function Evaluations({ archived = false }) {
       {sheet?.type === 'score' && current && <ScoreSheet evaluation={current} project={projectOf(current)} onClose={() => setSheet(null)} onSaved={refresh} />}
       {sheet?.type === 'breakdown' && current && <BreakdownSheet evaluation={current} onClose={() => setSheet(null)} onSaved={refresh} />}
       {sheet?.type === 'details' && current && <EvaluationDetails evaluation={current} project={projectOf(current)} onClose={() => setSheet(null)} />}
+      {sheet?.type === 'viability' && current && <ViabilitySheet evaluation={current} title={projectOf(current)?.title} onClose={() => setSheet(null)} onSaved={refresh} />}
       {sheet?.type === 'rubric' && <RubricManager projectId={sheet.projectId} projects={projects.data || []} onClose={() => setSheet(null)} />}
     </Page>
   )
 }
 
-function EvaluationItem({ evaluation, project, fullReports, archived, selecting, checked, onCheck, onScore, onBreakdown, onDetails, onRubric, onComplete, onArchive, onDelete }) {
+function EvaluationItem({ evaluation, project, fullReports, archived, selecting, checked, onCheck, onScore, onBreakdown, onDetails, onRubric, onViability, onComplete, onArchive, onDelete }) {
   const statuses = new Map((evaluation.document_readiness?.students || []).map((student) => [String(student.id), student]))
   const uploaded = Boolean(evaluation.document_readiness?.presentation_uploaded)
   const statusTone = { activo: 'info', evaluado: 'success', pendiente: 'neutral' }[evaluation.sequence_status] || 'neutral'
   const verdict = evaluation.verdict || verdictFor(evaluation.global_average)
   const company = projectCompany(project)
+  const viability = evaluation.viability
   return (
     <li className={`eval-item ${evaluation.is_completed ? 'done' : ''} ${evaluation.sequence_status === 'activo' ? 'active' : ''}`}>
       <div className="eval-item-main">
@@ -235,6 +238,8 @@ function EvaluationItem({ evaluation, project, fullReports, archived, selecting,
             <Badge tone={statusTone}>{evaluation.sequence_status || evaluation.estado || '—'}</Badge>
             <Badge tone={uploaded ? 'success' : 'danger'}>{uploaded ? 'Presentación cargada' : 'Presentación pendiente'}</Badge>
             {evaluation.is_completed && <Badge tone="success" icon={FiCheckCircle}>{evaluation.evaluated_by_all ? 'Evaluado por todos' : 'Evaluación completada'}</Badge>}
+            {viability?.confirmed && <Badge tone={VIABILITY[viability.confirmed]?.tone} icon={FiFlag}>Dictamen: {viability.confirmed_label}</Badge>}
+            {viability?.applies && !viability.confirmed && viability.total > 0 && <Badge tone="info" icon={FiFlag}>Viabilidad sugerida: {viability.suggested_label} ({viability.total} voto{viability.total === 1 ? '' : 's'})</Badge>}
           </div>
           <ul className="member-dots">
             {(project?.students || []).map((student) => {
@@ -254,6 +259,7 @@ function EvaluationItem({ evaluation, project, fullReports, archived, selecting,
         </button>
         <div className="eval-actions">
           {!archived && <Button size="sm" variant="success" icon={FiClipboard} disabled={!evaluation.can_score_now} title={evaluation.score_block_reason || 'Evaluar'} onClick={onScore}>Evaluar</Button>}
+          {evaluation.can_confirm_viability && !archived && <Button size="sm" variant="soft" icon={FiFlag} onClick={onViability}>Confirmar dictamen</Button>}
           {evaluation.can_mark_completed && <Button size="sm" variant="ghost" icon={FiCheckCircle} onClick={onComplete}>Marcar evaluada</Button>}
           <IconButton icon={FiInfo} label="Detalles del proyecto" onClick={onDetails} />
           {fullReports && <IconButton icon={FiFileText} label="Reporte completo con nombres de evaluadores" onClick={() => downloadReport('evaluation', evaluation.id, false)} />}

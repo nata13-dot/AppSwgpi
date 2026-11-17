@@ -4,7 +4,7 @@ import { FiSave, FiSend } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { fullName } from '../../utils/formatters'
-import { Badge, Button, confirmAction, Empty, Field, Loading, Progress, Sheet } from '../../components/ui'
+import { Badge, Button, Chips, confirmAction, Empty, Field, Loading, Progress, Sheet } from '../../components/ui'
 import { controlNumbers, SCALE_NAMES, scaleOf, scaleOptions, scalePercentage, Verdict, verdictFor } from './evaluationShared'
 import { LiveRoomTimer } from '../../components/RoomCountdown'
 
@@ -18,6 +18,8 @@ export default function ScoreSheet({ evaluation, project, onClose, onSaved }) {
   const restored = Object.keys(draft).length > 0
   const [answers, setAnswers] = useState(() => Object.fromEntries((draft.scores || []).map((score) => [score.criterio, { valor: score.valor || '', comentario: score.comentario || '' }])))
   const [comment, setComment] = useState(draft.general_comment || '')
+  // Dictamen de viabilidad de 5°: obligatorio; coordinación lo confirma después con los votos de todos.
+  const [viability, setViability] = useState(() => draft.viabilidad ?? evaluation.current_teacher_viabilidad ?? '')
   const [apt, setApt] = useState(() => draft.apto_titulacion ?? (evaluation.current_teacher_apto_titulacion === true ? '1' : evaluation.current_teacher_apto_titulacion === false ? '0' : ''))
   const [missing, setMissing] = useState(new Set())
   const [saving, setSaving] = useState(false)
@@ -35,9 +37,9 @@ export default function ScoreSheet({ evaluation, project, onClose, onSaved }) {
   }, [criteriaQuery.data, evaluation])
 
   useEffect(() => {
-    const payload = { general_comment: comment, apto_titulacion: apt, scores: Object.entries(answers).map(([criterio, value]) => ({ criterio, ...value })) }
+    const payload = { general_comment: comment, apto_titulacion: apt, viabilidad: viability, scores: Object.entries(answers).map(([criterio, value]) => ({ criterio, ...value })) }
     localStorage.setItem(draftKey(evaluation.id), JSON.stringify(payload))
-  }, [answers, apt, comment, evaluation.id])
+  }, [answers, apt, viability, comment, evaluation.id])
 
   const percentages = criteria.map((criterion) => (answers[criterion.key]?.valor ? scalePercentage(scaleOf(criterion), answers[criterion.key].valor) : null)).filter((value) => value !== null)
   const average = percentages.length ? Math.round((percentages.reduce((sum, value) => sum + value, 0) / percentages.length) * 100) / 100 : null
@@ -55,6 +57,7 @@ export default function ScoreSheet({ evaluation, project, onClose, onSaved }) {
       toast.warning(`Faltan ${pending.length} pregunta(s) por responder.`)
       return
     }
+    if (Number(evaluation.semestre) === 5 && !viability) { toast.warning('Marca tu dictamen de viabilidad del proyecto.'); return }
     if (evaluation.current_teacher_has_scores) { toast.error('Solicita un nuevo intento autorizado; el resultado registrado se conserva.'); return }
     if (!(await confirmAction({ title: 'Guardar evaluación', text: `Se guardará la rúbrica para ${project?.title || 'este proyecto'}.`, confirmText: 'Sí, guardar', icon: 'question' }))) return
     const payload = {
@@ -62,6 +65,7 @@ export default function ScoreSheet({ evaluation, project, onClose, onSaved }) {
       general_comment: comment.trim() || null,
     }
     if (apt !== '') payload.apto_titulacion = apt === '1'
+    if (Number(evaluation.semestre) === 5) payload.viabilidad = viability
     setSaving(true)
     try {
       await api.post(`/evaluations/${evaluation.id}/score`, payload)
@@ -117,6 +121,11 @@ export default function ScoreSheet({ evaluation, project, onClose, onSaved }) {
             })}
           </ol>
           <Field label="Comentarios o puntos de mejora" className="mt-3"><textarea className="control" rows={3} placeholder="Comentario final visible en el desglose" value={comment} onChange={(event) => setComment(event.target.value)} /></Field>
+          {Number(evaluation.semestre) === 5 && (
+            <Field label="Dictamen de viabilidad" hint="¿El proyecto es viable para desarrollarse? Coordinación confirma el dictamen final con los votos de todos los evaluadores." className="mt-3">
+              <Chips options={[{ value: 'viable', label: 'Viable' }, { value: 'correcciones', label: 'Viable con correcciones' }, { value: 'no_viable', label: 'No viable' }]} value={viability} onChange={setViability} />
+            </Field>
+          )}
           {Number(evaluation.semestre) === 8 && (
             <Field label="¿Recomienda continuar el proyecto? (No acredita titulación)" hint="Esta respuesta no afecta el puntaje general." className="mt-3">
               <select className="control" value={apt} onChange={(event) => setApt(event.target.value)}><option value="">Sin respuesta</option><option value="1">Sí</option><option value="0">No</option></select>

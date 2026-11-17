@@ -86,3 +86,10 @@ export async function downloadReport(kind, id, limited) {
     if (notice) toast.dismiss(notice)
   }
 }
+
+/** Dictamen de viabilidad de 5° (ViabilityService en la API): etiqueta, tono y qué provoca al confirmarlo. */
+export const VIABILITY = {
+  viable: { label: 'Viable', tone: 'success', effect: 'El proyecto sigue igual y el equipo continúa con su desarrollo.' },
+  correcciones: { label: 'Viable con correcciones', tone: 'warning', effect: 'La propuesta vuelve a «Requiere cambios» con tu motivo y los comentarios de los evaluadores. El equipo la corrige antes del plazo y se valida otra vez.' },
+  no_viable: { label: 'No viable', tone: 'danger', effect: 'El proyecto se cierra y queda en el historial como no viable. El equipo queda libre para registrar otra propuesta cuando se abra el registro para su semestre.' },
+}

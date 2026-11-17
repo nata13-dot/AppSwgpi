@@ -89,8 +89,8 @@ const GUIDES = {
     },
   })[role],
   evaluations: {
-    how: ['Elige la sala o el proyecto y abre su hoja de evaluación.', 'Califica cada criterio de la rúbrica y guarda; la pantalla se actualiza sola mientras otros evalúan.'],
-    affects: ['Cada evaluador registra su propia calificación con la rúbrica de la etapa.', 'Lo que guardes lo ven al momento los demás evaluadores de la sala.', 'Los resultados alimentan los reportes y el seguimiento del proyecto.'],
+    how: ['Elige la sala o el proyecto y abre su hoja de evaluación.', 'Califica cada criterio de la rúbrica y guarda; la pantalla se actualiza sola mientras otros evalúan.', 'En 5° marca también tu dictamen de viabilidad; cuando voten, coordinación pulsa «Confirmar dictamen» (sugiere el de la mayoría y pide motivo si lo cambias).'],
+    affects: ['Cada evaluador registra su propia calificación con la rúbrica de la etapa.', 'Al confirmar el dictamen de 5°: «viable» deja el proyecto igual; «con correcciones» regresa la propuesta a corrección con un plazo; «no viable» cierra el proyecto y el equipo queda libre para otra propuesta. Se avisa al equipo y no se deshace.', 'Lo que guardes lo ven al momento los demás evaluadores de la sala.', 'Los resultados alimentan los reportes y el seguimiento del proyecto.'],
   },
   'evaluations-archived': {
     how: ['Busca evaluaciones de periodos anteriores por proyecto o periodo.', 'Descarga los reportes que necesites.'],
