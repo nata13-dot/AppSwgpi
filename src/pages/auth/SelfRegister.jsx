@@ -5,7 +5,7 @@ import { FiCheckCircle, FiMail, FiRefreshCw } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { Button, ErrorState, Field, Loading, Steps } from '../../components/ui'
-import { formatDateTime } from '../../utils/formatters'
+import { formatDateTime, semesterLabel } from '../../utils/formatters'
 
 const EMPTY = { carrera_id: '', id: '', email: '', nombres: '', apa: '', ama: '', grupo_id: '', password: '', password_confirmation: '' }
 
@@ -93,7 +93,7 @@ export default function SelfRegister() {
           <Field label="Nombre(s)"><input className="control" required autoComplete="given-name" value={form.nombres} onChange={set('nombres')} /></Field>
           <Field label="Apellido paterno"><input className="control" required autoComplete="family-name" value={form.apa} onChange={set('apa')} /></Field>
           <Field label="Apellido materno"><input className="control" value={form.ama} onChange={set('ama')} /></Field>
-          <Field label="Grupo" hint={`Los alumnos nuevos entran a ${career?.semester || groups[0]?.semestre || 5}° semestre.`}>
+          <Field label="Grupo" hint={`Elige tu grupo: el registro está abierto para ${semesterLabel(career?.semesters?.length ? career.semesters : [...new Set(groups.map((group) => group.semestre))]) || '5°'} semestre.`}>
             <select className="control" required disabled={!career} value={form.grupo_id} onChange={set('grupo_id')}>
               <option value="">Elige tu grupo</option>
               {groups.map((group) => <option key={group.id} value={group.id}>{group.semestre}° {group.grupo}</option>)}

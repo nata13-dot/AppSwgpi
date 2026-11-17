@@ -121,7 +121,7 @@ const GUIDES = {
   },
   'period-center': {
     how: ['Sigue las etapas en orden: periodo, autoregistro, propuestas, evaluaciones y cierre.', 'Abre cada etapa para ver sus pendientes y abrir o cerrar su ventana.'],
-    affects: ['Abrir el autoregistro permite que alumnos nuevos soliciten cuenta en el semestre elegido.', 'La ventana de propuestas controla cuándo pueden registrarse.', 'Lo pendiente al cerrar el periodo no se borra: se avisa a la jefatura.'],
+    affects: ['Abrir el autoregistro permite que alumnos de los semestres marcados soliciten cuenta (5° si no marcas ninguno).', 'La ventana de propuestas controla cuándo y qué semestres registran propuestas; hay que marcar al menos uno.', 'Lo pendiente al cerrar el periodo no se borra: se avisa a la jefatura.'],
   },
   archive: {
     how: ['Elige el tipo (usuarios, proyectos, propuestas o grupos) y busca el elemento archivado.', 'Pulsa "Restaurar" para devolverlo al sistema.'],

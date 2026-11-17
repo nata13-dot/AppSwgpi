@@ -36,15 +36,36 @@ export function mountPeriodCenter(root, host) {
     return wrap
   }
   const chip = (text, tone = '') => el('span', text, { className: `pc-chip ${tone}` })
+  // "5°", "5° y 7°", "5°, 7° y 9°".
+  const semesterLabel = (list) => {
+    const items = (list || []).map((value) => `${value}°`)
+    const last = items.pop()
+    return items.length ? `${items.join(', ')} y ${last}` : (last || '')
+  }
+  /** Casillas para elegir varios semestres; value() devuelve los marcados en orden. */
+  const semesterPicker = (options, selected) => {
+    const box = el('div', undefined, { className: 'pc-semesters', role: 'group' })
+    for (const value of options) {
+      const input = el('input', undefined, { type: 'checkbox', value: String(value), checked: selected.includes(value) })
+      const label = el('label', undefined, { className: 'pc-semester' })
+      label.append(input, el('span', `${value}°`))
+      box.append(label)
+    }
+    box.value = () => [...box.querySelectorAll('input:checked')].map((input) => Number(input.value))
+    return box
+  }
 
   /** Abrir, ampliar o cerrar una ventana con fecha de cierre. */
-  function windowForm(state, endpoint, extra = () => ({}), controls = []) {
+  // `validate()` devuelve un mensaje si falta algo antes de abrir o actualizar.
+  function windowForm(state, endpoint, extra = () => ({}), controls = [], validate = () => null) {
     const box = el('div', undefined, { className: 'pc-form' })
     const until = el('input', undefined, { type: 'datetime-local', min: localNow(), className: 'pc-input' })
     box.append(field(state.open ? 'Cambiar cierre' : 'Abrir hasta', until), ...controls)
     const actions = el('div', undefined, { className: 'pc-actions' })
     actions.append(button(state.open ? 'Actualizar' : 'Abrir', async () => {
       if (!until.value) { notify('warning', 'Indica la fecha y hora de cierre.'); return }
+      const problem = validate()
+      if (problem) { notify('warning', problem); return }
       const result = await host.api('PUT', endpoint, { until: until.value, ...extra() })
       notify('success', result.message)
       await load()
@@ -82,16 +103,17 @@ export function mountPeriodCenter(root, host) {
   function selfStage() {
     const self = data.self_registration
     const body = el('div')
-    body.append(el('p', self.open ? `Los alumnos nuevos entran a ${self.semester}° semestre, grupos ${self.groups.join(', ')}. Cierra el ${moment(self.until)}` : 'Cerrado: el inicio de sesión no muestra «Crear cuenta».'))
+    const selfSemesters = self.semesters?.length ? self.semesters : [self.semester]
+    body.append(el('p', self.open ? `Los alumnos nuevos entran a ${semesterLabel(selfSemesters)} semestre, grupos ${self.groups.join(', ')}. Cierra el ${moment(self.until)}` : 'Cerrado: el inicio de sesión no muestra «Crear cuenta».'))
     if (self.blocker) body.append(el('p', `«Crear cuenta» no se está mostrando: ${self.blocker}`, { className: 'pc-warn' }))
     body.append(el('p', `Correo esperado: ${self.rule.example}.`, { className: 'pc-muted' }))
     if (data.permissions.self_registration && data.period.open) {
+      // Varios semestres a la vez (los que admite el periodo); sin marcar ninguno, entran a 5° o al primero del periodo.
       const options = self.semester_options || []
-      const semester = el('select', undefined, { className: 'pc-input' })
-      for (const value of options) semester.append(el('option', `${value}° semestre`, { value: String(value) }))
-      semester.value = String(options.includes(5) ? 5 : options[0] ?? 5)
-      const semesterField = field(self.open ? 'Semestre al actualizar' : 'Semestre de los alumnos nuevos', semester, options.length > 1 ? 'Si no lo cambias, entran a 5°.' : `Este periodo sólo tiene ${options[0]}° para alumnos nuevos.`)
-      body.append(windowForm(self, '/proposal/settings/self-registration', () => ({ semester: Number(semester.value) }), options.length ? [semesterField] : []))
+      const current = self.open ? selfSemesters.filter((value) => options.includes(value)) : []
+      const picker = semesterPicker(options, current.length ? current : (self.default_semesters || []))
+      const semesterField = field(self.open ? 'Semestres al actualizar' : 'Semestres de los alumnos nuevos', picker, `Este periodo admite ${semesterLabel(options)}. Si no marcas ninguno, entran a ${semesterLabel(self.default_semesters || [5])}.`)
+      body.append(windowForm(self, '/proposal/settings/self-registration', () => ({ semesters: picker.value() }), options.length ? [semesterField] : []))
       const letters = el('input', undefined, { className: 'pc-input', value: self.groups.join(', ') })
       const groups = el('div', undefined, { className: 'pc-form' })
       groups.append(field('Grupos para alumnos nuevos', letters, 'Separados por coma.'))
@@ -106,19 +128,27 @@ export function mountPeriodCenter(root, host) {
     body.append(el('p', self.pending_requests ? `${plural(self.pending_requests, 'solicitud espera', 'solicitudes esperan')} aprobación.` : 'No hay solicitudes por revisar.'))
     if (data.permissions.academic) body.append(link('Revisar solicitudes', host.links.requests))
     const state = self.pending_requests ? 'warn' : self.open ? 'active' : 'idle'
-    const chips = [chip(self.open ? `Abierto · ${self.semester}°` : 'Cerrado', self.open ? 'ok' : ''), ...(self.pending_requests ? [chip(`${self.pending_requests} por aprobar`, 'warn')] : [])]
+    const chips = [chip(self.open ? `Abierto · ${semesterLabel(selfSemesters)}` : 'Cerrado', self.open ? 'ok' : ''), ...(self.pending_requests ? [chip(`${self.pending_requests} por aprobar`, 'warn')] : [])]
     return { key: 'self', title: 'Autoregistro y solicitudes de cuenta', summary: self.open ? `Abierto hasta ${moment(self.until)}` : 'Cerrado', state, chips, body }
   }
 
   function proposalStage() {
     const proposals = data.proposals
     const body = el('div')
-    body.append(el('p', proposals.open ? `Los alumnos pueden registrar propuestas hasta el ${moment(proposals.until)}` : 'El registro de propuestas está cerrado.'))
+    const forSemesters = proposals.semesters?.length ? ` de ${semesterLabel(proposals.semesters)} semestre` : ''
+    body.append(el('p', proposals.open ? `Los alumnos${forSemesters} pueden registrar propuestas hasta el ${moment(proposals.until)}` : 'El registro de propuestas está cerrado.'))
     body.append(el('p', `${plural(proposals.pending, 'propuesta pendiente', 'propuestas pendientes')} de validar, ${plural(proposals.changes, 'con cambios solicitados', 'con cambios solicitados')}. ${plural(proposals.validators, 'docente validador', 'docentes validadores')} además de coordinación y jefatura.`))
-    if (data.permissions.proposals && data.period.open) body.append(windowForm(proposals, '/proposal/settings/proposal-window'))
+    if (data.permissions.proposals && data.period.open) {
+      // Obligatorio: sólo los alumnos de los semestres marcados registran propuestas o piden unirse.
+      const options = proposals.semester_options || []
+      const picker = semesterPicker(options, proposals.open ? (proposals.semesters || []).filter((value) => options.includes(value)) : [])
+      const semesterField = field('Semestres que pueden registrar', picker, `Marca al menos uno. Este periodo admite ${semesterLabel(options)}.`)
+      body.append(windowForm(proposals, '/proposal/settings/proposal-window', () => ({ semesters: picker.value() }), [semesterField],
+        () => (picker.value().length ? null : 'Marca al menos un semestre para abrir el registro de propuestas.')))
+    }
     body.append(link('Validar propuestas y elegir validadores', host.links.proposals))
     const state = proposals.pending ? 'warn' : proposals.open ? 'active' : 'idle'
-    const chips = [chip(proposals.open ? 'Abierto' : 'Cerrado', proposals.open ? 'ok' : ''), ...(proposals.pending ? [chip(`${proposals.pending} por validar`, 'warn')] : [])]
+    const chips = [chip(proposals.open ? `Abierto${proposals.semesters?.length ? ` · ${semesterLabel(proposals.semesters)}` : ''}` : 'Cerrado', proposals.open ? 'ok' : ''), ...(proposals.pending ? [chip(`${proposals.pending} por validar`, 'warn')] : [])]
     return { key: 'proposals', title: 'Propuestas', summary: proposals.open ? `Abierto hasta ${moment(proposals.until)}` : 'Registro cerrado', state, chips, body }
   }
 

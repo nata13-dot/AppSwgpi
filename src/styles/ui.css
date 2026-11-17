@@ -1037,3 +1037,10 @@ a.btn-app { text-decoration: none; }
   .sg-related-grid::-webkit-scrollbar { display: none; }
   .sg-related-card { flex: 0 0 78%; scroll-snap-align: start; }
 }
+
+/* Casillas de semestre del centro del periodo (periodCenter.js). */
+.pc-semesters { display: flex; flex-wrap: wrap; gap: 6px; }
+.pc-semester { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--pc-line); border-radius: 999px; background: var(--pc-surface); cursor: pointer; font-weight: 700; }
+.pc-semester input { accent-color: var(--pc-brand); width: 16px; height: 16px; margin: 0; }
+.pc-semester:has(input:checked) { border-color: var(--pc-brand); background: color-mix(in srgb, var(--pc-brand) 10%, transparent); color: var(--pc-brand); }
+.pc-semester input { appearance: auto; -webkit-appearance: checkbox; position: static; opacity: 1; display: inline-block; min-height: 0; }

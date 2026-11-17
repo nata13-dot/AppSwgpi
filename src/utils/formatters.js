@@ -55,3 +55,10 @@ export const matchesSearch = (text, term) => {
   const haystack = plainText(text)
   return plainText(term).split(/\s+/).filter(Boolean).every((word) => haystack.includes(word))
 }
+
+/** "5°", "5° y 7°", "5°, 7° y 9°". */
+export const semesterLabel = (list) => {
+  const items = (list || []).map((value) => `${value}°`)
+  const last = items.pop()
+  return items.length ? `${items.join(', ')} y ${last}` : (last || '')
+}

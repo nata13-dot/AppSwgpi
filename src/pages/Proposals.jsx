@@ -7,7 +7,7 @@ import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { canManageProjects, isAdmin, isStudent, viewAs } from '../lib/permissions'
 import { sendToArchive } from '../services/archive'
-import { formatDateTime, fullName } from '../utils/formatters'
+import { formatDateTime, fullName, semesterLabel } from '../utils/formatters'
 import { Badge, Button, Card, Chips, confirmAction, Empty, ErrorState, Field, IconButton, Loading, Page, promptText, Tabs } from '../components/ui'
 
 export default function ProposalsPage() {
@@ -153,6 +153,8 @@ function StudentProposal() {
     )
     if (!data.subject_group) return <div className="alert-app">No tienes un grupo asignado en el periodo actual. Pide a la jefatura que te asigne uno.</div>
     if (!data.window?.open) return <div className="alert-app">El registro de propuestas de tu carrera está cerrado.{data.window?.closes_at && <> Cerró el {formatDateTime(data.window.closes_at)}.</>}</div>
+    // La ventana se abre por semestres: si el del alumno no está, se le dice para quiénes está abierta.
+    if (data.window_for_my_semester === false) return <div className="alert-app">El registro de propuestas está abierto sólo para {semesterLabel(data.window.semesters)} semestre; tú estás en {data.subject_group.semestre}°.</div>
 
     return (
       <>
@@ -285,7 +287,10 @@ function ProposalSettings() {
   if (query.isError) return <ErrorState error={query.error} onRetry={query.refetch} />
   const data = query.data
   const selected = validators ?? data.validator_ids.map(String)
-  const windows = [['Autoregistro de alumnos', data.self_registration], ['Registro de propuestas', data.proposal_window]]
+  const windows = [
+    ['Autoregistro de alumnos', data.self_registration, data.self_registration.semesters],
+    ['Registro de propuestas', data.proposal_window, data.proposal_window.semesters],
+  ]
 
   const saveValidators = async () => {
     setSaving(true)
@@ -298,9 +303,9 @@ function ProposalSettings() {
       <Card title="Ventanas del periodo" subtitle="El autoregistro y el registro de propuestas se abren y se cierran en Operación del periodo."
         actions={<Button size="sm" variant="ghost" icon={FiSettings} onClick={() => navigate('/period-center')}>Ir a Operación del periodo</Button>}>
         <ul className="window-list">
-          {windows.map(([label, state]) => (
+          {windows.map(([label, state, semesters]) => (
             <li key={label}>
-              <span>{label}{state.open && (state.until || state.closes_at) && <small className="muted"> · cierra {formatDateTime(state.until || state.closes_at)}</small>}</span>
+              <span>{label}{state.open && semesters?.length > 0 && <small className="muted"> · {semesterLabel(semesters)}</small>}{state.open && (state.until || state.closes_at) && <small className="muted"> · cierra {formatDateTime(state.until || state.closes_at)}</small>}</span>
               <Badge tone={state.open ? 'success' : 'neutral'} icon={state.open ? FiUnlock : FiLock}>{state.open ? 'Abierto' : 'Cerrado'}</Badge>
             </li>
           ))}
