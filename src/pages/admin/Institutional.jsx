@@ -224,7 +224,7 @@ export function AuditPage() {
             <span className="cell-main" key="ip"><strong>{item.direccion_ip || '—'}</strong><small>{item.dispositivo || ''}</small></span>,
           ])} />
         )}
-        <Pager meta={query.data} onPage={(page) => setFilters({ ...filters, page })} />
+        <Pager meta={query.data} onPage={(page) => setFilters({ ...filters, page })} noun="operaciones" />
       </Card>
       <AuditRetention />
     </Page>
@@ -429,7 +429,7 @@ export function SentEmailsPage() {
                 copyLabel ? <Badge key="c" tone={copyTone}>{copyLabel}</Badge> : '—',
               ]
             })} />
-            <Pager meta={query.data} onPage={(page) => setFilters({ ...filters, page })} />
+            <Pager meta={query.data} onPage={(page) => setFilters({ ...filters, page })} noun="correos" />
           </Card>
         </>
       )}

@@ -165,7 +165,7 @@ function Projects() {
         {query.isLoading ? <div className="card-pad"><Loading /></div> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
           <DataTable columns={thesis ? thesisColumns : projectColumns} rows={rows} actions={actions} onRowClick={(project) => setSheet({ type: 'details', id: project.id })} />
         )}
-        <Pager meta={query.data} onPage={setPage} />
+        <Pager meta={query.data} onPage={setPage} noun="proyectos" />
       </Card>
 
       {sheet?.type === 'details' && <ProjectDetails projectId={sheet.id} onClose={closeSheet} />}

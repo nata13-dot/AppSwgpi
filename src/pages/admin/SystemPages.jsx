@@ -212,7 +212,7 @@ export function TagsPage() {
             ]}
             actions={(tag) => <><IconButton icon={FiEdit2} label="Editar" onClick={() => setEditing(tag)} /><IconButton icon={FiTrash2} className="danger" label="Eliminar" onClick={() => remove(tag)} /></>} />
         )}
-        <Pager meta={query.data} onPage={setPage} />
+        <Pager meta={query.data} onPage={setPage} noun="etiquetas" />
       </Card>
       {editing && <TagForm tag={editing.id ? editing : null} onClose={() => setEditing(null)} onSaved={refresh} />}
     </Page>

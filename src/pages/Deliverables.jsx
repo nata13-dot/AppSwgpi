@@ -150,7 +150,7 @@ function ManageDeliverables() {
               <IconButton icon={FiTrash2} className="danger" label="Eliminar" onClick={() => remove(item)} />
             </>} />
         )}
-        <Pager meta={query.data} onPage={setPage} />
+        <Pager meta={query.data} onPage={setPage} noun="entregas" />
       </Card>
       {sheet?.type === 'form' && <DeliverableForm deliverable={sheet.deliverable} catalogs={catalogs.data} defaultSubject={competencyFilter} onClose={() => setSheet(null)} onSaved={refresh} />}
       {sheet?.type === 'grade' && <GradeSheet deliverable={sheet.deliverable} current={sheet.deliverable.calificacion} onClose={() => setSheet(null)} onSaved={refresh} />}

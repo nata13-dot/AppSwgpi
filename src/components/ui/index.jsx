@@ -201,14 +201,41 @@ export function Steps({ steps, current, onSelect }) {
   )
 }
 
-export function Pager({ meta, onPage }) {
-  if (!meta || Number(meta.last_page) <= 1) return null
+/** Páginas a mostrar: primera, última y vecinas de la actual; null es un «…». Igual que assets/js/pager.js de la web. */
+function pagerPages(current, last) {
+  const set = new Set([1, last, current - 1, current, current + 1])
+  if (current <= 3) [2, 3, 4].forEach((page) => set.add(page))
+  if (current >= last - 2) [last - 1, last - 2, last - 3].forEach((page) => set.add(page))
+  const list = [...set].filter((page) => page >= 1 && page <= last).sort((a, b) => a - b)
+  return list.flatMap((page, index) => {
+    const gap = index ? page - list[index - 1] : 1
+    return gap === 1 ? [page] : gap === 2 ? [page - 1, page] : [null, page]
+  })
+}
+
+/** Paginación común: «Anterior 1 2 3 … 10 Siguiente» con «Mostrando 1–25 de 240». En el teléfono, anterior · 1 / 10 · siguiente. */
+export function Pager({ meta, onPage, noun = 'registros' }) {
+  if (!meta) return null
+  const current = Number(meta.current_page || 1)
+  const last = Number(meta.last_page || 1)
+  const total = Number(meta.total || 0)
+  const from = Number(meta.from || 0)
+  const to = Number(meta.to || 0)
+  const summary = total ? (from && to ? <>Mostrando <strong>{from}–{to}</strong> de <strong>{total}</strong> {noun}</> : <><strong>{total}</strong> {noun}</>) : null
+  if (last <= 1) return summary ? <nav className="pager-app single"><span className="pager-info">{summary}</span></nav> : null
+  const go = (page) => { if (page >= 1 && page <= last && page !== current) onPage(page) }
   return (
     <nav className="pager-app" aria-label="Paginación">
-      <span>Página {meta.current_page} de {meta.last_page}{meta.total != null && ` · ${meta.total} registros`}</span>
-      <div>
-        <IconButton icon={FiChevronLeft} label="Anterior" disabled={meta.current_page <= 1} onClick={() => onPage(meta.current_page - 1)} />
-        <IconButton icon={FiChevronRight} label="Siguiente" disabled={meta.current_page >= meta.last_page} onClick={() => onPage(meta.current_page + 1)} />
+      <span className="pager-info">{summary}</span>
+      <div className="pager-controls">
+        <button type="button" className="pager-step" disabled={current <= 1} onClick={() => go(current - 1)}><FiChevronLeft aria-hidden="true" /><span>Anterior</span></button>
+        <span className="pager-pages">
+          {pagerPages(current, last).map((page, index) => page === null
+            ? <span key={`gap-${index}`} className="pager-gap" aria-hidden="true">…</span>
+            : <button key={page} type="button" className={`pager-num ${page === current ? 'active' : ''}`} aria-current={page === current ? 'page' : undefined} aria-label={`Página ${page}`} onClick={() => go(page)}>{page}</button>)}
+        </span>
+        <span className="pager-compact">{current} / {last}</span>
+        <button type="button" className="pager-step" disabled={current >= last} onClick={() => go(current + 1)}><span>Siguiente</span><FiChevronRight aria-hidden="true" /></button>
       </div>
     </nav>
   )

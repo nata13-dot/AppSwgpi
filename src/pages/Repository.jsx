@@ -74,7 +74,7 @@ export default function Repository() {
           ))}
         </div>
       )}
-      <Pager meta={query.data} onPage={setPage} />
+      <Pager meta={query.data} onPage={setPage} noun="documentos" />
       {editing && <RepositoryForm documentId={editing.id} manage={manage} student={student} onClose={() => setEditing(null)} onSaved={refresh} />}
     </Page>
   )

@@ -183,7 +183,7 @@ export default function Users() {
           <DataTable columns={columns} rows={rows} actions={actions}
             selected={selecting ? selection.selected : null} onToggle={selection.toggle} onToggleAll={(on) => selection.setAll(rows.map((row) => row.id), on)} />
         )}
-        <Pager meta={query.data} onPage={setPage} />
+        <Pager meta={query.data} onPage={setPage} noun="usuarios" />
       </Card>
 
       {releasing && <ReleaseSheet people={releasing.people} replacements={releasing.replacements} onClose={() => setReleasing(null)} onDone={refresh} />}

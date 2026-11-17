@@ -67,7 +67,7 @@ export default function Subjects() {
         )}
         <div className="row-wrap pager-row">
           <select className="control compact" aria-label="Asignaturas por página" value={perPage} onChange={(event) => { setPerPage(Number(event.target.value)); setPage(1) }}>{[15, 25, 50, 100].map((value) => <option key={value} value={value}>{value} por página</option>)}</select>
-          <span className="spacer" /><Pager meta={query.data} onPage={setPage} />
+          <span className="spacer" /><Pager meta={query.data} onPage={setPage} noun="asignaturas" />
         </div>
       </Card>
       {sheet?.type === 'subject' && <SubjectForm subject={sheet.subject} onClose={() => setSheet(null)} onSaved={refresh} />}

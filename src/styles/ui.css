@@ -323,7 +323,6 @@ button.stat-app { cursor: pointer; } button.stat-app:hover { border-color: var(-
 @media (min-width: 768px) { .card-app.flush .table-app-wrap { overflow-x: auto; } }
 
 .pager-app { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; font-size: .84rem; color: var(--muted); }
-.pager-app > div { display: flex; gap: 4px; }
 
 /* ---------- Hojas (bottom sheet / diálogo) ---------- */
 .sheet-backdrop { position: fixed; inset: 0; z-index: 1050; background: rgba(10, 18, 32, .5); display: flex; align-items: flex-end; justify-content: center; animation: fade-in .18s; }
@@ -1088,7 +1087,28 @@ a.btn-app { text-decoration: none; }
 }
 
 /* Paginación más clara y con botones grandes. */
-.pager-app { flex-wrap: wrap; border-top: 1px solid var(--line); background: var(--surface); }
-.pager-app > span { font-weight: 600; }
-.pager-app .icon-btn { width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
-.pager-app .icon-btn:not(:disabled):hover { border-color: var(--brand-2); color: var(--brand-2); }
+
+/* ---- Paginación común (Pager), igual a la de la web ---- */
+.pager-app { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--surface); }
+.pager-app.single { justify-content: flex-start; }
+.pager-app .pager-info { color: var(--muted); font-size: .84rem; font-weight: 500; }
+.pager-app .pager-info strong { color: var(--brand); }
+.pager-controls, .pager-pages { display: flex; align-items: center; gap: 6px; }
+.pager-num, .pager-step { min-width: 36px; height: 36px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--brand); font: inherit; font-size: .88rem; font-weight: 650; cursor: pointer; transition: background .15s, border-color .15s, box-shadow .15s; }
+.pager-num:hover, .pager-step:not(:disabled):hover { border-color: var(--brand-2); background: var(--brand-soft); }
+.pager-num:focus-visible, .pager-step:focus-visible { outline: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-2) 30%, transparent); }
+.pager-num.active { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: 0 4px 10px rgba(27, 57, 106, .25); cursor: default; }
+.pager-step { padding: 0 12px; }
+.pager-step:disabled { background: var(--surface-2); color: var(--muted); opacity: .7; cursor: not-allowed; }
+.pager-gap { min-width: 22px; text-align: center; color: var(--muted); font-weight: 700; }
+.pager-compact { display: none; min-width: 64px; text-align: center; font-weight: 700; color: var(--brand); }
+:root[data-theme="dark"] .pager-num.active { color: #fff; }
+@media (max-width: 575.98px) {
+  .pager-app { justify-content: center; text-align: center; }
+  .pager-app .pager-info { width: 100%; }
+  .pager-controls { width: 100%; }
+  .pager-pages { display: none; }
+  .pager-compact { display: inline-block; }
+  .pager-step { flex: 1 1 0; height: 42px; }
+}
+.pager-row .pager-app { border-top: 0; background: transparent; flex: 1 1 auto; }
