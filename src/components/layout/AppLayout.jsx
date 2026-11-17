@@ -8,7 +8,7 @@ import {
   FiSearch, FiShield, FiSun, FiUser, FiX,
 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
-import api, { apiError } from '../../services/api'
+import api, { apiError, setClientVersion } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { bottomNavPaths, filterMenu, flattenMenu, menuForUser, SHORT_LABELS } from '../../lib/navigation'
 import { homePath, isGeneralAdmin, isManagementStaff, profileLabel, roleLabel, SIMULABLE_PROFILES, viewAs, activeProfileId, isAdmin } from '../../lib/permissions'
@@ -30,7 +30,7 @@ function Avatar({ user, size = 'md' }) {
 export default function AppLayout() {
   const [appVersion, setAppVersion] = useState('')
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) CapacitorApp.getInfo().then((info) => setAppVersion(info.version)).catch(() => {})
+    if (Capacitor.isNativePlatform()) CapacitorApp.getInfo().then((info) => { setAppVersion(info.version); setClientVersion(info.version) }).catch(() => {})
   }, [])
   const { user, logout, switchCareer, startLevelView, exitLevelView } = useAuth()
   const navigate = useNavigate()

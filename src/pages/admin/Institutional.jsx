@@ -185,7 +185,7 @@ function ContinuityPolicy({ onClose, onSaved }) {
 function PolicyForm({ initial, onClose, onSaved }) {
   const [form, setForm] = useState(initial)
   const save = useMutation({ mutationFn: () => api.put('/admin/continuity-policy', form), onSuccess: () => { toast.success('Política actualizada.'); onSaved(); onClose() }, onError: (error) => toast.error(apiError(error)) })
-  const fields = [['target_readiness', 'Objetivo de preparación (%)'], ['critical_readiness', 'Umbral crítico (%)'], ['max_backup_age_hours', 'Vigencia máxima de respaldo (h)'], ['backup_retention_days', 'Retención de respaldos (días)']]
+  const fields = [['target_readiness', 'Objetivo de preparación (%)'], ['critical_readiness', 'Umbral crítico (%)'], ['max_backup_age_hours', 'Vigencia máxima de respaldo (h)'], ['backup_retention_days', 'Retención de respaldos (días)'], ['audit_retention_days', 'Retención de auditoría (días, 30 a 1825)']]
   return (
     <form className="stack" onSubmit={(event) => { event.preventDefault(); save.mutate() }}>
       {fields.map(([key, label]) => <Field key={key} label={label}><input className="control" type="number" required value={form[key] ?? ''} onChange={(event) => setForm({ ...form, [key]: Number(event.target.value) })} /></Field>)}
@@ -216,16 +216,66 @@ export function AuditPage() {
       </Card>
       <Card flush>
         {query.isLoading ? <div className="card-pad"><Loading /></div> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
-          <Rows headers={['Operación', 'Fecha', 'Carrera', 'Actor', 'Resultado', 'IP']} rows={(query.data?.data || []).map((item) => [
+          <Rows headers={['Operación', 'Fecha', 'Carrera', 'Actor', 'Resultado', 'IP y dispositivo']} rows={(query.data?.data || []).map((item) => [
             <span className="cell-main" key="o"><strong>{item.metodo}</strong><code className="break">{item.ruta}</code></span>,
             formatDateTime(item.creado_en), item.carrera_clave || 'Institucional',
             <span className="cell-main" key="a"><strong>{actor(item, item.actor_id || 'Sistema')}</strong><small>{item.actor_id}</small></span>,
-            <Badge key="r" tone={Number(item.estado_http) < 400 ? 'success' : 'danger'}>{item.estado_http}</Badge>, item.direccion_ip || '—',
+            <Badge key="r" tone={Number(item.estado_http) < 400 ? 'success' : 'danger'}>{item.estado_http}</Badge>,
+            <span className="cell-main" key="ip"><strong>{item.direccion_ip || '—'}</strong><small>{item.dispositivo || ''}</small></span>,
           ])} />
         )}
         <Pager meta={query.data} onPage={(page) => setFilters({ ...filters, page })} />
       </Card>
+      <AuditRetention />
     </Page>
+  )
+}
+
+/** Retención de la auditoría y comprobación de la IP detectada (GET /admin/audit/retention y /admin/audit/ip-check). */
+function AuditRetention() {
+  const client = useQueryClient()
+  const retention = useQuery({ queryKey: ['audit-retention'], queryFn: () => api.get('/admin/audit/retention').then((response) => response.data) })
+  const ip = useQuery({ queryKey: ['audit-ip-check'], queryFn: () => api.get('/admin/audit/ip-check').then((response) => response.data), staleTime: 60_000 })
+  const prune = useMutation({
+    mutationFn: () => api.post('/admin/audit/retention/run', {}, { timeout: 120_000 }).then((response) => response.data),
+    onSuccess: (data) => { toast.success(data.message); client.setQueryData(['audit-retention'], (old) => ({ ...old, preview: data.preview, archives: data.archives })); client.invalidateQueries({ queryKey: ['institutional-audit'] }) },
+    onError: (error) => toast.error(apiError(error)),
+  })
+  const preview = retention.data?.preview
+  const archives = retention.data?.archives || []
+  const confirmPrune = async () => {
+    if (await confirmAction({ title: 'Depurar auditoría ahora', text: `Se copiarán ${preview?.total || 0} registros anteriores al ${preview?.cutoff ? formatDateTime(preview.cutoff) : '—'} a un archivo junto a los respaldos y después se borrarán de la auditoría. Requiere un respaldo completo de los últimos 2 días.`, confirmText: 'Copiar y depurar' })) prune.mutate()
+  }
+  return (
+    <>
+      <Card title="Retención de la auditoría" subtitle="Cada noche (01:40, después del respaldo) los registros más antiguos que el plazo se copian a un archivo comprimido junto a los respaldos y se borran de aquí. El plazo se cambia en Política de continuidad."
+        actions={<Button size="sm" variant="soft" icon={FiTrash2} disabled={!preview?.total} loading={prune.isPending} onClick={confirmPrune}>Depurar ahora</Button>}>
+        {retention.isLoading ? <Loading rows={2} /> : retention.isError ? <ErrorState error={retention.error} onRetry={retention.refetch} /> : (
+          <div className="stack">
+            <div className="row-wrap">
+              <Badge tone="info">Se conservan {preview?.days} días</Badge>
+              <Badge tone={preview?.total ? 'warning' : 'success'}>{preview?.total ? `${preview.total} por depurar` : 'Nada por depurar'}</Badge>
+            </div>
+            {archives.length ? (
+              <ul className="removal-skipped">
+                {archives.map((archive) => (
+                  <li key={archive.id}>
+                    <strong>{archive.status === 'completada' ? `${archive.total} registros hasta ${formatDateTime(archive.cutoff)}` : archive.status === 'fallida' ? 'Depuración fallida' : 'En proceso'}</strong>
+                    <span>{formatDateTime(archive.created_at)} · {archive.source}{archive.error ? ` · ${archive.error}` : ''}</span>
+                    {archive.available && <Button size="sm" variant="ghost" icon={FiDownload} onClick={() => fileDownload(`/admin/audit/archives/${archive.id}/download`, archive.file)}>Descargar copia</Button>}
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="muted">Todavía no se ha depurado la auditoría.</p>}
+          </div>
+        )}
+      </Card>
+      {ip.data && (
+        <Card title="Así te ve el sistema" subtitle="La IP con la que se registran tus cambios. Desde un teléfono con datos móviles es la IP pública que asigna la compañía; en Wi-Fi, la del módem de esa red.">
+          <div className="row-wrap"><Badge tone="info">IP: {ip.data.ip || '—'}</Badge><Badge>{ip.data.device}</Badge></div>
+        </Card>
+      )}
+    </>
   )
 }
 
