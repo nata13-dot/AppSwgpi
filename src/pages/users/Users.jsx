@@ -14,6 +14,7 @@ import UsersImport from './UsersImport'
 import CredentialsSheet from './CredentialsSheet'
 import GroupControl from './GroupControl'
 import UserRemovalSheet from './UserRemovalSheet'
+import ReleaseSheet from './ReleaseSheet'
 
 const STATUS = [{ value: 'active', label: 'Activos' }, { value: 'inactive', label: 'Inactivos' }, { value: 'all', label: 'Todos' }]
 const PROFILES = [{ value: 'all', label: 'Todos los perfiles' }, { value: '3', label: 'Estudiantes' }, { value: '2', label: 'Docentes' }, { value: 'staff', label: 'Jefatura y coordinación' }]
@@ -49,6 +50,7 @@ export default function Users() {
   // Archivar o eliminar definitivamente: administración general y jefatura (la API lo vuelve a validar).
   const canRemove = isAdmin(user)
   const [removing, setRemoving] = useState(null) // [{ id, name }]
+  const [releasing, setReleasing] = useState(null) // { people, replacements }: docentes con pendientes
   const named = (ids) => ids.map((id) => { const row = rows.find((item) => String(item.id) === String(id)); return { id, name: row ? fullName(row) : String(id) } })
   // "Eliminar" un usuario activo lo pasa a inactivos; reactivar lo devuelve. Funciona igual para uno o para varios.
   const bulk = async (action, ids) => {
@@ -56,8 +58,11 @@ export default function Users() {
     if (action === 'deactivate' && !(await confirmAction({ title: many ? `Inactivar ${ids.length} usuarios` : `Eliminar a ${named(ids)[0].name}`, text: 'Pasa a Inactivos: ya no podrá iniciar sesión y se liberan sus asignaciones. Desde Inactivos puedes reactivarlo o eliminarlo.', confirmText: many ? 'Sí, inactivar' : 'Sí, pasar a inactivos', danger: true }))) return
     try {
       const { data } = await api.post('/users/bulk', { action, ids })
-      ;(data.done?.length ? toast.success : toast.error)(data.message)
-      if (data.skipped?.length) toast.warning(data.skipped.map((item) => `${item.name}: ${item.reason}`).join(' · '), { autoClose: 10_000 })
+      const releasable = (data.skipped || []).filter((item) => item.releasable)
+      const others = (data.skipped || []).filter((item) => !item.releasable)
+      if (data.done?.length || !releasable.length) (data.done?.length ? toast.success : toast.error)(data.message)
+      if (others.length) toast.warning(others.map((item) => `${item.name}: ${item.reason}`).join(' · '), { autoClose: 10_000 })
+      if (action === 'deactivate' && releasable.length) setReleasing({ people: releasable, replacements: data.replacements || [] })
       selection.clear()
       refresh()
     } catch (error) {
@@ -181,6 +186,7 @@ export default function Users() {
         <Pager meta={query.data} onPage={setPage} />
       </Card>
 
+      {releasing && <ReleaseSheet people={releasing.people} replacements={releasing.replacements} onClose={() => setReleasing(null)} onDone={refresh} />}
       {removing && <UserRemovalSheet users={removing} onClose={() => setRemoving(null)} onDone={() => { selection.clear(); refresh() }} />}
       {sheet?.type === 'form' && <UserForm userId={sheet.id} onClose={() => setSheet(null)} onSaved={refresh} />}
       {sheet === 'import' && <UsersImport onClose={() => setSheet(null)} onImported={refresh} />}
