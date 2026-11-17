@@ -204,6 +204,89 @@ const GUIDES = {
   },
 }
 
+// Pantallas a las que una guía puede recomendar ir: ruta de la app, página de PHP por tipo de perfil y quién la abre
+// (lo mismo que permiten el menú y la API). staff = coordinación, asistencia, jefatura y administración.
+const SCREENS = {
+  users: { label: 'Usuarios', app: '/users', php: '/pages/admin/users.php', who: 'users' },
+  'registration-requests': { label: 'Solicitudes de cuenta', app: '/registration-requests', php: '/pages/admin/registration-requests.php', who: 'academic' },
+  'period-center': { label: 'Operación del periodo', app: '/period-center', php: '/pages/admin/period-center.php', who: 'staff' },
+  academic: { label: 'Seguimiento académico', app: '/academic-workflows', php: '/pages/academic-workflows.php', who: 'all' },
+  courses: { label: 'Inscripciones a materias', app: '/academic-workflows?tab=courses', php: '/pages/academic-workflows.php?tab=courses', who: 'all' },
+  residencies: { label: 'Residencias', app: '/academic-workflows?tab=residencies', php: '/pages/academic-workflows.php?tab=residencies', who: 'all' },
+  proposals: { label: { student: 'Mi proyecto', teacher: 'Revisar propuestas', staff: 'Propuestas' }, app: '/proposals', php: { student: '/pages/student/proposal-register.php', teacher: '/pages/teacher/proposal-review.php', staff: '/pages/admin/proposal-config.php' }, who: 'all' },
+  projects: { label: { teacher: 'Mis proyectos', staff: 'Proyectos y tesis' }, app: '/projects', php: { teacher: '/pages/teacher/my-projects.php', staff: '/pages/admin/projects.php' }, who: 'notStudent' },
+  deliverables: { label: { student: 'Mis entregables', teacher: 'Entregables', staff: 'Entregables' }, app: '/deliverables', php: { student: '/pages/student/my-deliverables.php', teacher: '/pages/teacher/my-deliverables.php', staff: '/pages/admin/deliverables.php' }, who: 'all' },
+  evaluations: { label: 'Evaluaciones', app: '/evaluations', php: '/pages/admin/evaluations.php', who: 'notStudent' },
+  'evaluation-rooms': { label: 'Salas y turnos', app: '/evaluation-rooms', php: '/pages/admin/evaluation-rooms.php', who: 'notStudent' },
+  'evaluation-documents': { label: 'Evidencias', app: '/evaluation-documents', php: '/pages/evaluation-documents.php', who: 'all' },
+  advisors: { label: 'Asesores', app: '/advisors', php: '/pages/admin/advisors.php', who: 'staff' },
+  subjects: { label: 'Asignaturas y competencias', app: '/subjects', php: '/pages/admin/asignaturas.php', who: 'academic' },
+  archive: { label: 'Archivo histórico', app: '/archive', php: '/pages/admin/archive.php', who: 'admin' },
+  notices: { label: 'Avisos del sistema', app: '/notices', php: '/pages/admin/notices.php', who: 'admin' },
+  settings: { label: 'Ajustes', app: '/settings', php: '/pages/admin/settings.php', who: 'admin' },
+  repository: { label: 'Repositorio', app: '/repository', php: '/pages/repositorio.php', who: 'all' },
+}
+
+// "También te puede servir": a qué pantalla ir desde cada sección y para qué.
+const RELATED = {
+  users: [['registration-requests', 'Aprueba a los alumnos que se registraron solos.'], ['period-center', 'Abre o cierra el autoregistro de alumnos.'], ['advisors', 'Asigna docentes como asesores de proyectos.'], ['archive', 'Restaura usuarios enviados al archivo.']],
+  'registration-requests': [['period-center', 'Abre, amplía o cierra el autoregistro.'], ['users', 'Revisa y edita las cuentas ya creadas.'], ['academic', 'Acomoda en su grupo a los alumnos pendientes.']],
+  projects: (role) => role === 'teacher'
+    ? [['deliverables', 'Califica las entregas de tus equipos.'], ['evaluations', 'Evalúa sus presentaciones.'], ['proposals', 'Revisa las propuestas pendientes.']]
+    : [['proposals', 'Valida las propuestas que se convierten en proyecto.'], ['advisors', 'Asigna o cambia asesores.'], ['evaluation-rooms', 'Programa sus presentaciones.'], ['archive', 'Consulta o restaura proyectos archivados.']],
+  proposals: (role) => ({
+    student: [['deliverables', 'Sube los entregables de tu proyecto.'], ['evaluation-documents', 'Sube tu hoja de liberación y tu presentación.'], ['courses', 'Inscríbete a tus materias.']],
+    teacher: [['projects', 'Consulta los proyectos que asesoras.'], ['deliverables', 'Califica sus entregas.']],
+    staff: [['period-center', 'Abre o cierra la ventana de propuestas.'], ['projects', 'Consulta las propuestas ya aprobadas.'], ['advisors', 'Asigna asesores a los proyectos nuevos.']],
+  })[role],
+  deliverables: (role) => ({
+    student: [['proposals', 'Revisa el estado de tu proyecto.'], ['evaluation-documents', 'Prepara tus evidencias de evaluación.']],
+    teacher: [['evaluations', 'Evalúa las presentaciones.'], ['projects', 'Consulta tus asesorías.']],
+    staff: [['subjects', 'Configura materias y competencias.'], ['projects', 'Revisa los proyectos y sus equipos.'], ['evaluations', 'Da seguimiento a las evaluaciones.']],
+  })[role],
+  evaluations: [['evaluation-rooms', 'Programa salas, docentes y turnos.'], ['evaluation-documents', 'Revisa las evidencias de cada equipo.']],
+  'evaluation-rooms': [['evaluations', 'Califica con la rúbrica.'], ['evaluation-documents', 'Comprueba que cada equipo pueda presentar.'], ['projects', 'Consulta los equipos y su semestre.']],
+  'evaluation-documents': (role) => role === 'student'
+    ? [['proposals', 'Revisa tu proyecto y su equipo.'], ['deliverables', 'Sube tus entregables.']]
+    : [['evaluation-rooms', 'Programa la presentación de los equipos listos.'], ['evaluations', 'Califica las presentaciones.']],
+  subjects: [['courses', 'Abre la inscripción a las materias.'], ['deliverables', 'Crea entregables por materia.']],
+  advisors: [['projects', 'Consulta los proyectos y sus equipos.'], ['users', 'Revisa a los docentes de la carrera.']],
+  'period-center': [['registration-requests', 'Atiende las solicitudes de cuenta.'], ['proposals', 'Valida las propuestas.'], ['academic', 'Acomoda alumnos y revisa el periodo.'], ['evaluation-rooms', 'Programa las evaluaciones.']],
+  archive: [['users', 'Gestiona las cuentas activas e inactivas.'], ['projects', 'Consulta los proyectos vigentes.']],
+  notices: [['settings', 'Ajusta la configuración de la carrera.']],
+  settings: [['notices', 'Publica avisos para la carrera.']],
+  'academic:periods': [['period-center', 'Sigue las etapas del periodo en orden.'], ['users', 'Revisa a los alumnos y sus grupos.']],
+  'academic:courses': (role) => role === 'student' ? [['deliverables', 'Consulta los entregables de tus materias.']] : [['subjects', 'Configura las materias.'], ['deliverables', 'Crea entregables para el curso.']],
+  'academic:residencies': [['evaluation-documents', 'Revisa las evidencias de evaluación.'], ['projects', 'Consulta los proyectos de residencia.']],
+  'academic:memberships': [['users', 'Edita los datos de la persona.'], ['advisors', 'Reasigna sus asesorías.']],
+}
+
+function allowed(who, user) {
+  const profile = Number(user?.active_profile_id ?? user?.perfil_id)
+  const general = Boolean(user?.is_general_admin) || profile === 4
+  return {
+    all: true,
+    notStudent: profile !== 3,
+    staff: general || [1, 5, 6, 7].includes(profile),
+    academic: general || [1, 5, 6].includes(profile),
+    users: general || [5, 6, 7].includes(profile),
+    admin: general || [1, 5].includes(profile),
+  }[who] ?? false
+}
+
+/** Pantallas relacionadas que el perfil puede abrir: [{ key, label, why, app, php }]. */
+export function relatedFor(key, user) {
+  const role = roleOf(user)
+  const list = typeof RELATED[key] === 'function' ? RELATED[key](role) : RELATED[key]
+  return (list || []).map(([screen, why]) => {
+    const target = SCREENS[screen]
+    if (!target || !allowed(target.who, user)) return null
+    const pick = (value) => (value && typeof value === 'object' ? value[role] : value)
+    const php = pick(target.php)
+    return php ? { key: screen, label: pick(target.label), why, app: target.app, php } : null
+  }).filter(Boolean)
+}
+
 /** Clave de la guía para una ruta de la app (pathname) o una página de PHP. */
 export function guideKeyFor(path, search = '') {
   const clean = String(path || '').replace(/\/+$/, '') || '/'
@@ -240,7 +323,28 @@ const EFFECT = 'M12 2 1 21h22L12 2zm1 16h-2v-2h2v2zm0-4h-2v-4h2v4z'
  * Pinta la guía en `root`. Al aparecer se muestra abierta y se pliega sola a los pocos segundos (se pausa mientras
  * el puntero o el foco están encima). Si la persona la vuelve a abrir, se queda abierta hasta que la cierre.
  */
-export function mountSectionGuide(root, { user, key }) {
+const ARROW = 'M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z'
+
+/** Tarjetas "También te puede servir"; en la app `go` navega sin recargar, en la web es un enlace normal. */
+function relatedBlock(items, target, go) {
+  const section = el('nav', undefined, 'sg-related')
+  section.setAttribute('aria-label', 'Pantallas relacionadas')
+  section.append(el('span', 'También te puede servir', 'sg-related-title'))
+  const grid = el('div', undefined, 'sg-related-grid')
+  for (const item of items) {
+    const link = el('a', undefined, 'sg-related-card')
+    link.href = item[target]
+    const text = el('span', undefined, 'sg-related-text')
+    text.append(el('strong', item.label), el('small', item.why))
+    link.append(text, icon(ARROW))
+    if (go) link.onclick = (event) => { event.preventDefault(); go(item[target]) }
+    grid.append(link)
+  }
+  section.append(grid)
+  return section
+}
+
+export function mountSectionGuide(root, { user, key, go = null, target = 'php' }) {
   let current = key
   let open = true
   let pinned = false
@@ -293,7 +397,8 @@ export function mountSectionGuide(root, { user, key }) {
         box.append(bar()); schedule()
       }
     }
-    root.replaceChildren(box)
+    const related = relatedFor(current, user).filter((item) => !window.location.href.endsWith(item[target]))
+    root.replaceChildren(box, ...(related.length ? [relatedBlock(related, target, go)] : []))
     schedule()
   }
 

@@ -1,17 +1,25 @@
 import { useEffect, useRef } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { guideKeyFor, mountSectionGuide, roleOf } from '../shared/sectionGuide'
+import { activeProfileId, isGeneralAdmin } from '../lib/permissions'
+import { guideKeyFor, mountSectionGuide } from '../shared/sectionGuide'
 
-/** Guía "Cómo usar esta sección" de la pantalla actual (src/shared/sectionGuide.js, igual que en la web). */
+/**
+ * Guía "Cómo usar esta sección" y pantallas relacionadas de la pantalla actual (src/shared/sectionGuide.js, igual que
+ * en la web). Los enlaces relacionados navegan dentro de la app.
+ */
 export default function SectionGuide() {
   const root = useRef(null)
+  const navigate = useNavigate()
   const { pathname, search } = useLocation()
   const { user } = useAuth()
   const key = guideKeyFor(pathname, search)
-  // Sólo importa el tipo de perfil: si el usuario se vuelve a consultar, la guía no se reinicia.
-  const profile = { student: 3, teacher: 2, staff: 0 }[roleOf(user)]
-  useEffect(() => (key ? mountSectionGuide(root.current, { user: { active_profile_id: profile }, key }) : undefined), [key, profile])
+  // Sólo importan el perfil activo y si es administrador general: si el usuario se vuelve a consultar, no se reinicia.
+  const profile = activeProfileId(user)
+  const general = isGeneralAdmin(user)
+  useEffect(() => (key
+    ? mountSectionGuide(root.current, { user: { active_profile_id: profile, is_general_admin: general }, key, go: navigate, target: 'app' })
+    : undefined), [key, profile, general, navigate])
   if (!key) return null
   return <div ref={root} className="section-guide" />
 }

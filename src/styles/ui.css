@@ -1019,3 +1019,21 @@ a.btn-app { text-decoration: none; }
 .removal-skipped { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .removal-skipped li { display: flex; flex-direction: column; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); font-size: .86rem; }
 .removal-skipped span { color: var(--muted); }
+
+/* "También te puede servir" (sectionGuide.js): tarjetas a pantallas relacionadas. */
+.sg-related { margin-top: 10px; }
+.sg-related-title { display: block; margin-bottom: 6px; font-size: .74rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--sg-muted); }
+.sg-related-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.sg-related-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--sg-line); background: var(--sg-surface); color: var(--sg-ink); text-decoration: none; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.sg-related-card:hover, .sg-related-card:focus-visible { border-color: var(--sg-navy); box-shadow: 0 6px 16px rgba(16, 30, 54, .08); transform: translateY(-1px); outline: none; }
+.sg-related-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sg-related-text strong { font-size: .9rem; color: var(--sg-navy); }
+.sg-related-text small { font-size: .78rem; color: var(--sg-muted); line-height: 1.35; }
+.sg-related-card .sg-icon { width: 16px; height: 16px; color: var(--sg-navy); opacity: .7; flex-shrink: 0; }
+
+/* En el teléfono las pantallas relacionadas van en una fila que se desliza, para no empujar el contenido. */
+@media (max-width: 640px) {
+  .sg-related-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px; scrollbar-width: none; }
+  .sg-related-grid::-webkit-scrollbar { display: none; }
+  .sg-related-card { flex: 0 0 78%; scroll-snap-align: start; }
+}
