@@ -131,7 +131,7 @@ export default function Users() {
                 <option value="">Todos los semestres</option>
                 {semesters.map((value) => <option key={value} value={value}>{ordinal(value)}</option>)}
               </select>
-              <select className="control" aria-label="Grupo" value={group} onChange={changeFilter(setGroup)}>
+              <select className="control" aria-label="Grupo" value={group} onChange={(event) => changeFilter(setGroup)(event.target.value)}>
                 <option value="">Todos los grupos</option>
                 {(groups.data || []).map((item) => <option key={item.id} value={item.grupo}>{item.semestre} {item.grupo} - {item.nombre}</option>)}
               </select>
