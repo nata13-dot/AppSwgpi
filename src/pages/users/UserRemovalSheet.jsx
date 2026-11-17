@@ -12,6 +12,7 @@ const OPTIONS = {
     points: [
       'Deja de aparecer en listas, grupos, búsquedas y reportes, y no puede iniciar sesión.',
       'Se conservan sus calificaciones, entregas, evaluaciones y documentos.',
+      'Su proyecto, si se queda sin alumnos, también va al archivo y vuelve si lo restauras.',
       'Se puede restaurar cuando quieras desde Archivo histórico.',
     ],
   },
@@ -22,6 +23,7 @@ const OPTIONS = {
     points: [
       'Se borra la cuenta en todo el sistema, con su historial propio: matrículas, movimientos de semestre, liberaciones, residencias y autorizaciones.',
       'Sus entregas, documentos y evaluaciones quedan sin autor; los reportes pasados ya no mostrarán su nombre.',
+      'Su proyecto, si se queda sin alumnos, también se elimina.',
       'No se puede deshacer. Si dejó registros como autoridad (operaciones, revisiones o asesorías), el sistema pedirá archivarlo en su lugar.',
     ],
   },
