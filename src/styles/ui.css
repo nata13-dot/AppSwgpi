@@ -1044,3 +1044,51 @@ a.btn-app { text-decoration: none; }
 .pc-semester input { accent-color: var(--pc-brand); width: 16px; height: 16px; margin: 0; }
 .pc-semester:has(input:checked) { border-color: var(--pc-brand); background: color-mix(in srgb, var(--pc-brand) 10%, transparent); color: var(--pc-brand); }
 .pc-semester input { appearance: auto; -webkit-appearance: checkbox; position: static; opacity: 1; display: inline-block; min-height: 0; }
+
+/* ---- Botón de ayuda que no estorba: más discreto, se esconde al bajar y deja espacio al final de cada pantalla ---- */
+.help-fab { width: 44px; height: 44px; font-size: 1.2rem; opacity: .92; transition: transform .22s ease, opacity .22s ease, background .15s; }
+.help-fab:hover, .help-fab:focus-visible { opacity: 1; }
+.help-fab.scroll-hidden { transform: translateY(calc(100% + 28px)) scale(.8); opacity: 0; pointer-events: none; }
+.content-app { padding-bottom: 76px; }
+@media (min-width: 992px) { .content-app { padding-bottom: 84px; } .help-fab { width: 46px; height: 46px; } }
+@media (prefers-reduced-motion: reduce) { .help-fab { transition: none; } }
+
+/* ---- Listas: encabezado fijo, fila con acento al pasar, primera columna destacada ---- */
+.table-app tbody tr { transition: background .12s ease; }
+.table-app td.primary-cell { font-weight: 700; color: var(--ink, inherit); }
+.table-app td.primary-cell small, .table-app td.primary-cell .muted { display: block; font-weight: 500; }
+.table-app tr.clickable td:first-child { box-shadow: inset 3px 0 0 transparent; transition: box-shadow .12s ease; }
+.table-app tr.clickable:hover td:first-child { box-shadow: inset 3px 0 0 var(--brand-2); }
+.table-app .actions-cell .icon-btn, .table-app .actions-cell button { min-width: 36px; min-height: 36px; }
+@media (min-width: 768px) {
+  .table-app thead th { position: sticky; top: 0; z-index: 1; }
+  .table-app tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+  .table-app tbody tr.selected td { background: var(--brand-soft); }
+}
+
+/* Teléfono: cada registro es una tarjeta con acento institucional, etiqueta arriba y valor abajo (más fácil de leer). */
+@media (max-width: 767.98px) {
+  .table-app tr { padding: 12px 14px 10px 16px; border-radius: 14px; box-shadow: 0 1px 2px rgba(16, 39, 68, .06), 0 4px 14px rgba(16, 39, 68, .05); overflow: hidden; }
+  .table-app tr::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: linear-gradient(180deg, var(--brand), var(--brand-2)); }
+  .table-app tr.clickable { cursor: pointer; }
+  .table-app tr.clickable:active { transform: scale(.99); background: var(--surface-2); }
+  .table-app tbody { display: grid; gap: 10px; }
+  .table-app tr { margin-bottom: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
+  .table-app td { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; padding: 6px 0; text-align: left; min-width: 0; overflow-wrap: anywhere; }
+  .table-app td::before { font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 800; }
+  .table-app td.primary-cell { grid-column: 1 / -1; padding: 0 44px 8px 0; margin-bottom: 4px; border-bottom: 1px solid var(--line); font-size: 1rem; }
+  .table-app tr:has(td.select-cell) td.primary-cell { padding-right: 40px; }
+  .table-app tr.clickable td.primary-cell::after { content: '›'; position: absolute; top: 8px; right: 12px; font-size: 1.4rem; line-height: 1; color: var(--muted); }
+  .table-app tr.clickable:has(td.select-cell) td.primary-cell::after { display: none; }
+  .table-app td.select-cell { grid-column: auto; }
+  .table-app td.actions-cell { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; border-top: 1px solid var(--line); margin-top: 4px; padding-top: 8px; }
+  .table-app td.actions-cell > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; width: 100%; }
+  .table-app td.actions-cell .icon-btn { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  .card-app.flush .table-app-wrap { padding: 12px; }
+}
+
+/* Paginación más clara y con botones grandes. */
+.pager-app { flex-wrap: wrap; border-top: 1px solid var(--line); background: var(--surface); }
+.pager-app > span { font-weight: 600; }
+.pager-app .icon-btn { width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.pager-app .icon-btn:not(:disabled):hover { border-color: var(--brand-2); color: var(--brand-2); }

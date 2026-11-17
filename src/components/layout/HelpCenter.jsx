@@ -6,6 +6,7 @@ import api, { apiError } from '../../services/api'
 import { activeProfileId } from '../../lib/permissions'
 import { registerBackHandler } from '../../utils/backNavigation'
 import { Button, Sheet } from '../ui'
+import { useScrollHide } from '../../hooks/useScrollHide'
 
 /* Los temas y la comparación de preguntas viven en la API (resources/help); no intervienen servicios externos. */
 
@@ -106,6 +107,8 @@ export default function HelpCenter({ user = null, menuItems = [], simulated = fa
   const location = useLocation()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  // Se esconde al bajar para no tapar listas, paginación ni botones; reaparece al subir.
+  const scrollHidden = useScrollHide()
   const [touring, setTouring] = useState(false)
   const [messages, setMessages] = useState([])
   const [asking, setAsking] = useState(false)
@@ -159,7 +162,7 @@ export default function HelpCenter({ user = null, menuItems = [], simulated = fa
 
   return (
     <>
-      <button type="button" className={`help-fab ${guest ? 'guest' : ''}`} aria-label="Ayuda" title="Ayuda" onClick={() => setOpen(true)}><FiHelpCircle aria-hidden="true" /></button>
+      <button type="button" className={`help-fab ${guest ? 'guest' : ''} ${scrollHidden && !touring ? 'scroll-hidden' : ''}`} aria-label="Ayuda" title="Ayuda" onClick={() => setOpen(true)}><FiHelpCircle aria-hidden="true" /></button>
       {/* Sin escritura libre: se navega por temas. El pie lleva de vuelta a la lista completa o al buscador. */}
       <Sheet open={open} title="Asistente de ayuda" subtitle="Elige un tema para ver cómo hacerlo." onClose={() => setOpen(false)} size="sm"
         footer={(
