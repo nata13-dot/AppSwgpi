@@ -1,19 +1,19 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiArchive, FiAward, FiEdit2, FiMail, FiPlus, FiShield, FiToggleLeft, FiToggleRight, FiUploadCloud, FiUsers, FiX } from 'react-icons/fi'
+import { FiAward, FiCheckSquare, FiEdit2, FiMail, FiPlus, FiRotateCcw, FiShield, FiTrash2, FiUploadCloud, FiUserX, FiUsers, FiX } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { canGovernUsers, isAdmin, isGeneralAdmin, profileLabel } from '../../lib/permissions'
-import { sendToArchive } from '../../services/archive'
 import { ordinal, useSemesters } from '../../lib/semesters'
 import { fullName } from '../../utils/formatters'
-import { Badge, Button, Card, Chips, DataTable, ErrorState, IconButton, Loading, Page, Pager, promptPassword, SearchInput, useDebounced, useSelection } from '../../components/ui'
+import { Badge, Button, Card, Chips, confirmAction, DataTable, ErrorState, IconButton, Loading, Page, Pager, promptPassword, SearchInput, useDebounced, useSelection } from '../../components/ui'
 import UserForm from './UserForm'
 import UsersImport from './UsersImport'
 import CredentialsSheet from './CredentialsSheet'
 import GroupControl from './GroupControl'
+import UserRemovalSheet from './UserRemovalSheet'
 
 const STATUS = [{ value: 'active', label: 'Activos' }, { value: 'inactive', label: 'Inactivos' }, { value: 'all', label: 'Todos' }]
 const PROFILES = [{ value: 'all', label: 'Todos los perfiles' }, { value: '3', label: 'Estudiantes' }, { value: '2', label: 'Docentes' }, { value: 'staff', label: 'Jefatura y coordinación' }]
@@ -46,9 +46,24 @@ export default function Users() {
   const rows = query.data?.data || []
   const refresh = () => client.invalidateQueries({ queryKey: ['users'] })
   const changeFilter = (setter) => (value) => { setter(value); setPage(1) }
-  const canArchive = (row) => isAdmin(user) && String(row.id) !== String(user?.id) && !row.es_administrador_general
-  const archive = async (rows, name) => {
-    if (await sendToArchive({ tipo: 'usuarios', ids: rows.map((row) => row.id), name })) { selection.clear(); refresh() }
+  // Archivar o eliminar definitivamente: administración general y jefatura (la API lo vuelve a validar).
+  const canRemove = isAdmin(user)
+  const [removing, setRemoving] = useState(null) // [{ id, name }]
+  const named = (ids) => ids.map((id) => { const row = rows.find((item) => String(item.id) === String(id)); return { id, name: row ? fullName(row) : String(id) } })
+  // "Eliminar" un usuario activo lo pasa a inactivos; reactivar lo devuelve. Funciona igual para uno o para varios.
+  const bulk = async (action, ids) => {
+    const many = ids.length > 1
+    if (action === 'deactivate' && !(await confirmAction({ title: many ? `Inactivar ${ids.length} usuarios` : `Eliminar a ${named(ids)[0].name}`, text: 'Pasa a Inactivos: ya no podrá iniciar sesión y se liberan sus asignaciones. Desde Inactivos puedes reactivarlo o eliminarlo.', confirmText: many ? 'Sí, inactivar' : 'Sí, pasar a inactivos', danger: true }))) return
+    try {
+      const { data } = await api.post('/users/bulk', { action, ids })
+      ;(data.done?.length ? toast.success : toast.error)(data.message)
+      if (data.skipped?.length) toast.warning(data.skipped.map((item) => `${item.name}: ${item.reason}`).join(' · '), { autoClose: 10_000 })
+      selection.clear()
+      refresh()
+    } catch (error) {
+      const skipped = error.response?.data?.skipped
+      toast.error(skipped?.length ? skipped.map((item) => `${item.name}: ${item.reason}`).join(' · ') : apiError(error), { autoClose: 10_000 })
+    }
   }
 
   const toggleStatus = async (row, adminPassword = null) => {
@@ -105,11 +120,15 @@ export default function Users() {
       <IconButton icon={FiEdit2} label="Editar" onClick={() => setSheet({ type: 'form', id: row.id })} />
       {protectedUser
         ? <IconButton icon={FiShield} label="Acción protegida: cambiar estado" onClick={() => protectedToggle(row)} />
-        : <IconButton icon={row.activo ? FiToggleRight : FiToggleLeft} className={row.activo ? 'success' : 'danger'} label={row.activo ? 'Activo. Toca para desactivar' : 'Inactivo. Toca para activar'} onClick={() => toggleStatus(row)} />}
+        : row.activo
+          ? <IconButton icon={FiUserX} className="danger" label="Eliminar (pasa a inactivos)" onClick={() => bulk('deactivate', [row.id])} />
+          : <>
+            <IconButton icon={FiRotateCcw} className="success" label="Reactivar" onClick={() => bulk('activate', [row.id])} />
+            {canRemove && String(row.id) !== String(user?.id) && !row.es_administrador_general && <IconButton icon={FiTrash2} className="danger" label="Eliminar: archivo histórico o definitivo" onClick={() => setRemoving([{ id: row.id, name: fullName(row) }])} />}
+          </>}
       {generalAdmin && String(row.id) !== String(user?.id) && Number(row.perfil_id) !== 3 && (
         <IconButton icon={FiAward} className={row.es_administrador_general ? 'success' : ''} label={row.es_administrador_general ? 'Administrador general. Toca para retirarlo' : 'Nombrar administrador general'} onClick={() => setGeneralAdmin(row)} />
       )}
-      {canArchive(row) && <IconButton icon={FiArchive} label="Enviar al archivo histórico" onClick={() => archive([row], fullName(row))} />}
     </>
   } : null
 
@@ -119,6 +138,7 @@ export default function Users() {
         <Button icon={FiPlus} onClick={() => setSheet({ type: 'form', id: null })}>Nuevo usuario</Button>
         <Button variant="ghost" icon={FiUploadCloud} onClick={() => setSheet('import')}>Excel</Button>
         <Button variant={selecting ? 'warning' : 'ghost'} icon={FiMail} onClick={openCredentials}>{selecting ? 'Continuar envío' : 'Credenciales'}</Button>
+        {!selecting && <Button variant="ghost" icon={FiCheckSquare} onClick={() => setSelecting(true)}>Seleccionar</Button>}
       </>}>
       <Card>
         <div className="stack">
@@ -145,7 +165,11 @@ export default function Users() {
           <span>{selection.selected.size} usuario{selection.selected.size === 1 ? '' : 's'} seleccionado{selection.selected.size === 1 ? '' : 's'}</span>
           <Button size="sm" variant="ghost" onClick={() => selection.setAll(rows.map((row) => row.id), true)}>Seleccionar página</Button>
           <Button size="sm" variant="ghost" onClick={selection.clear}>Limpiar</Button>
-          {isAdmin(user) && selection.selected.size > 0 && <Button size="sm" variant="ghost" icon={FiArchive} onClick={() => archive([...selection.selected].map((id) => ({ id })), `${selection.selected.size} usuario(s)`)}>Archivar</Button>}
+          {govern && selection.selected.size > 0 && <>
+            {status !== 'inactive' && <Button size="sm" variant="ghost-danger" icon={FiUserX} onClick={() => bulk('deactivate', [...selection.selected])}>Inactivar</Button>}
+            {status !== 'active' && <Button size="sm" variant="ghost" icon={FiRotateCcw} onClick={() => bulk('activate', [...selection.selected])}>Reactivar</Button>}
+            {status !== 'active' && canRemove && <Button size="sm" variant="danger" icon={FiTrash2} onClick={() => setRemoving(named([...selection.selected]))}>Eliminar</Button>}
+          </>}
           <IconButton icon={FiX} label="Cancelar selección" onClick={cancelSelection} />
         </div>
       )}
@@ -157,6 +181,7 @@ export default function Users() {
         <Pager meta={query.data} onPage={setPage} />
       </Card>
 
+      {removing && <UserRemovalSheet users={removing} onClose={() => setRemoving(null)} onDone={() => { selection.clear(); refresh() }} />}
       {sheet?.type === 'form' && <UserForm userId={sheet.id} onClose={() => setSheet(null)} onSaved={refresh} />}
       {sheet === 'import' && <UsersImport onClose={() => setSheet(null)} onImported={refresh} />}
       {sheet === 'credentials' && <CredentialsSheet onClose={() => setSheet(null)} selected={selection.selected} filters={{ status, q: debounced.trim(), semester: profile === '3' ? semester : '', group: profile === '3' ? group : '' }} profile={profile} />}

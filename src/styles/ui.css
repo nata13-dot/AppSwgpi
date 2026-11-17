@@ -1006,3 +1006,16 @@ a.btn-app { text-decoration: none; }
 .notice-toast { display: flex; flex-direction: column; gap: 2px; }
 .notice-toast small { color: var(--muted); font-weight: 600; font-size: .76rem; }
 .notice-list small { display: block; margin-top: 2px; }
+
+/* Eliminar usuarios: dos opciones explicadas (archivo histórico o definitivo). */
+.removal-options { display: grid; gap: 10px; }
+@media (min-width: 640px) { .removal-options { grid-template-columns: 1fr 1fr; } }
+.removal-option { text-align: left; padding: 12px 14px; border-radius: 14px; border: 2px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; }
+.removal-option strong { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.removal-option ul { margin: 0; padding-left: 18px; font-size: .84rem; color: var(--ink-2); display: grid; gap: 4px; }
+.removal-option.active.info { border-color: var(--brand-2); background: var(--info-soft); }
+.removal-option.active.danger { border-color: var(--danger); background: var(--danger-soft); }
+.removal-option.danger strong { color: var(--danger); }
+.removal-skipped { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.removal-skipped li { display: flex; flex-direction: column; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); font-size: .86rem; }
+.removal-skipped span { color: var(--muted); }
