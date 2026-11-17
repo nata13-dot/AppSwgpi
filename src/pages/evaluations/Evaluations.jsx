@@ -41,10 +41,10 @@ function normalize(items) {
 }
 
 async function fetchAll(params) {
-  const first = (await api.get('/evaluations', { params: { ...params, per_page: 200 }, timeout: 30_000 })).data
+  const first = (await api.get('/evaluations', { params: { ...params, per_page: 200 }, timeout: 60_000 })).data
   let items = first.data || []
   for (let page = Number(first.current_page || 1) + 1; page <= Number(first.last_page || 1); page++) {
-    items = items.concat((await api.get('/evaluations', { params: { ...params, per_page: 200, page } })).data.data || [])
+    items = items.concat((await api.get('/evaluations', { params: { ...params, per_page: 200, page }, timeout: 60_000 })).data.data || [])
   }
   return normalize(items)
 }
