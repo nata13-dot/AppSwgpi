@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiArchive, FiBook, FiBriefcase, FiDownload, FiEdit2, FiEye, FiPlus, FiTrash2, FiUploadCloud, FiUserCheck, FiAward } from 'react-icons/fi'
+import { FiArchive, FiBook, FiBriefcase, FiCheckSquare, FiDownload, FiEdit2, FiEye, FiPlus, FiTrash2, FiUploadCloud, FiUserCheck, FiAward, FiX } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
@@ -9,7 +9,7 @@ import { canManageProjects, isAdmin, isProjectCoordinator, isTeacher } from '../
 import { sendToArchive } from '../../services/archive'
 import { downloadApiFile } from '../../utils/downloads'
 import { fullName } from '../../utils/formatters'
-import { Badge, Button, Card, confirmAction, DataTable, ErrorState, IconButton, Loading, Page, Pager, SearchInput, Tabs, useDebounced } from '../../components/ui'
+import { Badge, Button, Card, confirmAction, DataTable, ErrorState, IconButton, Loading, Page, Pager, SearchInput, Tabs, useDebounced, useSelection } from '../../components/ui'
 import { advisorForRole, authors, MODALITIES, PROJECT_SEMESTERS, ProjectDetails, THESIS_ROLES, THESIS_SEMESTERS } from './projectShared'
 import ProjectForm from './ProjectForm'
 import ProjectSubjects from './ProjectSubjects'
@@ -42,6 +42,10 @@ function Projects() {
   const [page, setPage] = useState(1)
   const [sheet, setSheet] = useState(() => (params.get('id') ? { type: 'details', id: params.get('id') } : params.get('edit') && manage ? { type: 'form', id: params.get('edit') } : null))
   const debounced = useDebounced(search)
+  // Selección múltiple para eliminar varios a la vez (POST /projects/bulk-delete); se conserva entre páginas.
+  const [selecting, setSelecting] = useState(false)
+  const selection = useSelection()
+  const cancelSelection = () => { setSelecting(false); selection.clear() }
   const thesis = view === 'thesis'
   const residency = view === 'residency'
   const modality = residency ? RESIDENCY : MODALITIES[view]
@@ -62,6 +66,7 @@ function Projects() {
   })
   const refresh = () => client.invalidateQueries({ queryKey: ['projects'] })
   const changeView = (next) => {
+    cancelSelection()
     setView(next)
     setPage(1)
     if (!semesterOptions(next).some(([value]) => value === semester)) setSemester('')
@@ -102,6 +107,19 @@ function Projects() {
     try {
       await api.delete(`/projects/${project.id}`)
       toast.success('Proyecto eliminado')
+      refresh()
+    } catch (error) { toast.error(apiError(error)) }
+  }
+  const removeSelected = async () => {
+    const ids = [...selection.selected]
+    if (!ids.length) return
+    if (!(await confirmAction({ title: `Eliminar ${ids.length} ${thesis ? 'tesis' : 'proyecto(s)'}`, text: 'Dejarán de aparecer en las listas, igual que al eliminarlos uno por uno.', confirmText: 'Sí, eliminar', danger: true }))) return
+    try {
+      const { data } = await api.post('/projects/bulk-delete', { ids })
+      ;(data.done?.length ? toast.success : toast.error)(data.message)
+      if (data.skipped?.length) toast.warning(data.skipped.map((item) => `${item.name}: ${item.reason}`).join(' · '), { autoClose: 10_000 })
+      ;(data.done || []).forEach((item) => selection.toggle(item.id))
+      if (!data.skipped?.length) cancelSelection()
       refresh()
     } catch (error) { toast.error(apiError(error)) }
   }
@@ -147,6 +165,7 @@ function Projects() {
         {!residency && <Button icon={FiPlus} onClick={() => setSheet({ type: 'form', id: null, thesis })}>{thesis ? 'Nueva tesis' : `Nuevo ${modality.label}`}</Button>}
         <Button variant="ghost" icon={FiUploadCloud} onClick={() => setSheet({ type: 'import' })}>Cargar Excel</Button>
         <Button variant="ghost" icon={FiDownload} onClick={template}>Plantilla</Button>
+        {!selecting && <Button variant="ghost" icon={FiCheckSquare} onClick={() => setSelecting(true)}>Seleccionar</Button>}
       </>}>
       <Tabs value={view} onChange={changeView} items={[
         { key: 'integrator', label: 'Proyecto integrador' }, { key: 'dual', label: 'Modalidad Dual' }, { key: 'case', label: 'Caso integrador' },
@@ -163,10 +182,20 @@ function Projects() {
       </div>
       <Card flush>
         {query.isLoading ? <div className="card-pad"><Loading /></div> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
-          <DataTable columns={thesis ? thesisColumns : projectColumns} rows={rows} actions={actions} onRowClick={(project) => setSheet({ type: 'details', id: project.id })} />
+          <DataTable columns={thesis ? thesisColumns : projectColumns} rows={rows} actions={actions} onRowClick={(project) => setSheet({ type: 'details', id: project.id })}
+            selected={selecting ? selection.selected : null} onToggle={selection.toggle} onToggleAll={(on) => selection.setAll(rows.map((row) => row.id), on)} />
         )}
         <Pager meta={query.data} onPage={setPage} noun="proyectos" />
       </Card>
+      {selecting && (
+        <div className="selection-bar" role="status">
+          <span>{selection.selected.size} seleccionado{selection.selected.size === 1 ? '' : 's'}</span>
+          <Button size="sm" variant="ghost" onClick={() => selection.setAll(rows.map((row) => row.id), true)}>Seleccionar página</Button>
+          <Button size="sm" variant="ghost" onClick={selection.clear}>Limpiar</Button>
+          {selection.selected.size > 0 && <Button size="sm" variant="danger" icon={FiTrash2} onClick={removeSelected}>Eliminar</Button>}
+          <IconButton icon={FiX} label="Cancelar selección" onClick={cancelSelection} />
+        </div>
+      )}
 
       {sheet?.type === 'details' && <ProjectDetails projectId={sheet.id} onClose={closeSheet} />}
       {sheet?.type === 'form' && <ProjectForm projectId={sheet.id} asThesis={sheet.thesis} defaultModality={thesis || residency ? 'proyecto_integrador' : modality.value} onClose={closeSheet} onSaved={refresh} />}
