@@ -1196,3 +1196,10 @@ a.btn-app { text-decoration: none; }
 .tour-card, .ac-toast { border-radius: 22px; box-shadow: var(--shadow-lg); }
 .tour-spotlight { border-radius: 18px; }
 .menu-badge { border-radius: 999px; }
+/* Tablas: más aire en las orillas. */
+@media (min-width: 768px) {
+  .table-app th, .table-app td { padding: 13px 14px; }
+  .table-app th:first-child, .table-app td:first-child { padding-left: 22px; }
+  .table-app th:last-child, .table-app td:last-child { padding-right: 22px; }
+}
+@media (max-width: 767.98px) { .table-app tr { padding: 14px 16px 12px 20px; } }
