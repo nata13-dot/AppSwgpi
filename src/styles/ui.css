@@ -1379,3 +1379,27 @@ a.btn-app { text-decoration: none; }
 .tracking-console .tc-matrix tbody th { text-transform: none; letter-spacing: 0; font-size: .86rem; font-weight: 600; }
 .tracking-console .tc-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; } .tracking-console .tc-inline .tc-checks { flex: 1 1 auto; } .tracking-console .tc-inline .ac-actions { margin-left: auto; }
 .tracking-console .tc-detail .ac-panel-head { flex-wrap: nowrap; align-items: flex-start; } .tracking-console .tc-close { margin: 0 0 0 auto; flex-shrink: 0; }
+/* Avances: tipos de archivo, competencias y paquetes. */
+.tracking-console .tc-template-row { grid-template-columns: minmax(180px, 2fr) minmax(160px, 1.4fr) 90px 90px auto; }
+.tracking-console .tc-template-row.tc-comp-row { grid-template-columns: minmax(180px, 1fr) minmax(200px, 2fr) auto; }
+.tracking-console .tc-types-line { grid-column: 1 / -1; }
+.tracking-console .tc-types { gap: 6px 8px; }
+.tracking-console .tc-types small { flex-basis: 100%; }
+.tracking-console .tc-pill { gap: 6px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--ac-line); background: var(--ac-surface); font-size: .82rem; }
+.tracking-console .tc-pill:has(input:checked) { border-color: var(--ac-brand-2); background: rgba(45, 90, 150, .1); color: var(--ac-brand); }
+.tracking-console .tc-pill .ac-checkbox { width: 15px; height: 15px; }
+.tracking-console .tc-groups th { font-size: .74rem; text-transform: none; letter-spacing: 0; color: var(--ac-brand); background: var(--ac-surface); border-bottom: 2px solid var(--ac-brand-2); white-space: normal; max-width: none; position: static; }
+.tracking-console .tc-sub { display: block; font-size: .72rem; font-weight: 700; color: var(--ac-muted); white-space: nowrap; }
+.tracking-console .tc-package .tc-row-main small { overflow-wrap: anywhere; }
+.tracking-console .tc-pick-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.tracking-console .tc-pick-list { max-height: 340px; overflow-y: auto; border: 1px solid var(--ac-line); border-radius: 12px; background: var(--ac-surface); }
+.tracking-console .tc-pick { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 8px 12px; border-bottom: 1px solid var(--ac-line); }
+.tracking-console .tc-pick:last-child { border-bottom: 0; }
+.tracking-console .tc-pick-name { flex: 1 1 240px; }
+.tracking-console .tc-pick-mods { display: flex; flex-wrap: wrap; gap: 6px; }
+.tracking-console .tc-pick-mods[hidden] { display: none; }
+@media (max-width: 640px) {
+  .tracking-console .tc-template-row, .tracking-console .tc-template-row.tc-comp-row { grid-template-columns: 1fr 1fr; }
+  .tracking-console .tc-template-row > :first-child, .tracking-console .tc-template-row > :nth-child(2), .tracking-console .tc-template-row > .ac-btn { grid-column: 1 / -1; }
+}
+.tracking-console .tc-matrix thead tr.tc-groups th { text-transform: none; letter-spacing: 0; white-space: normal; overflow: visible; max-width: none; font-size: .78rem; color: var(--ac-brand); background: var(--ac-surface); position: static; }

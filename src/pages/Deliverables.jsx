@@ -27,7 +27,8 @@ const download = async (deliverable) => {
 /** Subida de archivo de un entregable con las reglas de los ajustes públicos (tipos y tamaño máximo). */
 function UploadSheet({ deliverable, onClose, onSaved }) {
   const settings = useQuery({ queryKey: ['public-settings'], queryFn: () => api.get('/settings/public').then((response) => response.data), staleTime: 300_000 })
-  const allowed = settings.data?.allowed_file_types || ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'zip']
+  // Si el docente exigió tipos de archivo, sólo se aceptan ésos; si no, los de los ajustes del sistema.
+  const allowed = deliverable.extensiones?.length ? deliverable.extensiones : (settings.data?.allowed_file_types || ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'zip'])
   const maxMb = Number(settings.data?.max_file_size_mb || 50)
   const [file, setFile] = useState(null)
   const [progress, setProgress] = useState(null)
@@ -268,6 +269,8 @@ function StudentDeliverables() {
                   <div><dt>Fecha límite</dt><dd>{item.fecha_limite ? formatDateTime(item.fecha_limite) : 'Sin fecha'}{item.prorroga && <small className="muted d-block">Prórroga de tu equipo</small>}</dd></div>
                   <div><dt>Calificación</dt><dd><GradeBadge grade={item.calificacion} />{individual && <small className="muted d-block">Individual · del equipo: {Number(item.calificacion_equipo)}</small>}</dd></div>
                   <div><dt>Archivo</dt><dd>{item.file_path ? 'Presente' : '—'}</dd></div>
+                  {item.tipos_archivo?.length > 0 && <div><dt>Acepta</dt><dd>{item.extensiones.map((e) => e.toUpperCase()).join(', ')}</dd></div>}
+                  {item.competencia_materia && <div><dt>Competencia</dt><dd>{item.competencia_materia.orden}. {item.competencia_materia.nombre}</dd></div>}
                 </dl>
                 {item.vencido && <div className="alert-app warning mt-2">{item.cerrado ? 'Tu docente cerró este avance; pídele que lo reabra o que le dé una prórroga a tu equipo.' : 'La fecha límite ya pasó; pide a tu docente una prórroga si aún necesitas entregar.'}</div>}
                 {item.comentarios_docente && <div className="alert-app mt-2"><strong>Comentario del docente</strong><p className="small-text" style={{ margin: '4px 0 0', whiteSpace: 'pre-line' }}>{item.comentarios_docente}</p></div>}

@@ -3,7 +3,9 @@
 // api(method, url, body) devuelve el JSON; con method 'DOWNLOAD' descarga un archivo.
 // options.confirm(text) muestra la confirmación con el estilo de cada cliente.
 export const MODALITIES = { proyecto_integrador: 'Integrador', caso_integrador: 'Caso integrador', dual: 'Dual' }
-const DOC_TYPES = { documento: 'Documento', reporte: 'Reporte', presentacion: 'Presentación', video: 'Video', codigo: 'Código', otro: 'Otro' }
+// Tipos de archivo que se pueden exigir en un avance (las mismas claves que ProjectTrackingService::FILE_TYPES).
+export const FILE_TYPES = { pdf: 'PDF', word: 'Word', excel: 'Excel', powerpoint: 'PowerPoint', imagen: 'Imagen', comprimido: 'ZIP / RAR', texto: 'Texto' }
+const docTypeFor = (types) => (types.length === 1 && types[0] === 'powerpoint' ? 'presentacion' : 'documento')
 const CELL = {
   calificado: ['ok', null],
   entregado: ['warn', 'Por calificar'],
@@ -22,6 +24,24 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
   let courseId = Number(new URLSearchParams(window.location.search).get('course')) || null
   let focus = null // { project, deliverable } celda abierta en el tablero
   let revealDetail = false // al elegir una casilla se baja al panel de esa entrega
+  let boardCompetencies = [] // competencias de la materia abierta en el tablero
+  const competencyName = (id) => { const c = boardCompetencies.find((item) => item.id === id); return c ? `C${c.orden}. ${c.nombre}` : null }
+  const fileTypesText = (types) => (types && types.length ? types.map((t) => FILE_TYPES[t] || t).join(', ') : 'Cualquier archivo permitido')
+  const checkedTypes = (checks) => Object.entries(checks).filter(([, node]) => node.checked).map(([key]) => key)
+  // Casillas de tipo de archivo. Sin marcar ninguna se acepta cualquier archivo que permita el sistema.
+  const fileTypeChecks = (parent, selected, title = 'Archivos aceptados') => {
+    const group = box('tc-checks tc-types')
+    group.append(el('span', title, { className: 'tc-checks-title' }))
+    const checks = {}
+    for (const [key, label] of Object.entries(FILE_TYPES)) {
+      const wrap = el('label', undefined, { className: 'ac-check tc-pill' })
+      checks[key] = el('input', undefined, { type: 'checkbox', className: 'ac-checkbox', checked: selected.includes(key) })
+      wrap.append(checks[key], el('span', label)); group.append(wrap)
+    }
+    group.append(el('small', 'Sin marcar: cualquier archivo permitido.', { className: 'ac-muted' }))
+    parent.append(group)
+    return checks
+  }
 
   const el = (tag, text, attrs = {}) => Object.assign(document.createElement(tag), attrs, text === undefined || text === null ? {} : { textContent: String(text) })
   const box = (className, ...children) => { const node = el('div', undefined, { className }); node.append(...children.filter(Boolean)); return node }
@@ -144,6 +164,7 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
   async function renderBoard() {
     const { data } = await api('GET', `/tracking/courses/${courseId}`)
     if (disposed) return
+    boardCompetencies = data.competencias || []
     const c = data.course
     const back = button('← Volver', async () => { courseId = null; focus = null; await render() }, content, 'tc-back')
     back.setAttribute('aria-label', 'Volver a la lista de materias')
@@ -216,7 +237,7 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
     const row = box('ac-row tc-row')
     const info = box('tc-row-main',
       box('tc-row-title', el('strong', d.nombre), chip(STATE_LABEL[d.estado] || d.estado, d.estado === 'publicado' ? 'ok' : d.estado === 'cerrado' ? 'danger' : '')),
-      el('small', [d.fecha_limite ? `Vence ${date(d.fecha_limite)}` : 'Sin fecha límite', d.ponderacion !== null ? `${grade(d.ponderacion)} %` : null, DOC_TYPES[d.tipo_documento]].filter(Boolean).join(' · '), { className: 'ac-muted' }))
+      el('small', [competencyName(d.competencia_id), d.fecha_limite ? `Vence ${date(d.fecha_limite)}` : 'Sin fecha límite', d.ponderacion !== null ? `${grade(d.ponderacion)} %` : null, fileTypesText(d.tipos_archivo)].filter(Boolean).join(' · '), { className: 'ac-muted' }))
     const actions = box('tc-row-actions')
     const setState = (estado, text) => button(text, () => act(() => api('PUT', `/deliverables/${d.id}`, { estado }), estado === 'publicado' ? 'Avance abierto: se avisó a los equipos.' : 'Avance actualizado.'), actions, estado === 'publicado' ? 'primary' : 'ghost')
     if (d.estado === 'borrador') setState('publicado', 'Abrir')
@@ -236,9 +257,11 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
 
   function deliverableForm(parent, d) {
     const [f, done] = form(parent, d ? 'Guardar cambios' : 'Crear avance', async () => {
+      const types = checkedTypes(typeChecks)
       const body = {
-        nombre: name.value, descripcion: description.value || null, tipo_documento: type.value,
+        nombre: name.value, descripcion: description.value || null, tipo_documento: docTypeFor(types), tipos_archivo: types,
         fecha_limite: serverDate(due.value), ponderacion: weight.value === '' ? null : Number(weight.value),
+        competencia_materia_id: competency ? (Number(competency.value) || null) : null,
       }
       if (d) return (await api('PUT', `/deliverables/${d.id}`, body)).message
       return (await api('POST', '/deliverables', { ...body, curso_id: courseId, estado: publish.checked ? 'publicado' : 'borrador' })).message
@@ -246,7 +269,8 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
     const name = field(f, 'Nombre', input({ required: true, maxLength: 255, value: d?.nombre || '', placeholder: 'Ej. Avance 1: planteamiento' }))
     const due = field(f, 'Fecha límite', input({ type: 'datetime-local', value: localInput(d?.fecha_limite) }))
     const weight = field(f, 'Ponderación (%)', input({ type: 'number', min: 0, max: 100, step: '0.5', value: d?.ponderacion ?? '' }))
-    const type = field(f, 'Tipo de archivo', select(Object.entries(DOC_TYPES), d?.tipo_documento || 'documento'))
+    const competency = boardCompetencies.length ? field(f, 'Competencia', select([['', 'Sin competencia'], ...boardCompetencies.map((c) => [c.id, `${c.orden}. ${c.nombre}`])], d?.competencia_id ?? '')) : null
+    const typeChecks = fileTypeChecks(f, d?.tipos_archivo || [])
     const description = field(f, 'Instrucciones', textarea({ maxLength: 5000, value: d?.descripcion || '' }))
     description.parentElement.classList.add('tc-wide')
     let publish = null
@@ -263,10 +287,25 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
     const wrap = box('tc-matrix-wrap')
     const table = el('table', undefined, { className: 'tc-matrix' })
     const head = el('tr')
+    const grouped = data.deliverables.some((d) => d.competencia_id)
     head.append(el('th', 'Proyecto', { scope: 'col' }))
     for (const d of data.deliverables) head.append(el('th', d.nombre, { scope: 'col', title: d.nombre }))
     head.append(el('th', 'Promedio', { scope: 'col' }))
-    const thead = el('thead'); thead.append(head)
+    const thead = el('thead')
+    if (grouped) {
+      // Fila superior: a qué competencia pertenece cada grupo de avances (vienen ordenados por competencia).
+      const top = el('tr', undefined, { className: 'tc-groups' })
+      top.append(el('th', '', { scope: 'col' }))
+      let last = Symbol('start'); let cellNode = null
+      for (const d of data.deliverables) {
+        const key = d.competencia_id ?? null
+        if (key !== last) { cellNode = el('th', key ? competencyName(key) : 'Sin competencia', { scope: 'colgroup', colSpan: 1 }); top.append(cellNode); last = key }
+        else cellNode.colSpan += 1
+      }
+      top.append(el('th', '', { scope: 'col' }))
+      thead.append(top)
+    }
+    thead.append(head)
     const tbody = el('tbody')
     for (const p of data.projects) {
       const tr = el('tr')
@@ -284,7 +323,11 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
         node.onclick = async () => { focus = active ? null : { project: p.id, deliverable: cell.deliverable_id }; revealDetail = Boolean(focus); await render() }
         td.append(node); tr.append(td)
       }
-      tr.append(el('td', grade(p.promedio), { className: 'tc-average' }))
+      const average = el('td', undefined, { className: 'tc-average' })
+      average.append(el('span', grade(p.promedio)))
+      const byCompetency = Object.entries(p.promedios_competencia || {}).filter(([, value]) => value !== null)
+      if (byCompetency.length) average.append(el('small', byCompetency.map(([id, value]) => `C${data.competencias.find((c) => String(c.id) === id)?.orden ?? '?'}: ${grade(value)}`).join(' · '), { className: 'tc-sub' }))
+      tr.append(average)
       tbody.append(tr)
     }
     table.append(thead, tbody); wrap.append(table)
@@ -405,6 +448,7 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
     const { data } = await api('GET', '/tracking/config')
     if (disposed) return
     hint(content, 'Elige qué materias piden avances del proyecto y a qué modalidades aplican. Los proyectos de cada grupo con esa modalidad se ligan solos a la materia; el docente que la imparte abre los avances y los califica.')
+    renderPackages(data)
     const add = panel('Agregar materia', content)
     if (!data.catalog.length) add.append(el('p', 'Todas las materias activas de la carrera ya están en la lista.', { className: 'ac-muted' }))
     else {
@@ -420,6 +464,94 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
     const list = panel('Materias que piden avances', content)
     if (!data.subjects.length) list.append(el('p', 'Aún no hay materias.', { className: 'ac-muted' }))
     for (const s of data.subjects) list.append(subjectPanel(s))
+  }
+
+  // Paquetes: conjuntos de materias listos para un semestre. Aplicar uno no borra plantillas ni competencias.
+  function renderPackages(data) {
+    const box1 = panel('Paquetes de materias', content, data.packages.length ? chip(`${data.packages.length} paquete(s)`) : null)
+    box1.append(el('p', 'Prepara las materias de cada semestre y aplícalas de una vez. «Aplicar» agrega sus materias; «Aplicar y reemplazar» además deja de pedir avances en las demás (lo entregado se conserva).', { className: 'ac-muted' }))
+    for (const pk of data.packages) {
+      const row = box('ac-row tc-row tc-package')
+      row.append(box('tc-row-main',
+        box('tc-row-title', el('strong', pk.nombre), pk.semestre ? chip(`${pk.semestre}°`) : chip('Cualquier semestre')),
+        el('small', pk.materias.map((m) => `${m.nombre} (${modalities(m.modalidades)})`).join(' · ') || 'Sin materias', { className: 'ac-muted' }),
+        pk.descripcion ? el('small', pk.descripcion, { className: 'ac-muted' }) : null))
+      const actions = box('tc-row-actions')
+      button('Aplicar', () => act(() => api('POST', `/tracking/packages/${pk.id}/apply`, { reemplazar: false })), actions, 'primary')
+      button('Aplicar y reemplazar', async () => {
+        if (!(await ask(`Sólo las ${pk.materias.length} materia(s) de «${pk.nombre}» pedirán avances; las demás dejarán de pedirlos. Lo entregado se conserva. ¿Continuar?`))) return
+        await act(() => api('POST', `/tracking/packages/${pk.id}/apply`, { reemplazar: true }))
+      }, actions)
+      const edit = el('div', undefined, { className: 'ac-details tc-edit', hidden: true })
+      packageForm(edit, data, pk)
+      button('Editar', async () => { edit.hidden = !edit.hidden }, actions)
+      button('Eliminar', async () => {
+        if (!(await ask(`¿Eliminar el paquete «${pk.nombre}»? Las materias que ya piden avances no cambian.`))) return
+        await act(() => api('DELETE', `/tracking/packages/${pk.id}`))
+      }, actions)
+      row.append(actions, edit)
+      box1.append(row)
+    }
+    const create = el('details', undefined, { className: 'ac-details tc-add' })
+    create.append(el('summary', 'Nuevo paquete'))
+    packageForm(create, data, null)
+    box1.append(create)
+    if (data.subjects.some((x) => x.activo)) {
+      const current = el('details', undefined, { className: 'ac-details' })
+      current.append(el('summary', 'Guardar las materias actuales como paquete'))
+      const [f, done] = form(current, 'Guardar paquete', async () => (await api('POST', '/tracking/packages/from-current', { nombre: name.value, semestre: semester.value ? Number(semester.value) : null })).message)
+      const name = field(f, 'Nombre', input({ required: true, maxLength: 150, placeholder: 'Ej. 5° semestre 2026' }))
+      const semester = field(f, 'Semestre', select([['', 'Cualquiera'], ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [n, `${n}°`])], ''))
+      done()
+      box1.append(current)
+    }
+  }
+
+  function packageForm(parent, data, pk) {
+    const chosen = new Map((pk?.materias || []).map((m) => [m.asignatura_id, m.modalidades]))
+    const [f, done] = form(parent, pk ? 'Guardar paquete' : 'Crear paquete', async () => {
+      const materias = [...list.querySelectorAll('.tc-pick')].filter((row) => row.pick.checked).map((row) => ({
+        asignatura_id: Number(row.dataset.id), modalidades: Object.entries(row.mods).filter(([, node]) => node.checked).map(([m]) => m),
+      }))
+      if (!materias.length) throw new Error('Elige al menos una materia.')
+      if (materias.some((m) => !m.modalidades.length)) throw new Error('Cada materia necesita al menos una modalidad.')
+      const body = { nombre: name.value, semestre: semester.value ? Number(semester.value) : null, descripcion: description.value || null, materias }
+      return (await api(pk ? 'PUT' : 'POST', pk ? `/tracking/packages/${pk.id}` : '/tracking/packages', body)).message
+    })
+    const name = field(f, 'Nombre', input({ required: true, maxLength: 150, value: pk?.nombre || '', placeholder: 'Ej. 5° semestre' }))
+    const semester = field(f, 'Semestre', select([['', 'Cualquiera'], ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [n, `${n}°`])], pk?.semestre ?? ''))
+    const description = field(f, 'Descripción', input({ maxLength: 500, value: pk?.descripcion || '' }))
+    const head = box('tc-pick-head', el('strong', 'Materias'))
+    const bySemester = el('button', 'Marcar las del semestre', { type: 'button', className: 'ac-btn' })
+    bySemester.onclick = () => {
+      if (!semester.value) { status.textContent = 'Elige primero el semestre.'; return }
+      for (const row of list.querySelectorAll('.tc-pick')) if (row.semesters.includes(Number(semester.value))) { row.pick.checked = true; row.sync() }
+    }
+    head.append(bySemester)
+    const list = box('tc-pick-list')
+    for (const subject of data.subjects_all) {
+      const row = el('div', undefined, { className: 'tc-pick' })
+      row.dataset.id = String(subject.id)
+      row.semesters = subject.semestres || []
+      const label = el('label', undefined, { className: 'ac-check tc-pick-name' })
+      row.pick = el('input', undefined, { type: 'checkbox', className: 'ac-checkbox', checked: chosen.has(subject.id) })
+      label.append(row.pick, el('span', `${subject.nombre}${subject.semestres?.length ? ` · ${subject.semestres.join(', ')}°` : ''}`))
+      const mods = box('tc-pick-mods')
+      row.mods = {}
+      for (const [id, text] of Object.entries(MODALITIES)) {
+        const wrap = el('label', undefined, { className: 'ac-check tc-pill' })
+        row.mods[id] = el('input', undefined, { type: 'checkbox', className: 'ac-checkbox', checked: (chosen.get(subject.id) || ['proyecto_integrador']).includes(id) })
+        wrap.append(row.mods[id], el('span', text)); mods.append(wrap)
+      }
+      row.sync = () => { mods.hidden = !row.pick.checked }
+      row.pick.onchange = row.sync
+      row.sync()
+      row.append(label, mods)
+      list.append(row)
+    }
+    const wrap = box('tc-wide', head, list)
+    f.append(wrap)
+    done()
   }
 
   function modalityChecks(parent, selected) {
@@ -450,6 +582,37 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
       await act(() => api('PUT', `/tracking/config/${s.id}`, { activo: !s.activo }))
     }, node)
 
+    // Competencias de la materia (n por materia). Las quitadas se desactivan; los avances ligados se conservan.
+    const comp = el('details', undefined, { className: 'ac-details' })
+    comp.append(el('summary', s.competencias.length ? `Competencias (${s.competencias.length})` : 'Competencias'))
+    comp.append(el('p', 'Divide la materia en sus competencias. Cada avance se asigna a una y el tablero muestra el promedio por competencia.', { className: 'ac-muted' }))
+    const compRows = el('div', undefined, { className: 'tc-template' })
+    const addComp = (c = {}) => {
+      const row = box('tc-template-row tc-comp-row')
+      const name = input({ required: true, maxLength: 200, value: c.nombre || '', placeholder: `Competencia ${compRows.children.length + 1}` }); name.dataset.k = 'nombre'
+      const description = input({ maxLength: 2000, value: c.descripcion || '', placeholder: 'Descripción (opcional)' }); description.dataset.k = 'descripcion'
+      if (c.id) row.dataset.id = String(c.id)
+      row.append(field(box('tc-tf'), 'Competencia', name).parentElement.parentElement, field(box('tc-tf'), 'Descripción', description).parentElement.parentElement)
+      const remove = el('button', 'Quitar', { type: 'button', className: 'ac-btn tc-remove' })
+      remove.onclick = () => row.remove()
+      row.append(remove); compRows.append(row)
+    }
+    for (const c of s.competencias) addComp(c)
+    comp.append(compRows)
+    const compTools = box('tc-row-actions')
+    const moreComp = el('button', 'Agregar competencia', { type: 'button', className: 'ac-btn' })
+    moreComp.onclick = () => addComp()
+    compTools.append(moreComp)
+    button('Guardar competencias', () => act(() => api('PUT', `/tracking/config/${s.id}/competencies`, {
+      items: [...compRows.children].map((row) => ({
+        id: row.dataset.id ? Number(row.dataset.id) : null,
+        nombre: row.querySelector('[data-k="nombre"]').value.trim(),
+        descripcion: row.querySelector('[data-k="descripcion"]').value.trim() || null,
+      })).filter((item) => item.nombre),
+    })), compTools, 'primary')
+    comp.append(compTools)
+    node.append(comp)
+
     const tpl = el('details', undefined, { className: 'ac-details' })
     tpl.append(el('summary', s.plantilla.length ? `Plantilla de avances (${s.plantilla.length})` : 'Plantilla de avances'))
     tpl.append(el('p', 'Avances base que cada docente agrega con un clic. La semana cuenta desde el inicio del periodo y fija la fecha sugerida; el docente puede cambiarla.', { className: 'ac-muted' }))
@@ -459,18 +622,22 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
     const addRow = (t = {}) => {
       const row = box('tc-template-row')
       const make = (k, attrs) => { const i = input({ ...attrs, value: t[k] ?? '' }); i.dataset.k = k; return i }
-      const typeSelect = select(Object.entries(DOC_TYPES), t.tipo_documento || 'documento', { ariaLabel: 'Tipo de archivo' }); typeSelect.dataset.k = 'tipo_documento'
+      const compSelect = select([['', 'Sin competencia'], ...s.competencias.map((c) => [c.id, `${c.orden}. ${c.nombre}`])], t.competencia_id ?? '', { ariaLabel: 'Competencia' }); compSelect.dataset.k = 'competencia_id'
       row.append(
         field(box('tc-tf'), 'Avance', make('nombre', { required: true, maxLength: 150, placeholder: 'Ej. Avance 1' })).parentElement.parentElement,
+        field(box('tc-tf'), 'Competencia', compSelect).parentElement.parentElement,
         field(box('tc-tf tc-sm'), 'Semana', make('semana', { type: 'number', min: 1, max: 24 })).parentElement.parentElement,
-        field(box('tc-tf tc-sm'), '%', make('ponderacion', { type: 'number', min: 0, max: 100, step: '0.5' })).parentElement.parentElement,
-        field(box('tc-tf'), 'Tipo', typeSelect).parentElement.parentElement)
+        field(box('tc-tf tc-sm'), '%', make('ponderacion', { type: 'number', min: 0, max: 100, step: '0.5' })).parentElement.parentElement)
       const remove = el('button', 'Quitar', { type: 'button', className: 'ac-btn tc-remove' })
       remove.onclick = () => { row.remove(); sum() }
       row.append(remove)
+      const types = box('tc-types-line')
+      row.typeChecks = fileTypeChecks(types, t.tipos_archivo || [])
+      row.append(types)
       row.addEventListener('input', sum)
       rows.append(row)
     }
+    if (!s.competencias.length) tpl.append(el('p', 'Tip: define primero las competencias para asignar cada avance a una.', { className: 'ac-muted' }))
     for (const t of s.plantilla) addRow(t)
     tpl.append(rows, total)
     const tools = box('tc-row-actions')
@@ -480,7 +647,11 @@ export function mountTrackingConsole(root, api, user, initialTab = 'courses', op
     button('Guardar plantilla', () => act(() => api('PUT', `/tracking/config/${s.id}/template`, {
       items: [...rows.children].map((row) => {
         const value = (k) => row.querySelector(`[data-k="${k}"]`).value
-        return { nombre: value('nombre').trim(), semana: value('semana') === '' ? null : Number(value('semana')), ponderacion: value('ponderacion') === '' ? null : Number(value('ponderacion')), tipo_documento: value('tipo_documento') }
+        const types = checkedTypes(row.typeChecks)
+        return {
+          nombre: value('nombre').trim(), semana: value('semana') === '' ? null : Number(value('semana')), ponderacion: value('ponderacion') === '' ? null : Number(value('ponderacion')),
+          competencia_id: value('competencia_id') ? Number(value('competencia_id')) : null, tipos_archivo: types, tipo_documento: docTypeFor(types),
+        }
       }).filter((item) => item.nombre),
     })), tools, 'primary')
     tpl.append(tools)

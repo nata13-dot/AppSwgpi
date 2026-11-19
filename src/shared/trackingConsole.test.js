@@ -82,15 +82,45 @@ describe('tracking console', () => {
   it('saves modalities in the configuration tab', async () => {
     const created = vi.fn(() => ({ message: 'ok' }))
     const { root } = setup(5, {
-      '/tracking/config': { data: { subjects: [], catalog: [{ id: 9, nombre: 'Taller', clave: 'T', semestres: [5] }] } },
+      '/tracking/config': { data: { subjects: [], packages: [], subjects_all: [], catalog: [{ id: 9, nombre: 'Taller', clave: 'T', semestres: [5] }] } },
       'POST /tracking/config': created,
     }, 'config')
     await waitFor(() => expect(root.textContent).toContain('Agregar materia'))
-    const form = root.querySelector('form')
+    const form = [...root.querySelectorAll('.ac-panel')].find((panel) => panel.textContent.startsWith('Agregar materia')).querySelector('form')
     form.querySelector('select').value = '9'
     const dual = [...form.querySelectorAll('label')].find((l) => l.textContent === 'Dual').querySelector('input')
     dual.checked = true
     fireEvent.submit(form)
     await waitFor(() => expect(created).toHaveBeenCalledWith({ asignatura_id: 9, modalidades: ['proyecto_integrador', 'dual'] }))
+  })
+
+  it('creates a package with the subjects of a semester', async () => {
+    const created = vi.fn(() => ({ message: 'ok' }))
+    const { root } = setup(5, {
+      '/tracking/config': { data: { subjects: [], catalog: [], packages: [], subjects_all: [{ id: 1, nombre: 'Taller', clave: 'T', semestres: [5] }, { id: 2, nombre: 'Redes', clave: 'R', semestres: [6] }] } },
+      'POST /tracking/packages': created,
+    }, 'config')
+    await waitFor(() => expect(root.textContent).toContain('Nuevo paquete'))
+    const form = root.querySelector('.tc-add form')
+    form.querySelector('input').value = '5° semestre'
+    form.querySelector('select').value = '5'
+    fireEvent.click(findButton(form, 'Marcar las del semestre'))
+    fireEvent.submit(form)
+    await waitFor(() => expect(created).toHaveBeenCalledWith({ nombre: '5° semestre', semestre: 5, descripcion: null, materias: [{ asignatura_id: 1, modalidades: ['proyecto_integrador'] }] }))
+  })
+
+  it('sends required file types and competency when creating an advance', async () => {
+    const created = vi.fn(() => ({ message: 'ok' }))
+    window.history.replaceState(null, '', '/?course=7')
+    const { root } = setup(2, { '/tracking/courses/7': { data: { ...board, competencias: [{ id: 5, orden: 1, nombre: 'Análisis' }] } }, 'POST /deliverables': created })
+    await waitFor(() => expect(root.textContent).toContain('Nuevo avance'))
+    const form = root.querySelector('.tc-add form')
+    form.querySelector('input').value = 'Avance PDF'
+    form.querySelector('select').value = '5'
+    const pdf = [...form.querySelectorAll('label')].find((l) => l.textContent === 'PDF').querySelector('input')
+    pdf.checked = true
+    fireEvent.submit(form)
+    await waitFor(() => expect(created).toHaveBeenCalled())
+    expect(created.mock.calls[0][0]).toMatchObject({ curso_id: 7, nombre: 'Avance PDF', tipos_archivo: ['pdf'], competencia_materia_id: 5, estado: 'borrador' })
   })
 })

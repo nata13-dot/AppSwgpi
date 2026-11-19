@@ -200,7 +200,7 @@ const GUIDES = {
     affects: ['Cada versión queda en el historial del expediente.', 'Cerrar el seguimiento impide subir más versiones.'],
   },
   'tracking:courses': {
-    how: ['Abre el tablero de tu materia. Si la carrera definió una plantilla, agrégala con un clic y ajusta las fechas.', 'Pulsa «Abrir» en cada avance cuando quieras que los equipos lo vean; «Cerrar» deja de recibir entregas.', 'Toca una casilla del tablero para descargar, calificar con comentario, ajustar la calificación de un integrante o dar una prórroga a ese equipo.'],
+    how: ['Abre el tablero de tu materia. Si la carrera definió una plantilla, agrégala con un clic y ajusta las fechas. En cada avance eliges su competencia y los tipos de archivo que aceptas (PDF, Word…).', 'Pulsa «Abrir» en cada avance cuando quieras que los equipos lo vean; «Cerrar» deja de recibir entregas.', 'Toca una casilla del tablero para descargar, calificar con comentario, ajustar la calificación de un integrante o dar una prórroga a ese equipo.'],
     affects: ['Los equipos del grupo con la modalidad elegida por la carrera se ligan solos; agregar o quitar uno pide motivo y queda en la bitácora.', 'Abrir un avance avisa a los equipos; los borradores no los ven. Si el equipo reemplaza su archivo, la calificación se borra para revisarlo de nuevo.', 'Si pasan 5 días sin calificar una entrega, te llega un recordatorio.'],
   },
   'tracking:overview': {
@@ -208,8 +208,8 @@ const GUIDES = {
     affects: ['Sólo consulta: no cambia nada. Las materias «Sin docente» no tienen quién abra ni califique sus avances; asígnalo en Propuestas.', 'Los lunes llega un resumen semanal a jefatura y coordinación cuando hay atrasos.'],
   },
   'tracking:config': {
-    how: ['Agrega cada materia que pide avances y marca a qué modalidades aplica: integrador, caso integrador o dual.', 'Si quieres, arma su plantilla de avances con semana sugerida y ponderación para que cada docente la use.'],
-    affects: ['Los proyectos de cada grupo con esa modalidad quedan ligados a la materia en el periodo abierto, sin contraseña.', 'Dejar de pedir avances no borra lo entregado; cambiar la plantilla no modifica los avances ya creados.'],
+    how: ['Usa un paquete de materias del semestre (o crea uno) y aplícalo; también puedes agregar materias sueltas y marcar sus modalidades: integrador, caso integrador o dual.', 'En cada materia define sus competencias y su plantilla de avances: competencia, semana sugerida, ponderación y tipos de archivo aceptados.'],
+    affects: ['Los proyectos de cada grupo con esa modalidad quedan ligados a la materia en el periodo abierto, sin contraseña.', '«Aplicar y reemplazar» deja de pedir avances en las materias que no están en el paquete; lo entregado, las plantillas y las competencias se conservan.', 'Si un avance exige tipos de archivo, el alumno sólo puede subir ésos.'],
   },
   'academic:continuity': {
     how: ['Elige el proyecto y el grupo del periodo abierto donde seguirá.'],
