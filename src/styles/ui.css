@@ -1222,11 +1222,6 @@ a.btn-app { text-decoration: none; }
 }
 :root[data-glass="on"] body { background: transparent; }
 :root[data-glass="on"] { background: #0c2142; }
-:root[data-glass="on"] body::before { content: ''; position: fixed; inset: 0; z-index: -1; background: var(--glass-veil); pointer-events: none; }
-:root[data-glass="on"] body::after {
-  content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
-  background: url('/images/campus-cristal.webp') center 40% / cover no-repeat; filter: none;
-}
 :root[data-glass="on"] :is(.shell, .shell-main, .content-app, main) { background: transparent !important; }
 /* Superficies */
 :root[data-glass="on"] :is(.card-app, .stat-app, .alert-app, .module-card, .ac-panel, .sg-guide, .sg-related-card, .sg-card, .result-box, .times-box,
@@ -1264,3 +1259,7 @@ a.btn-app { text-decoration: none; }
   :root[data-glass="on"][data-theme="dark"] { --glass-bg: rgba(16, 24, 40, .92); --glass-bg-strong: rgba(16, 24, 40, .96); }
 }
 :root[data-glass="on"] .auth-panel { background: var(--glass-bg) !important; border: 1px solid var(--glass-line); border-radius: 26px; padding: 22px 20px; box-shadow: var(--glass-shadow); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
+
+/* Cristal: la foto limpia y su velo ligero son el fondo de la página (sin capas extra, funciona en cualquier tamaño) */
+:root[data-glass="on"] { background: var(--glass-veil), url('/images/campus-cristal.webp') center 40% / cover no-repeat fixed, #0c2142 !important; }
+@media (max-width: 768px) { :root[data-glass="on"] { background-attachment: scroll, scroll, scroll !important; background-size: cover, cover !important; min-height: 100%; } }
