@@ -46,7 +46,7 @@ const ROUTES = [
 
 const GUIDES = {
   users: {
-    how: ['Busca por nombre, número de control o correo y filtra por perfil o estado.', 'Para dar de alta a varios, descarga la plantilla de Excel, llénala y súbela; para uno solo usa "Nuevo usuario".', '"Eliminar" un usuario activo lo pasa a Inactivos. En Inactivos puedes reactivarlo o eliminarlo; con "Seleccionar" haces lo mismo con varios a la vez.'],
+    how: ['Busca por nombre, número de control o correo y filtra por perfil o estado.', 'Para dar de alta a alguien usa "Nuevo usuario"; los alumnos también pueden crear su cuenta solos y se aprueban en Solicitudes de cuenta.', 'Con "Seleccionar" eliges varios: en Activos los desactivas, en Inactivos los reactivas o eliminas, y en cualquier pestaña les envías credenciales (sin elegir a nadie, el envío es por perfil).'],
     affects: ['La contraseña inicial de una cuenta nueva es su número de control; se le pide cambiarla al entrar.', 'Inactivo: no puede iniciar sesión y se liberan sus asignaciones, pero se conserva todo. Archivo histórico: además se oculta de listas, grupos y búsquedas hasta restaurarlo.', 'Eliminar definitivamente borra la cuenta con su historial propio y no se puede deshacer; archivar y eliminar piden tu contraseña y sólo los hacen la administración general y la jefatura.'],
   },
   'registration-requests': {

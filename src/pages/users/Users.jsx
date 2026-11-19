@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiAward, FiCheckSquare, FiEdit2, FiMail, FiPlus, FiRotateCcw, FiShield, FiTrash2, FiUploadCloud, FiUserX, FiUsers, FiX } from 'react-icons/fi'
+import { FiAward, FiCheckSquare, FiEdit2, FiMail, FiPlus, FiRotateCcw, FiShield, FiTrash2, FiUserX, FiUsers, FiX } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
@@ -10,7 +10,6 @@ import { ordinal, useSemesters } from '../../lib/semesters'
 import { fullName } from '../../utils/formatters'
 import { Badge, Button, Card, Chips, confirmAction, DataTable, ErrorState, IconButton, Loading, Page, Pager, promptPassword, SearchInput, useDebounced, useSelection } from '../../components/ui'
 import UserForm from './UserForm'
-import UsersImport from './UsersImport'
 import CredentialsSheet from './CredentialsSheet'
 import GroupControl from './GroupControl'
 import UserRemovalSheet from './UserRemovalSheet'
@@ -95,14 +94,8 @@ export default function Users() {
       refresh()
     } catch (error) { toast.error(apiError(error)) }
   }
-  const openCredentials = () => {
-    if (!selecting) {
-      setSelecting(true)
-      toast.info('Selecciona usuarios en la tabla o presiona "Continuar envío" para usar filtros por perfil.')
-      return
-    }
-    setSheet('credentials')
-  }
+  // Desde la barra de selección: a los elegidos o, sin elegir, por perfil y filtros.
+  const openCredentials = () => setSheet('credentials')
   const cancelSelection = () => { setSelecting(false); selection.clear() }
 
   const statusDescription = { active: 'Mostrando perfiles activos', inactive: 'Mostrando perfiles inactivos', all: 'Mostrando todos los perfiles' }[status]
@@ -141,8 +134,6 @@ export default function Users() {
     <Page title="Gestión de usuarios" subtitle={statusDescription}
       actions={govern && <>
         <Button icon={FiPlus} onClick={() => setSheet({ type: 'form', id: null })}>Nuevo usuario</Button>
-        <Button variant="ghost" icon={FiUploadCloud} onClick={() => setSheet('import')}>Excel</Button>
-        <Button variant={selecting ? 'warning' : 'ghost'} icon={FiMail} onClick={openCredentials}>{selecting ? 'Continuar envío' : 'Credenciales'}</Button>
         {!selecting && <Button variant="ghost" icon={FiCheckSquare} onClick={() => setSelecting(true)}>Seleccionar</Button>}
       </>}>
       <Card>
@@ -175,6 +166,7 @@ export default function Users() {
             {status !== 'active' && <Button size="sm" variant="ghost" icon={FiRotateCcw} onClick={() => bulk('activate', [...selection.selected])}>Reactivar</Button>}
             {status !== 'active' && canRemove && <Button size="sm" variant="danger" icon={FiTrash2} onClick={() => setRemoving(named([...selection.selected]))}>Eliminar</Button>}
           </>}
+          {govern && <Button size="sm" variant="warning" icon={FiMail} onClick={openCredentials}>Enviar credenciales</Button>}
           <IconButton icon={FiX} label="Cancelar selección" onClick={cancelSelection} />
         </div>
       )}
@@ -189,7 +181,6 @@ export default function Users() {
       {releasing && <ReleaseSheet people={releasing.people} replacements={releasing.replacements} onClose={() => setReleasing(null)} onDone={refresh} />}
       {removing && <UserRemovalSheet users={removing} onClose={() => setRemoving(null)} onDone={() => { selection.clear(); refresh() }} />}
       {sheet?.type === 'form' && <UserForm userId={sheet.id} onClose={() => setSheet(null)} onSaved={refresh} />}
-      {sheet === 'import' && <UsersImport onClose={() => setSheet(null)} onImported={refresh} />}
       {sheet === 'credentials' && <CredentialsSheet onClose={() => setSheet(null)} selected={selection.selected} filters={{ status, q: debounced.trim(), semester: profile === '3' ? semester : '', group: profile === '3' ? group : '' }} profile={profile} />}
       {sheet === 'groups' && <GroupControl initialSemester={semester} onClose={() => setSheet(null)} onEditStudent={(id) => setSheet({ type: 'form', id })} onChanged={() => { refresh(); client.invalidateQueries({ queryKey: ['subject-groups'] }) }} />}
     </Page>
