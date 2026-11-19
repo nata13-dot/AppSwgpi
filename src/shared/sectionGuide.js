@@ -42,6 +42,7 @@ const ROUTES = [
   ['repository', ['/repository'], ['/pages/repositorio.php']],
   ['profile', ['/profile'], ['/pages/profile.php']],
   ['academic', ['/academic-workflows', '/semesters'], ['/pages/academic-workflows.php', '/pages/admin/semesters.php']],
+  ['tracking', ['/tracking'], ['/pages/tracking.php']],
 ]
 
 const GUIDES = {
@@ -184,7 +185,7 @@ const GUIDES = {
     affects: ['Al inscribirte recibes los entregables y las calificaciones de la materia.', 'Una baja te quita los entregables pendientes de esa materia.'],
   } : {
     how: ['Abre la inscripción con una clave y una ventana de fechas, y compártela con el grupo.', 'En "Ver inscritos" revisa la lista y registra bajas.'],
-    affects: ['Sólo los alumnos inscritos reciben los entregables del curso y pueden ser calificados.', 'Cambiar la clave invalida la anterior.'],
+    affects: ['Sólo los alumnos inscritos reciben los entregables del curso y pueden ser calificados. En las materias que la carrera eligió para avances, los equipos quedan inscritos solos.', 'Cambiar la clave invalida la anterior.'],
   },
   'academic:authorizations': {
     how: ['Elige el periodo, el tipo de excepción y llena sólo los campos que apliquen.', 'Escribe el motivo y la vigencia; jefatura o administración la resuelve en la lista de abajo.'],
@@ -197,6 +198,18 @@ const GUIDES = {
   'academic:residencies': {
     how: ['Crea el expediente con el residente, su proyecto y su asesor.', 'El alumno sube versiones de cada requisito; el asesor las valida o pide correcciones.'],
     affects: ['Cada versión queda en el historial del expediente.', 'Cerrar el seguimiento impide subir más versiones.'],
+  },
+  'tracking:courses': {
+    how: ['Abre el tablero de tu materia. Si la carrera definió una plantilla, agrégala con un clic y ajusta las fechas.', 'Pulsa «Abrir» en cada avance cuando quieras que los equipos lo vean; «Cerrar» deja de recibir entregas.', 'Toca una casilla del tablero para descargar, calificar con comentario, ajustar la calificación de un integrante o dar una prórroga a ese equipo.'],
+    affects: ['Los equipos del grupo con la modalidad elegida por la carrera se ligan solos; agregar o quitar uno pide motivo y queda en la bitácora.', 'Abrir un avance avisa a los equipos; los borradores no los ven. Si el equipo reemplaza su archivo, la calificación se borra para revisarlo de nuevo.', 'Si pasan 5 días sin calificar una entrega, te llega un recordatorio.'],
+  },
+  'tracking:overview': {
+    how: ['Revisa por materia y grupo cuántos avances se entregaron, cuántos vencieron y cuántos faltan por calificar.', 'Filtra por modalidad u ordena por lo más atrasado, y abre el tablero de la materia para ver el detalle.'],
+    affects: ['Sólo consulta: no cambia nada. Las materias «Sin docente» no tienen quién abra ni califique sus avances; asígnalo en Propuestas.', 'Los lunes llega un resumen semanal a jefatura y coordinación cuando hay atrasos.'],
+  },
+  'tracking:config': {
+    how: ['Agrega cada materia que pide avances y marca a qué modalidades aplica: integrador, caso integrador o dual.', 'Si quieres, arma su plantilla de avances con semana sugerida y ponderación para que cada docente la use.'],
+    affects: ['Los proyectos de cada grupo con esa modalidad quedan ligados a la materia en el periodo abierto, sin contraseña.', 'Dejar de pedir avances no borra lo entregado; cambiar la plantilla no modifica los avances ya creados.'],
   },
   'academic:continuity': {
     how: ['Elige el proyecto y el grupo del periodo abierto donde seguirá.'],
@@ -225,6 +238,7 @@ const SCREENS = {
   notices: { label: 'Avisos del sistema', app: '/notices', php: '/pages/admin/notices.php', who: 'admin' },
   settings: { label: 'Ajustes', app: '/settings', php: '/pages/admin/settings.php', who: 'admin' },
   repository: { label: 'Repositorio', app: '/repository', php: '/pages/repositorio.php', who: 'all' },
+  tracking: { label: 'Avances por materia', app: '/tracking', php: '/pages/tracking.php', who: 'notStudent' },
 }
 
 // "También te puede servir": a qué pantalla ir desde cada sección y para qué.
@@ -257,6 +271,9 @@ const RELATED = {
   settings: [['notices', 'Publica avisos para la carrera.']],
   'academic:periods': [['period-center', 'Sigue las etapas del periodo en orden.'], ['users', 'Revisa a los alumnos y sus grupos.']],
   'academic:courses': (role) => role === 'student' ? [['deliverables', 'Consulta los entregables de tus materias.']] : [['subjects', 'Configura las materias.'], ['deliverables', 'Crea entregables para el curso.']],
+  'tracking:courses': [['deliverables', 'Consulta todas las entregas de tus materias.'], ['projects', 'Revisa los equipos y sus integrantes.']],
+  'tracking:overview': [['proposals', 'Asigna docentes a las materias sin responsable.'], ['projects', 'Revisa la modalidad de los proyectos.']],
+  'tracking:config': [['subjects', 'Da de alta las materias de la carrera.'], ['proposals', 'Asigna el docente de cada materia y grupo.']],
   'academic:residencies': [['evaluation-documents', 'Revisa las evidencias de evaluación.'], ['projects', 'Consulta los proyectos de residencia.']],
   'academic:memberships': [['users', 'Edita los datos de la persona.'], ['advisors', 'Reasigna sus asesorías.']],
 }

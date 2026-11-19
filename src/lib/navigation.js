@@ -1,7 +1,7 @@
 import {
   FiActivity, FiArchive, FiBookOpen, FiCalendar, FiCheckSquare, FiClipboard, FiCloud, FiDatabase,
   FiFileText, FiFolder, FiGrid, FiHome, FiLayers, FiShield, FiSliders, FiStar, FiTag, FiUser,
-  FiUserCheck, FiUsers, FiVolume2, FiBriefcase, FiEdit3, FiMail, FiMonitor, FiFlag,
+  FiUserCheck, FiUsers, FiVolume2, FiBriefcase, FiEdit3, FiMail, FiMonitor, FiFlag, FiTrendingUp,
 } from 'react-icons/fi'
 import {
   canManageAcademics, canViewUsers, isAdmin, isGeneralAdmin, isManagementStaff, isStudent, isTeacher,
@@ -51,6 +51,7 @@ function managementMenu(user) {
   menu.push({ group: 'Proyectos', icon: FiBookOpen, items: [
     item('Proyectos y tesis', '/projects', FiFolder, 'proyectos', ['tesis', 'dual', 'casos integradores', 'residencias']),
     { ...item('Propuestas', '/proposals', FiCheckSquare, 'proyectos', ['ventanas', 'excepciones', 'validadores']), badge: 'pending_proposals' },
+    item('Avances por materia', '/tracking', FiTrendingUp, 'entregables', ['seguimiento', 'avances', 'integrador', 'caso integrador', 'dual', 'plantillas', 'prórroga']),
     item('Entregables', '/deliverables', FiFileText, 'entregables', ['fechas límite']),
     item('Empresas', '/companies', FiBriefcase, 'proyectos', ['dual']),
   ] })
@@ -82,6 +83,7 @@ const teacherMenu = () => [
     item('Salas y turnos', '/evaluation-rooms', FiCalendar, 'evaluaciones'),
     item('Evaluaciones previas', '/evaluations-archived', FiArchive, 'evaluaciones'),
     item('Evidencias', '/evaluation-documents', FiFileText, 'evaluaciones'),
+    item('Avances por materia', '/tracking', FiTrendingUp, 'entregables', ['seguimiento', 'avances', 'calificar', 'prórroga', 'materia']),
     item('Entregables', '/deliverables', FiFileText, 'entregables', ['calificar']),
   ] },
   item('Repositorio', '/repository', FiArchive, 'repositorio'),

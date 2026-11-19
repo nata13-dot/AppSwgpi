@@ -260,18 +260,19 @@ function StudentDeliverables() {
       {query.isLoading ? <Loading rows={4} /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : !(query.data || []).length ? <Empty message="No hay entregables asignados." /> : (
         <div className="grid-2">
           {query.data.map((item) => {
-            const grader = item.calificadoPor || item.calificado_por
+            const individual = item.calificacion_equipo != null && item.calificacion != null && Number(item.calificacion_equipo) !== Number(item.calificacion)
             return (
               <Card key={item.id} title={item.nombre} subtitle={item.project?.title || 'N/A'} actions={<Badge tone={item.estado === 'completado' ? 'success' : 'warning'}>{item.estado === 'completado' ? 'Completado' : 'Pendiente'}</Badge>}>
                 <p className="muted small-text">{item.descripcion || 'Sin descripción'}</p>
                 <dl className="meta-grid">
-                  <div><dt>Fecha límite</dt><dd>{item.fecha_limite ? formatDateTime(item.fecha_limite) : 'Sin fecha'}</dd></div>
-                  <div><dt>Calificación</dt><dd><GradeBadge grade={item.calificacion} /></dd></div>
+                  <div><dt>Fecha límite</dt><dd>{item.fecha_limite ? formatDateTime(item.fecha_limite) : 'Sin fecha'}{item.prorroga && <small className="muted d-block">Prórroga de tu equipo</small>}</dd></div>
+                  <div><dt>Calificación</dt><dd><GradeBadge grade={item.calificacion} />{individual && <small className="muted d-block">Individual · del equipo: {Number(item.calificacion_equipo)}</small>}</dd></div>
                   <div><dt>Archivo</dt><dd>{item.file_path ? 'Presente' : '—'}</dd></div>
                 </dl>
-                {item.vencido && <div className="alert-app warning mt-2">La fecha límite ya pasó; pide a tu docente que la amplíe si aún necesitas entregar.</div>}
+                {item.vencido && <div className="alert-app warning mt-2">{item.cerrado ? 'Tu docente cerró este avance; pídele que lo reabra o que le dé una prórroga a tu equipo.' : 'La fecha límite ya pasó; pide a tu docente una prórroga si aún necesitas entregar.'}</div>}
+                {item.comentarios_docente && <div className="alert-app mt-2"><strong>Comentario del docente</strong><p className="small-text" style={{ margin: '4px 0 0', whiteSpace: 'pre-line' }}>{item.comentarios_docente}</p></div>}
                 {!item.vencido && !item.project_id && <div className="alert-app mt-2">Podrás subir tu archivo cuando tengas un proyecto aprobado en este periodo.</div>}
-                {item.fecha_calificacion && <p className="small-text text-success"><FiCheckCircle /> Calificado el {formatDate(item.fecha_calificacion)} por {grader && typeof grader === 'object' ? fullName(grader) : 'Sistema'}</p>}
+                {item.fecha_calificacion && item.file_path && <p className="small-text text-success"><FiCheckCircle /> Entregado el {formatDate(item.fecha_calificacion)}</p>}
                 <small className="muted">Creado: {formatDate(item.created_at)}</small>
                 <div className="row-wrap mt-2">
                   {item.file_path && <Button size="sm" variant="ghost" icon={FiDownload} onClick={() => download(item)}>Descargar</Button>}
