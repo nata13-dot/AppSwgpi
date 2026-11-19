@@ -51,7 +51,7 @@ function AppearanceCard({ readOnly }) {
     if (readOnly) return
     try {
       await api.put('/appearance', accountAppearance())
-      client.removeQueries({ queryKey: ['appearance'] })
+      client.setQueriesData({ queryKey: ['appearance'] }, accountAppearance())
     } catch (error) { toast.error(apiError(error)) }
   }
   const native = isNativeApp()

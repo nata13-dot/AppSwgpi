@@ -75,7 +75,7 @@ export default function AppLayout() {
   }, [])
   const flipTheme = () => {
     setAppearance({ theme: dark ? 'light' : 'dark' })
-    if (!simulation) api.put('/appearance', accountAppearance()).then(() => client.removeQueries({ queryKey: ['appearance'] })).catch(() => toast.error('No se pudo guardar el tema en tu cuenta.'))
+    if (!simulation) api.put('/appearance', accountAppearance()).then(() => client.setQueriesData({ queryKey: ['appearance'] }, accountAppearance())).catch(() => toast.error('No se pudo guardar el tema en tu cuenta.'))
   }
   // Al cambiar de pantalla se cierra cualquier hoja abierta (ajuste durante el render, sin efecto).
   const [lastPath, setLastPath] = useState(location.pathname)
