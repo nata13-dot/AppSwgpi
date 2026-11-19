@@ -1249,7 +1249,7 @@ a.btn-app { text-decoration: none; }
 /* Controles */
 :root[data-glass="on"] :is(.control, .search-app, .topbar-search) { background: var(--glass-bg-strong); border-color: var(--glass-line); }
 :root[data-glass="on"] .tabs-app { background: var(--glass-bg-soft); border-color: var(--glass-line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-:root[data-glass="on"] :is(.chips-app button, .btn-app.ghost, .btn-app.soft, .pager-num, .pager-step, .icon-btn.bordered) { background: var(--glass-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+:root[data-glass="on"] :is(.chips-app button:not(.active), .btn-app.ghost, .btn-app.soft, .pager-num:not(.active), .pager-step, .icon-btn.bordered) { background: var(--glass-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 :root[data-glass="on"] .pager-num.active { background: var(--brand); }
 /* Textos directo sobre la foto */
 :root[data-glass="on"] :is(.page-head h1, .page-head p, .page-title, .page-subtitle, .field-label, .menu-section) { text-shadow: 0 0 1px rgba(255, 255, 255, .9), 0 1px 14px rgba(255, 255, 255, .85); }
@@ -1263,3 +1263,31 @@ a.btn-app { text-decoration: none; }
 /* Cristal: la foto limpia y su velo ligero son el fondo de la página (sin capas extra, funciona en cualquier tamaño) */
 :root[data-glass="on"] { background: var(--glass-veil), url('/images/campus-cristal.webp') center 40% / cover no-repeat fixed, #0c2142 !important; }
 @media (max-width: 768px) { :root[data-glass="on"] { background-attachment: scroll, scroll, scroll !important; background-size: cover, cover !important; min-height: 100%; } }
+
+/* Cristal automático (src/lib/glassSurfaces.js) */
+:root[data-glass="on"] .glass-auto { background: var(--glass-bg) !important; border-color: var(--glass-line) !important; box-shadow: var(--glass-shadow) !important; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
+:root[data-glass="on"] :is(.glass-auto, .card-app, .sg-guide, .selection-bar) .glass-auto { background: var(--glass-bg-soft) !important; box-shadow: none !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
+:root[data-glass="on"] .glass-auto-tinted { background: linear-gradient(135deg, rgba(12, 33, 66, .72), rgba(45, 90, 150, .58)) !important; color: #fff; border: 1px solid rgba(255, 255, 255, .18) !important; backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4); }
+:root[data-glass="on"] .glass-auto-tinted :is(h1, h2, h3, h4, h5, h6, p, strong, small, .muted, span:not(.badge-app)) { color: #fff !important; }
+/* Textos sueltos sobre la foto: placa de cristal del tamaño del texto */
+:root[data-glass="on"] .glass-text {
+  width: fit-content; max-width: 100%; padding: .2rem .65rem; border-radius: 12px; color: #102a52 !important; text-shadow: none !important;
+  background: var(--glass-bg); border: 1px solid var(--glass-line); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+}
+:root[data-glass="on"][data-theme="dark"] .glass-text { color: #eef4ff !important; }
+/* Fichas y pestañas activas conservan su color institucional */
+:root[data-glass="on"] .chips-app button.active { background: var(--brand) !important; color: var(--brand-ink, #fff) !important; border-color: var(--brand) !important; }
+:root[data-glass="on"][data-theme="dark"] .chips-app button.active { background: #2D5A96 !important; color: #fff !important; border-color: #2D5A96 !important; }
+:root[data-glass="on"] .tabs-app button.active { background: var(--glass-bg-strong); color: var(--brand); }
+/* Cristal: estados vacíos como tarjeta, pestañas inactivas legibles y avisos con su tono */
+:root[data-glass="on"] .state-app { background: var(--glass-bg); border: 1px solid var(--glass-line); border-radius: var(--radius); box-shadow: var(--glass-shadow); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); padding: 22px 16px; }
+:root[data-glass="on"] .tabs-app button:not(.active) { color: var(--ink-2); }
+:root[data-glass="on"] .alert-app.warning { background: color-mix(in srgb, var(--warning-soft) 82%, transparent) !important; color: var(--warning); }
+:root[data-glass="on"] .alert-app.danger { background: color-mix(in srgb, var(--danger-soft) 82%, transparent) !important; color: var(--danger); }
+:root[data-glass="on"] .alert-app.success { background: color-mix(in srgb, var(--success-soft) 82%, transparent) !important; color: var(--success); }
+:root[data-glass="on"] .alert-app.info { background: color-mix(in srgb, var(--info-soft) 82%, transparent) !important; color: var(--info); }
+/* Escritorio: la barra superior usa texto oscuro, así que su cristal es claro (u oscuro en tema oscuro), como en la web */
+@media (min-width: 992px) {
+  :root[data-glass="on"] .topbar-app { background: var(--glass-bg-strong); border-bottom-color: var(--glass-line); }
+  :root[data-glass="on"] .topbar-user { background: var(--glass-bg); border-color: var(--glass-line); }
+}
