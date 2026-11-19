@@ -1210,22 +1210,22 @@ a.btn-app { text-decoration: none; }
   --glass-bg: rgba(255, 255, 255, .62); --glass-bg-strong: rgba(255, 255, 255, .82); --glass-bg-soft: rgba(255, 255, 255, .4);
   --glass-line: rgba(255, 255, 255, .62); --glass-line-soft: rgba(16, 30, 54, .08);
   --glass-blur: blur(18px) saturate(1.45); --glass-shadow: 0 8px 32px rgba(10, 25, 50, .16), inset 0 1px 0 rgba(255, 255, 255, .5);
-  --glass-veil: linear-gradient(180deg, rgba(226, 235, 248, .42), rgba(210, 222, 242, .54));
+  --glass-veil: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .12));
   --glass-bar: rgba(27, 57, 106, .72);
 }
 :root[data-glass="on"][data-theme="dark"] {
   --glass-bg: rgba(16, 24, 40, .56); --glass-bg-strong: rgba(16, 24, 40, .78); --glass-bg-soft: rgba(16, 24, 40, .38);
   --glass-line: rgba(255, 255, 255, .12); --glass-line-soft: rgba(255, 255, 255, .06);
   --glass-shadow: 0 10px 34px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .06);
-  --glass-veil: linear-gradient(180deg, rgba(6, 12, 24, .46), rgba(6, 12, 24, .6));
+  --glass-veil: linear-gradient(180deg, rgba(6, 12, 24, .18), rgba(6, 12, 24, .3));
   --glass-bar: rgba(10, 20, 38, .7);
 }
 :root[data-glass="on"] body { background: transparent; }
 :root[data-glass="on"] { background: #0c2142; }
 :root[data-glass="on"] body::before { content: ''; position: fixed; inset: 0; z-index: -1; background: var(--glass-veil); pointer-events: none; }
 :root[data-glass="on"] body::after {
-  content: ''; position: fixed; inset: -40px; z-index: -2; pointer-events: none;
-  background: url('/images/campus-cristal.webp') center 40% / cover no-repeat; filter: blur(7px) saturate(1.15);
+  content: ''; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+  background: url('/images/campus-cristal.webp') center 40% / cover no-repeat; filter: none;
 }
 :root[data-glass="on"] :is(.shell, .shell-main, .content-app, main) { background: transparent !important; }
 /* Superficies */
