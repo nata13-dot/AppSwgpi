@@ -1203,3 +1203,64 @@ a.btn-app { text-decoration: none; }
   .table-app th:last-child, .table-app td:last-child { padding-right: 22px; }
 }
 @media (max-width: 767.98px) { .table-app tr { padding: 14px 16px 12px 20px; } }
+
+/* ===================== Estilo «Cristal» (preferencia de apariencia, data-glass="on") =====================
+   Igual que en la web: foto del campus difuminada de fondo y superficies translúcidas con desenfoque. */
+:root[data-glass="on"] {
+  --glass-bg: rgba(255, 255, 255, .62); --glass-bg-strong: rgba(255, 255, 255, .82); --glass-bg-soft: rgba(255, 255, 255, .4);
+  --glass-line: rgba(255, 255, 255, .62); --glass-line-soft: rgba(16, 30, 54, .08);
+  --glass-blur: blur(18px) saturate(1.45); --glass-shadow: 0 8px 32px rgba(10, 25, 50, .16), inset 0 1px 0 rgba(255, 255, 255, .5);
+  --glass-veil: linear-gradient(180deg, rgba(226, 235, 248, .42), rgba(210, 222, 242, .54));
+  --glass-bar: rgba(27, 57, 106, .72);
+}
+:root[data-glass="on"][data-theme="dark"] {
+  --glass-bg: rgba(16, 24, 40, .56); --glass-bg-strong: rgba(16, 24, 40, .78); --glass-bg-soft: rgba(16, 24, 40, .38);
+  --glass-line: rgba(255, 255, 255, .12); --glass-line-soft: rgba(255, 255, 255, .06);
+  --glass-shadow: 0 10px 34px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .06);
+  --glass-veil: linear-gradient(180deg, rgba(6, 12, 24, .46), rgba(6, 12, 24, .6));
+  --glass-bar: rgba(10, 20, 38, .7);
+}
+:root[data-glass="on"] body { background: transparent; }
+:root[data-glass="on"] { background: #0c2142; }
+:root[data-glass="on"] body::before { content: ''; position: fixed; inset: 0; z-index: -1; background: var(--glass-veil); pointer-events: none; }
+:root[data-glass="on"] body::after {
+  content: ''; position: fixed; inset: -40px; z-index: -2; pointer-events: none;
+  background: url('/images/campus-cristal.webp') center 40% / cover no-repeat; filter: blur(7px) saturate(1.15);
+}
+:root[data-glass="on"] :is(.shell, .shell-main, .content-app, main) { background: transparent !important; }
+/* Superficies */
+:root[data-glass="on"] :is(.card-app, .stat-app, .alert-app, .module-card, .ac-panel, .sg-guide, .sg-related-card, .sg-card, .result-box, .times-box,
+  .special-box, .tinted-box, .room-timer, .live-turn, .removal-option, .selection-bar, .more-quick button, .eval-room, .pager-app) {
+  background: var(--glass-bg) !important; border-color: var(--glass-line) !important; box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+}
+:root[data-glass="on"] .card-app .card-app, :root[data-glass="on"] .card-app .stat-app { background: var(--glass-bg-soft) !important; backdrop-filter: none; box-shadow: none; }
+:root[data-glass="on"] .table-app th { background: rgba(27, 57, 106, .82); color: #fff; }
+:root[data-glass="on"] .table-app td { background: transparent; border-color: var(--glass-line-soft); }
+@media (max-width: 767.98px) {
+  :root[data-glass="on"] .table-app tr { background: var(--glass-bg) !important; border-color: var(--glass-line) !important; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }
+}
+/* Barras y menús */
+:root[data-glass="on"] .topbar-app { background: var(--glass-bar); backdrop-filter: blur(20px) saturate(1.5); -webkit-backdrop-filter: blur(20px) saturate(1.5); }
+:root[data-glass="on"] .bottom-nav { background: var(--glass-bg-strong); border-top-color: var(--glass-line); backdrop-filter: blur(20px) saturate(1.5); -webkit-backdrop-filter: blur(20px) saturate(1.5); }
+:root[data-glass="on"] .sidebar-app { background: rgba(12, 33, 66, .66) !important; backdrop-filter: blur(22px) saturate(1.4); -webkit-backdrop-filter: blur(22px) saturate(1.4); }
+:root[data-glass="on"] :is(.dropdown-app, .popover-app, .menu-popover, .tour-card) { background: var(--glass-bg-strong) !important; backdrop-filter: blur(22px) saturate(1.5); -webkit-backdrop-filter: blur(22px) saturate(1.5); }
+/* Hojas, ventanas y avisos */
+:root[data-glass="on"] .sheet, :root[data-glass="on"] .swal2-popup.swal-app {
+  background: var(--glass-bg-strong) !important; border: 1px solid var(--glass-line);
+  backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5);
+}
+:root[data-glass="on"] .Toastify__toast { background: var(--glass-bg-strong) !important; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+/* Controles */
+:root[data-glass="on"] :is(.control, .search-app, .topbar-search) { background: var(--glass-bg-strong); border-color: var(--glass-line); }
+:root[data-glass="on"] .tabs-app { background: var(--glass-bg-soft); border-color: var(--glass-line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+:root[data-glass="on"] :is(.chips-app button, .btn-app.ghost, .btn-app.soft, .pager-num, .pager-step, .icon-btn.bordered) { background: var(--glass-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+:root[data-glass="on"] .pager-num.active { background: var(--brand); }
+/* Textos directo sobre la foto */
+:root[data-glass="on"] :is(.page-head h1, .page-head p, .page-title, .page-subtitle, .field-label, .menu-section) { text-shadow: 0 0 1px rgba(255, 255, 255, .9), 0 1px 14px rgba(255, 255, 255, .85); }
+:root[data-glass="on"][data-theme="dark"] :is(.page-head h1, .page-head p, .page-title, .page-subtitle, .field-label) { text-shadow: 0 1px 2px rgba(0, 0, 0, .7), 0 2px 16px rgba(0, 0, 0, .65); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-glass="on"] { --glass-bg: rgba(255, 255, 255, .9); --glass-bg-strong: rgba(255, 255, 255, .96); }
+  :root[data-glass="on"][data-theme="dark"] { --glass-bg: rgba(16, 24, 40, .92); --glass-bg-strong: rgba(16, 24, 40, .96); }
+}
+:root[data-glass="on"] .auth-panel { background: var(--glass-bg) !important; border: 1px solid var(--glass-line); border-radius: 26px; padding: 22px 20px; box-shadow: var(--glass-shadow); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); }

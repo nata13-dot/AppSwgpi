@@ -29,7 +29,7 @@ export default function SystemPreferences() {
     staleTime: Infinity,
   })
   useEffect(() => {
-    if (appearance.data) setAppearance({ theme: appearance.data.theme, fontScale: appearance.data.font_scale })
+    if (appearance.data) setAppearance({ theme: appearance.data.theme, fontScale: appearance.data.font_scale, glass: Boolean(appearance.data.glass) })
   }, [appearance.data])
 
   useEffect(() => {

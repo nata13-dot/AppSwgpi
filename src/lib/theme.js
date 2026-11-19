@@ -7,6 +7,8 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
  */
 const THEME_KEY = 'sgpi-theme'
 const SCALE_KEY = 'sgpi-font-scale'
+// Estilo cristal: superficies translúcidas sobre la foto del campus; se combina con claro u oscuro.
+const GLASS_KEY = 'sgpi-glass'
 const DeviceDisplay = registerPlugin('DeviceDisplay')
 // Por debajo o por encima de esto la interfaz deja de ser utilizable.
 const MIN_FONT_PERCENT = 85
@@ -19,6 +21,7 @@ const write = (key, value) => { try { localStorage.setItem(key, value) } catch {
 
 export const themePreference = () => (['light', 'dark', 'system'].includes(read(THEME_KEY)) ? read(THEME_KEY) : 'light')
 export const fontScalePreference = () => Number(read(SCALE_KEY)) || 100
+export const glassPreference = () => read(GLASS_KEY) === '1'
 export const deviceFontPercent = () => Math.round(device.fontScale * 100)
 
 const deviceIsDark = () => device.dark ?? Boolean(window.matchMedia?.('(prefers-color-scheme: dark)').matches)
@@ -28,6 +31,7 @@ export function applyAppearance() {
   const theme = themePreference() === 'system' ? (deviceIsDark() ? 'dark' : 'light') : themePreference()
   root.dataset.theme = theme
   root.style.colorScheme = theme
+  if (glassPreference()) root.dataset.glass = 'on'; else delete root.dataset.glass
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#111827' : '#1B396A')
   // Un porcentaje conserva además el tamaño que el navegador tenga configurado.
   root.style.fontSize = `${Math.min(MAX_FONT_PERCENT, Math.max(MIN_FONT_PERCENT, device.fontScale * fontScalePreference()))}%`
@@ -35,13 +39,14 @@ export function applyAppearance() {
 }
 
 /** Guarda en este dispositivo y aplica; la cuenta se actualiza aparte con accountAppearance(). */
-export function setAppearance({ theme, fontScale }) {
+export function setAppearance({ theme, fontScale, glass }) {
   if (theme) write(THEME_KEY, theme)
   if (fontScale) write(SCALE_KEY, String(fontScale))
+  if (typeof glass === 'boolean') write(GLASS_KEY, glass ? '1' : '0')
   applyAppearance()
 }
 
-export const accountAppearance = () => ({ theme: themePreference(), font_scale: fontScalePreference() })
+export const accountAppearance = () => ({ theme: themePreference(), font_scale: fontScalePreference(), glass: glassPreference() })
 
 async function syncDevice() {
   if (!Capacitor.isNativePlatform()) return
