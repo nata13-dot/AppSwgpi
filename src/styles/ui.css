@@ -1498,3 +1498,11 @@ a.btn-app { text-decoration: none; }
 @keyframes update-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes update-pop { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
 .audit-details { margin: 4px 0; padding-left: 18px; font-size: .84rem; color: var(--muted); } .audit-details li { margin: 1px 0; } .audit-what strong { white-space: normal; }
+/* Auditoría: personas afectadas e historial por persona (Institutional.jsx). */
+.audit-people { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+.audit-chip { padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--brand); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
+.audit-link { padding: 0; border: 0; background: none; color: var(--brand); font: inherit; font-weight: 700; text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.audit-timeline { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); }
+.audit-entry { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 4px 0 14px 10px; }
+.audit-entry::before { content: ''; position: absolute; left: -21px; top: 10px; width: 12px; height: 12px; border-radius: 50%; background: var(--brand-2); border: 2px solid var(--surface); }
+.audit-what .badge-app { align-self: flex-start; }

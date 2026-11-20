@@ -195,7 +195,8 @@ function PolicyForm({ initial, onClose, onSaved }) {
 }
 
 export function AuditPage() {
-  const empty = { page: 1, per_page: 25, q: '', career_id: '', actor_id: '', method: '', status: '', date_from: '', date_to: '' }
+  const empty = { page: 1, per_page: 25, q: '', nivel: '', career_id: '', actor_id: '', method: '', status: '', date_from: '', date_to: '' }
+  const [person, setPerson] = useState(null)
   const [filters, setFilters] = useState(empty)
   const [draft, setDraft] = useState(empty)
   const careers = useQuery({ queryKey: ['institutional-careers'], queryFn: () => api.get('/admin/careers').then((response) => response.data.careers || []) })
@@ -206,6 +207,7 @@ export function AuditPage() {
       <Card>
         <form className="form-grid" onSubmit={(event) => { event.preventDefault(); setFilters({ ...draft, page: 1 }) }}>
           <Field label="Buscar" full><input className="control" type="search" maxLength={120} placeholder="Nombre, número de control, título o acción (por ejemplo: aprobó, eliminó)" value={draft.q} onChange={set('q')} /></Field>
+          <Field label="Tipo"><select className="control" value={draft.nivel} onChange={set('nivel')}><option value="">Todas</option><option value="importante">Importantes</option><option value="edicion">Ediciones</option><option value="rutina">Rutina</option></select></Field>
           <Field label="Carrera"><select className="control" value={draft.career_id} onChange={set('career_id')}><option value="">Todas</option>{(careers.data || []).map((career) => <option key={career.id} value={career.id}>{career.clave} · {career.nombre_corto}</option>)}</select></Field>
           <Field label="Actor"><input className="control" placeholder="ID de usuario" value={draft.actor_id} onChange={set('actor_id')} /></Field>
           <Field label="Método"><select className="control" value={draft.method} onChange={set('method')}><option value="">Todos</option>{['POST', 'PUT', 'PATCH', 'DELETE'].map((method) => <option key={method}>{method}</option>)}</select></Field>
@@ -219,12 +221,14 @@ export function AuditPage() {
         {query.isLoading ? <div className="card-pad"><Loading /></div> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
           <Rows headers={['Qué hizo', 'Fecha', 'Carrera', 'Quién', 'Resultado', 'IP y dispositivo']} rows={(query.data?.data || []).map((item) => [
             <span className="cell-main audit-what" key="o">
+              <LevelBadge level={item.nivel} />
               <strong>{item.descripcion || item.ruta}</strong>
               {item.detalles?.length > 0 && <ul className="audit-details">{item.detalles.map((detail, index) => <li key={index}>{detail}</li>)}</ul>}
+              {item.afectados?.length > 0 && <span className="audit-people">{item.afectados.map((p) => <button type="button" key={p.id} className="audit-chip" onClick={() => setPerson(p.id)}>{p.nombre || p.id}</button>)}</span>}
               <small><code className="break">{item.metodo} {item.ruta}</code></small>
             </span>,
             formatDateTime(item.creado_en), item.carrera_clave || 'Institucional',
-            <span className="cell-main" key="a"><strong>{actor(item, item.actor_id || 'Sistema')}</strong><small>{item.actor_id}</small></span>,
+            <span className="cell-main" key="a">{item.actor_id ? <button type="button" className="audit-link" onClick={() => setPerson(item.actor_id)}>{actor(item, item.actor_id)}</button> : <strong>Sistema</strong>}<small>{item.actor_id}</small></span>,
             <Badge key="r" tone={Number(item.estado_http) < 400 ? 'success' : 'danger'}>{Number(item.estado_http) < 400 ? 'Hecho' : `No se completó · ${item.estado_http}`}</Badge>,
             <span className="cell-main" key="ip"><strong>{item.direccion_ip || '—'}</strong><small>{item.dispositivo || ''}</small></span>,
           ])} />
@@ -232,7 +236,52 @@ export function AuditPage() {
         <Pager meta={query.data} onPage={(page) => setFilters({ ...filters, page })} noun="operaciones" />
       </Card>
       <AuditRetention />
+      {person && <PersonHistory id={person} onClose={() => setPerson(null)} />}
     </Page>
+  )
+}
+
+const LEVELS = { importante: ['Importante', 'danger'], edicion: ['Edición', 'info'], rutina: ['Rutina', 'neutral'] }
+function LevelBadge({ level }) {
+  const [label, tone] = LEVELS[level] || LEVELS.edicion
+  return <Badge tone={tone}>{label}</Badge>
+}
+
+/** Historial de una persona: lo que le hicieron (quién la aprobó, editó, desactivó…) y lo que hizo. */
+function PersonHistory({ id, onClose }) {
+  const [chosen, setTab] = useState(null)
+  const query = useQuery({ queryKey: ['audit-person', id], queryFn: () => api.get(`/admin/audit/person/${encodeURIComponent(id)}`).then((response) => response.data.data) })
+  const data = query.data
+  // Abre en «Lo que le hicieron» salvo que esté vacío y sí haya «Lo que hizo».
+  const tab = chosen || (data && !data.recibio.length && data.hizo.length ? 'hizo' : 'recibio')
+  const rows = data ? data[tab] : []
+  const total = (level) => (data ? (data.resumen.recibio[level] || 0) + (data.resumen.hizo[level] || 0) : 0)
+  return (
+    <Sheet open size="lg" title={data?.persona?.nombre ? `${data.persona.nombre} (${data.persona.id})` : `Historial de ${id}`} subtitle="Lo que le hicieron y lo que hizo en el periodo conservado." onClose={onClose}>
+      {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
+        <div className="stack">
+          <div className="row-wrap">
+            <Badge tone={data.persona.activo === null ? 'neutral' : data.persona.activo ? 'success' : 'warning'}>{data.persona.activo === null ? 'Sin cuenta en el sistema' : data.persona.activo ? 'Cuenta activa' : 'Cuenta inactiva'}</Badge>
+            <Badge tone="danger">{total('importante')} importantes</Badge><Badge tone="info">{total('edicion')} ediciones</Badge><Badge tone="neutral">{total('rutina')} de rutina</Badge>
+          </div>
+          <div className="tabs-app" role="tablist">
+            <button type="button" className={tab === 'recibio' ? 'active' : ''} onClick={() => setTab('recibio')}>Lo que le hicieron ({data.recibio.length})</button>
+            <button type="button" className={tab === 'hizo' ? 'active' : ''} onClick={() => setTab('hizo')}>Lo que hizo ({data.hizo.length})</button>
+          </div>
+          {!rows.length ? <Empty message={tab === 'recibio' ? 'Nadie ha realizado acciones sobre esta persona en el periodo conservado.' : 'No tiene acciones registradas en el periodo conservado.'} /> : (
+            <ul className="audit-timeline">
+              {rows.map((item) => (
+                <li key={item.id} className="audit-entry">
+                  <div className="row-wrap"><LevelBadge level={item.nivel} /><small className="muted">{formatDateTime(item.creado_en)}{tab === 'recibio' ? ` · por ${actor(item, item.actor_id || 'Sistema')}` : ''}{Number(item.estado_http) >= 400 ? ' · no se completó' : ''}</small></div>
+                  <strong>{item.descripcion}</strong>
+                  {item.detalles?.length > 0 && <ul className="audit-details">{item.detalles.map((detail, index) => <li key={index}>{detail}</li>)}</ul>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </Sheet>
   )
 }
 
@@ -249,16 +298,18 @@ function AuditRetention() {
   const preview = retention.data?.preview
   const archives = retention.data?.archives || []
   const confirmPrune = async () => {
-    if (await confirmAction({ title: 'Depurar auditoría ahora', text: `Se copiarán ${preview?.total || 0} registros anteriores al ${preview?.cutoff ? formatDateTime(preview.cutoff) : '—'} a un archivo junto a los respaldos y después se borrarán de la auditoría. Requiere un respaldo completo de los últimos 2 días.`, confirmText: 'Copiar y depurar' })) prune.mutate()
+    if (await confirmAction({ title: 'Depurar auditoría ahora', text: `Se copiarán ${preview?.total || 0} registros vencidos (rutina de más de ${preview?.tiers?.rutina ?? 7} días, ediciones de más de ${preview?.tiers?.edicion ?? preview?.days} e importantes de más de ${preview?.tiers?.importante ?? 365}) a un archivo junto a los respaldos y después se borrarán de la auditoría. Requiere un respaldo completo de los últimos 2 días.`, confirmText: 'Copiar y depurar' })) prune.mutate()
   }
   return (
     <>
-      <Card title="Retención de la auditoría" subtitle="Cada noche (01:40, después del respaldo) los registros más antiguos que el plazo se copian a un archivo comprimido junto a los respaldos y se borran de aquí. El plazo se cambia en Política de continuidad."
+      <Card title="Retención de la auditoría" subtitle="Cada noche (01:40, después del respaldo) los registros vencidos se copian a un archivo comprimido junto a los respaldos y se borran de aquí. Rutina a los 7 días; ediciones al plazo de Política de continuidad; lo importante (aprobaciones, eliminaciones, cambios de acceso, calificaciones) al menos un año."
         actions={<Button size="sm" variant="soft" icon={FiTrash2} disabled={!preview?.total} loading={prune.isPending} onClick={confirmPrune}>Depurar ahora</Button>}>
         {retention.isLoading ? <Loading rows={2} /> : retention.isError ? <ErrorState error={retention.error} onRetry={retention.refetch} /> : (
           <div className="stack">
             <div className="row-wrap">
-              <Badge tone="info">Se conservan {preview?.days} días</Badge>
+              <Badge tone="info">Rutina: {preview?.tiers?.rutina ?? 7} días</Badge>
+              <Badge tone="info">Ediciones: {preview?.tiers?.edicion ?? preview?.days} días</Badge>
+              <Badge tone="info">Importantes: {preview?.tiers?.importante ?? 365} días</Badge>
               <Badge tone={preview?.total ? 'warning' : 'success'}>{preview?.total ? `${preview.total} por depurar` : 'Nada por depurar'}</Badge>
             </div>
             {archives.length ? (
