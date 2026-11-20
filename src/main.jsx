@@ -16,6 +16,7 @@ import SystemPreferences from './components/layout/SystemPreferences'
 import { initAppearance } from './lib/theme'
 import { initGlassSurfaces } from './lib/glassSurfaces'
 import NativeBackButton from './components/layout/NativeBackButton'
+import AppUpdatePrompt from './components/layout/AppUpdatePrompt'
 
 initAppearance()
 initGlassSurfaces()
@@ -32,7 +33,7 @@ createRoot(document.getElementById('root')).render(
           <NativeBackButton />
           <ErrorBoundary>
             <SystemPreferences />
-            <AppLockGate><PushNotificationsBridge /><HomeWidgetBridge /><App /></AppLockGate>
+            <AppLockGate><PushNotificationsBridge /><HomeWidgetBridge /><AppUpdatePrompt /><App /></AppLockGate>
             <ToastContainer position="bottom-center" autoClose={3500} theme="light" newestOnTop />
           </ErrorBoundary>
         </BrowserRouter>

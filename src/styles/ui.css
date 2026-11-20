@@ -1434,3 +1434,10 @@ a.btn-app { text-decoration: none; }
   .thesis-console .tc-chapter-score { align-items: flex-start; text-align: left; }
   .thesis-console .tc-frame { height: 70vh; }
 }
+
+/* Actualización de la app (AppUpdatePrompt). */
+.update-progress { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.update-bar { height: 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.update-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--brand), var(--brand-2)); transition: width .25s ease; }
+.update-bar span.indeterminate { animation: update-slide 1.2s ease-in-out infinite; }
+@keyframes update-slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }

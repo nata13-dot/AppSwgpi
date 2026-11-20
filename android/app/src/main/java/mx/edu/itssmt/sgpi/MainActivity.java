@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(DeviceDisplayPlugin.class);
         registerPlugin(NotificationTonePlugin.class);
         registerPlugin(HomeWidgetPlugin.class);
+        registerPlugin(AppUpdaterPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

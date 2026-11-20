@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiBell, FiCamera, FiMusic, FiPlay, FiRotateCcw, FiSave, FiSmartphone } from 'react-icons/fi'
+import { FiBell, FiCamera, FiDownloadCloud, FiMusic, FiPlay, FiRotateCcw, FiSave, FiSmartphone } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { appLockAvailable, disableAppLock, enableAppLock, isAppLockEnabled, isNativeApp } from '../services/appLock'
 import { NotificationTone, refreshPushChannel } from '../services/pushNotifications'
 import { roleLabel, viewAs } from '../lib/permissions'
+import { UPDATE_EVENT, installedVersion, updatesSupported } from '../services/appUpdate'
 import { accountAppearance, deviceFontPercent, fontScalePreference, glassPreference, setAppearance, themePreference } from '../lib/theme'
 import { fullName, publicAssetUrl } from '../utils/formatters'
 import { Button, Card, Chips, ErrorState, Field, Loading, Page, rejectEmptyFile, Switch } from '../components/ui'
@@ -22,6 +23,7 @@ export default function Profile() {
       {!viewAs(user) && <QuickUnlockCard userId={user?.id} />}
       {!viewAs(user) && <NotificationSoundCard />}
       {!viewAs(user) && <NotificationPreferences />}
+      {updatesSupported() && <AppVersionCard />}
     </Page>
   )
 }
@@ -145,6 +147,20 @@ function QuickUnlockCard({ userId }) {
       {available || enabled
         ? <Button variant={enabled ? 'ghost' : undefined} icon={FiSmartphone} loading={busy} onClick={toggle}>{enabled ? 'Desactivar' : 'Activar'}</Button>
         : <p className="muted">Configura un bloqueo de pantalla en tu teléfono para usar esta opción.</p>}
+    </Card>
+  )
+}
+
+/** Versión instalada y búsqueda manual de actualizaciones (el aviso lo muestra AppUpdatePrompt). */
+function AppVersionCard() {
+  const [version, setVersion] = useState(null)
+  useEffect(() => { installedVersion().then(setVersion).catch(() => {}) }, [])
+  return (
+    <Card title="Versión de la app" subtitle="La app busca versiones nuevas al abrirse; aquí puedes buscar ahora.">
+      <div className="row-wrap">
+        <span className="muted">{version ? `Versión ${version.versionName}` : 'Consultando…'}</span>
+        <Button variant="ghost" icon={FiDownloadCloud} onClick={() => window.dispatchEvent(new CustomEvent(UPDATE_EVENT))}>Buscar actualizaciones</Button>
+      </div>
     </Card>
   )
 }
