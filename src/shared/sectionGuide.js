@@ -43,6 +43,7 @@ const ROUTES = [
   ['profile', ['/profile'], ['/pages/profile.php']],
   ['academic', ['/academic-workflows', '/semesters'], ['/pages/academic-workflows.php', '/pages/admin/semesters.php']],
   ['tracking', ['/tracking'], ['/pages/tracking.php']],
+  ['thesis', ['/thesis'], ['/pages/thesis.php']],
 ]
 
 const GUIDES = {
@@ -211,6 +212,20 @@ const GUIDES = {
     how: ['Usa un paquete de materias del semestre (o crea uno) y aplícalo; también puedes agregar materias sueltas y marcar sus modalidades: integrador, caso integrador o dual.', 'En cada materia define sus competencias y su plantilla de avances: competencia, semana sugerida, ponderación y tipos de archivo aceptados.'],
     affects: ['Los proyectos de cada grupo con esa modalidad quedan ligados a la materia en el periodo abierto, sin contraseña.', '«Aplicar y reemplazar» deja de pedir avances en las materias que no están en el paquete; lo entregado, las plantillas y las competencias se conservan.', 'Si un avance exige tipos de archivo, el alumno sólo puede subir ésos.'],
   },
+  'thesis:list': (role) => role === 'student' ? {
+    how: ['Abre tu curso de tesis para ver tus capítulos, tus fechas de entrega y los comentarios de tus docentes.'],
+    affects: ['El curso lo crea tu jefatura o tu director; si no aparece, pídeselo.'],
+  } : {
+    how: ['Con «Nuevo curso de tesis» elige la tesis y su alumno, define los capítulos, los docentes que revisan y, si quieres, las entregas con fecha.', 'Abre un curso para revisar sus entregas.'],
+    affects: ['El director y los revisores de la tesis se agregan solos; puedes sumar más docentes.', 'Crean cursos la jefatura, la asistencia, la administración o el director de la tesis.'],
+  },
+  'thesis:course': (role) => role === 'student' ? {
+    how: ['En «Nueva entrega» sube tu documento en PDF, marca los capítulos que incluye y, si aplica, la entrega planeada a la que corresponde.', 'Revisa abajo los comentarios de cada docente y sus notas por página; toca «p. N» para ir a esa página.'],
+    affects: ['Cada capítulo se aprueba cuando todos tus docentes lo revisan y el promedio llega a 70. Tú ves el puntaje general y los comentarios.', 'Si vuelves a entregar un capítulo, se revisa la nueva versión y la anterior queda en el historial.'],
+  } : {
+    how: ['Toca «Ver documento» para leer la entrega dentro del sistema.', 'En cada capítulo vigente escribe tu puntaje de 0 a 100 y tu comentario; agrega notas indicando la página.', 'Quien dirige puede editar capítulos, entregas planeadas y docentes, y liberar la tesis cuando todo esté aprobado.'],
+    affects: ['El capítulo vale el promedio de los docentes y se aprueba con 70 cuando ya lo revisaron todos. El alumno no ve tu puntaje, sólo el general y tu comentario.', 'Si pasa una semana sin revisar una entrega, te llega un recordatorio.', 'Liberar la deja lista para titulación y el alumno ya no puede entregar.'],
+  },
   'academic:continuity': {
     how: ['Elige el proyecto y el grupo del periodo abierto donde seguirá.'],
     affects: ['El proyecto conserva su equipo, documentos y evaluaciones anteriores, sin crear uno nuevo.'],
@@ -239,6 +254,7 @@ const SCREENS = {
   settings: { label: 'Ajustes', app: '/settings', php: '/pages/admin/settings.php', who: 'admin' },
   repository: { label: 'Repositorio', app: '/repository', php: '/pages/repositorio.php', who: 'all' },
   tracking: { label: 'Avances por materia', app: '/tracking', php: '/pages/tracking.php', who: 'notStudent' },
+  thesis: { label: 'Seguimiento de tesis', app: '/thesis', php: '/pages/thesis.php', who: 'all' },
 }
 
 // "También te puede servir": a qué pantalla ir desde cada sección y para qué.
@@ -271,6 +287,8 @@ const RELATED = {
   settings: [['notices', 'Publica avisos para la carrera.']],
   'academic:periods': [['period-center', 'Sigue las etapas del periodo en orden.'], ['users', 'Revisa a los alumnos y sus grupos.']],
   'academic:courses': (role) => role === 'student' ? [['deliverables', 'Consulta los entregables de tus materias.']] : [['subjects', 'Configura las materias.'], ['deliverables', 'Crea entregables para el curso.']],
+  'thesis:list': (role) => role === 'student' ? [['proposals', 'Revisa tu proyecto de tesis.']] : [['projects', 'Registra la tesis y asigna director y revisores.'], ['evaluation-rooms', 'Programa la evaluación de las tesis liberadas.']],
+  'thesis:course': (role) => role === 'student' ? [['proposals', 'Revisa tu proyecto de tesis.']] : [['evaluation-rooms', 'Programa la evaluación de las tesis liberadas.']],
   'tracking:courses': [['deliverables', 'Consulta todas las entregas de tus materias.'], ['projects', 'Revisa los equipos y sus integrantes.']],
   'tracking:overview': [['proposals', 'Asigna docentes a las materias sin responsable.'], ['projects', 'Revisa la modalidad de los proyectos.']],
   'tracking:config': [['subjects', 'Da de alta las materias de la carrera.'], ['proposals', 'Asigna el docente de cada materia y grupo.']],

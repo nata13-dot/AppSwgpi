@@ -1403,3 +1403,34 @@ a.btn-app { text-decoration: none; }
   .tracking-console .tc-template-row > :first-child, .tracking-console .tc-template-row > :nth-child(2), .tracking-console .tc-template-row > .ac-btn { grid-column: 1 / -1; }
 }
 .tracking-console .tc-matrix thead tr.tc-groups th { text-transform: none; letter-spacing: 0; white-space: normal; overflow: visible; max-width: none; font-size: .78rem; color: var(--ac-brand); background: var(--ac-surface); position: static; }
+/* Seguimiento de tesis (thesisConsole.js / thesis-console.js). Reutiliza las clases del tablero de avances. */
+.thesis-console .tc-list-actions { margin-bottom: 12px; }
+.thesis-console .tc-editor { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--ac-line); border-radius: 14px; background: var(--ac-surface-2); }
+.thesis-console .tc-editor > .ac-btn { align-self: flex-start; }
+.thesis-console .tc-template-row.tc-chapter-row { grid-template-columns: 32px 1fr auto; align-items: center; }
+.thesis-console .tc-chapter-number { font-weight: 800; color: var(--ac-brand); text-align: right; }
+.thesis-console .tc-template-row.tc-reviewer-row { grid-template-columns: minmax(200px, 2fr) minmax(150px, 1fr) auto; align-items: center; }
+.thesis-console .tc-template-row.tc-plan-row { grid-template-columns: minmax(180px, 2fr) minmax(200px, 1fr) auto; }
+.thesis-console .tc-chapter { align-items: center; }
+.thesis-console .tc-chapter-score { display: flex; flex-direction: column; align-items: flex-end; min-width: 120px; text-align: right; }
+.thesis-console .tc-chapter-score strong { font-size: 1.2rem; color: var(--ac-brand); }
+.thesis-console .tc-submission { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; margin-top: 12px; border: 1px solid var(--ac-line); border-left: 4px solid var(--ac-brand-2); border-radius: 14px; background: var(--ac-surface); }
+.thesis-console .tc-submission .tc-row-title { gap: 6px 8px; }
+.thesis-console .ac-chip.tc-old { opacity: .5; text-decoration: line-through; }
+.thesis-console .tc-quote { margin: 0; font-style: italic; }
+.thesis-console .tc-viewer { border: 1px solid var(--ac-line); border-radius: 12px; overflow: hidden; background: var(--ac-surface-2); }
+.thesis-console .tc-frame { display: block; width: 100%; height: min(80vh, 900px); border: 0; background: #525659; }
+.thesis-console .tc-review-block { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--ac-line); }
+.thesis-console .tc-review { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 8px 12px; border-radius: 12px; background: var(--ac-surface-2); }
+.thesis-console .tc-review p, .thesis-console .tc-note-text p { flex-basis: 100%; margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.thesis-console .tc-review-who { font-weight: 700; font-size: .86rem; }
+.thesis-console .tc-review-form { padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--ac-line); }
+.thesis-console .tc-note { display: flex; align-items: flex-start; gap: 10px; }
+.thesis-console .tc-note .ac-btn { margin: 0; }
+.thesis-console .tc-page { min-height: 32px; padding: 4px 10px; font-size: .82rem; }
+.thesis-console .tc-note-text { flex: 1; min-width: 0; }
+@media (max-width: 640px) {
+  .thesis-console .tc-template-row.tc-reviewer-row, .thesis-console .tc-template-row.tc-plan-row { grid-template-columns: 1fr; }
+  .thesis-console .tc-chapter-score { align-items: flex-start; text-align: left; }
+  .thesis-console .tc-frame { height: 70vh; }
+}

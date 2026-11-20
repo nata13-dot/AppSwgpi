@@ -20,6 +20,7 @@ const AcademicWorkflows = lazy(() => import('./pages/AcademicWorkflows'))
 const Subjects = lazy(() => import('./pages/Subjects'))
 const Deliverables = lazy(() => import('./pages/Deliverables'))
 const Tracking = lazy(() => import('./pages/Tracking'))
+const Thesis = lazy(() => import('./pages/Thesis'))
 const Proposals = lazy(() => import('./pages/Proposals'))
 const Advisors = lazy(() => import('./pages/Advisors'))
 const Institutional = (name) => lazy(() => import('./pages/admin/Institutional').then((module) => ({ default: module[name] })))
@@ -72,6 +73,7 @@ const routes = [
   ['/subjects', Subjects, canManageAcademics],
   ['/deliverables', Deliverables],
   ['/tracking', Tracking, staffOrTeacher],
+  ['/thesis', Thesis],
   ['/proposals', Proposals],
   ['/advisors', Advisors, isManagementStaff],
   ['/settings', SettingsPage, isAdmin],
