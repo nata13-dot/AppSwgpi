@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { App as CapacitorApp } from '@capacitor/app'
 import { FiDownloadCloud, FiShield } from 'react-icons/fi'
 import { toast } from 'react-toastify'
-import { Button, Sheet } from '../ui'
+import { Button } from '../ui'
+import { registerBackHandler } from '../../utils/backNavigation'
 import { AppUpdater, UPDATE_EVENT, checkForUpdate, postpone, updatesSupported } from '../../services/appUpdate'
 
 const size = (bytes) => (bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : '')
@@ -63,46 +64,56 @@ export default function AppUpdatePrompt() {
     return () => { clearTimeout(first); progress.then((h) => h.remove()); resume.then((h) => h.remove()); window.removeEventListener(UPDATE_EVENT, manual) }
   }, [check, install])
 
+  // Botón Atrás de Android: equivale a «Recordármelo más tarde» (no hace nada si es obligatoria o descargando).
+  useEffect(() => {
+    if (!release) return undefined
+    return registerBackHandler(() => { if (!release.obligatoria && stage !== 'downloading') { postpone(release); setRelease(null) } })
+  }, [release, stage])
+
   if (!release) return null
   const required = release.obligatoria
   const close = required || stage === 'downloading' ? undefined : () => { postpone(release); setRelease(null) }
   const busy = stage === 'downloading'
 
   return (
-    <Sheet
-      open
-      title={`Nueva versión ${release.version_name}`}
-      subtitle={installed ? `Tienes la ${installed.versionName}${release.tamano_bytes ? ` · descarga de ${size(release.tamano_bytes)}` : ''}` : undefined}
-      onClose={close}
-      footer={stage === 'permission' ? (
-        <div className="row-wrap">
-          <Button icon={FiShield} onClick={() => { waitingPermission.current = true; AppUpdater.openInstallSettings() }}>Permitir instalación</Button>
-          <Button variant="ghost" onClick={install}>Ya lo permití</Button>
-        </div>
-      ) : (
-        <div className="row-wrap">
-          {!required && <Button variant="ghost" disabled={busy} onClick={close}>Más tarde</Button>}
-          <Button icon={FiDownloadCloud} loading={busy} disabled={busy} onClick={install}>{stage === 'installing' ? 'Volver a abrir el instalador' : 'Actualizar ahora'}</Button>
-        </div>
-      )}
-    >
-      {required && <div className="alert-app warning">Esta versión es obligatoria: actualiza para seguir usando SGPI.</div>}
-      {release.notas?.length > 0 ? (
+    <div className="update-backdrop" role="presentation">
+      <section className="update-modal" role="dialog" aria-modal="true" aria-labelledby="update-title" aria-describedby="update-desc">
+        <div className="update-icon" aria-hidden="true"><FiDownloadCloud /></div>
+        <h2 id="update-title">Hay una nueva versión de SGPI</h2>
+        <p id="update-desc" className="update-version">
+          <strong>{release.version_name}</strong>
+          {installed && <span> · tienes la {installed.versionName}</span>}
+          {release.tamano_bytes ? <span> · {size(release.tamano_bytes)}</span> : null}
+        </p>
+        {required && <div className="alert-app warning">Esta actualización es obligatoria: instálala para seguir usando SGPI.</div>}
         <div className="update-notes">
-          {release.notas.map((note) => (
-            <div key={note.version}><strong>Novedades de la {note.version}</strong><p className="small-text" style={{ whiteSpace: 'pre-line', margin: '4px 0 10px' }}>{note.notas}</p></div>
-          ))}
+          {release.notas?.length > 0 ? release.notas.map((note) => (
+            <div key={note.version}><strong>Novedades de la {note.version}</strong><p>{note.notas}</p></div>
+          )) : <p>Mejoras y correcciones.</p>}
         </div>
-      ) : <p className="muted">Mejoras y correcciones.</p>}
-      {busy && (
-        <div className="update-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent >= 0 ? percent : undefined}>
-          <div className="update-bar"><span style={{ width: percent >= 0 ? `${percent}%` : '35%' }} className={percent < 0 ? 'indeterminate' : ''} /></div>
-          <small className="muted">{percent >= 0 ? `Descargando… ${percent}%` : 'Descargando…'}</small>
+        {busy && (
+          <div className="update-progress" role="progressbar" aria-label="Descarga de la actualización" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent >= 0 ? percent : undefined}>
+            <div className="update-bar"><span style={{ width: percent >= 0 ? `${percent}%` : '35%' }} className={percent < 0 ? 'indeterminate' : ''} /></div>
+            <small className="muted">{percent >= 0 ? `Descargando… ${percent}%` : 'Descargando…'}</small>
+          </div>
+        )}
+        {stage === 'installing' && <div className="alert-app">Confirma la instalación en la ventana de Android. Tus datos y tu sesión se conservan.</div>}
+        {stage === 'permission' && <div className="alert-app">Android necesita que permitas a SGPI instalar actualizaciones. Toca «Permitir instalación», activa la opción y vuelve a la app.</div>}
+        {error && <div className="alert-app danger">{error}</div>}
+        <div className="update-actions">
+          {stage === 'permission' ? (
+            <>
+              <Button icon={FiShield} onClick={() => { waitingPermission.current = true; AppUpdater.openInstallSettings() }}>Permitir instalación</Button>
+              <Button variant="ghost" onClick={install}>Ya lo permití</Button>
+            </>
+          ) : (
+            <>
+              <Button icon={FiDownloadCloud} loading={busy} disabled={busy} onClick={install}>{stage === 'installing' ? 'Volver a abrir el instalador' : 'Actualizar ahora'}</Button>
+              {!required && <Button variant="ghost" disabled={busy} onClick={close}>Recordármelo más tarde</Button>}
+            </>
+          )}
         </div>
-      )}
-      {stage === 'installing' && <div className="alert-app mt-2">Confirma la instalación en la ventana de Android. Tus datos y tu sesión se conservan.</div>}
-      {stage === 'permission' && <div className="alert-app mt-2">Android necesita que permitas a SGPI instalar actualizaciones. Toca «Permitir instalación», activa la opción y vuelve a la app.</div>}
-      {error && <div className="alert-app danger mt-2">{error}</div>}
-    </Sheet>
+      </section>
+    </div>
   )
 }

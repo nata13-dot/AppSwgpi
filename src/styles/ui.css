@@ -1479,3 +1479,21 @@ a.btn-app { text-decoration: none; }
 .group-member-name small { color: var(--muted); font-size: .76rem; }
 @media (max-width: 575.98px) { .group-summary-meta { margin-left: 0; width: 100%; justify-content: space-between; } }
 .group-summary { align-self: start; }
+
+/* Aviso de nueva versión (AppUpdatePrompt): modal centrado sobre las pantallas y hojas, debajo del bloqueo de la app. */
+.update-backdrop { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; padding: calc(16px + var(--safe-top, 0px)) 16px calc(16px + var(--safe-bottom, 0px)); background: rgba(9, 22, 40, .55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: update-fade .2s ease-out; }
+.update-modal { width: 100%; max-width: 420px; max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 24px 22px 20px; border-radius: 24px; background: var(--surface) !important; color: var(--ink); text-align: center; box-shadow: 0 24px 60px rgba(0, 0, 0, .35); animation: update-pop .25s ease-out; }
+.update-icon { width: 64px; height: 64px; margin: 0 auto 2px; border-radius: 20px; display: grid; place-items: center; font-size: 1.9rem; color: #fff; background: linear-gradient(135deg, #2D5A96, #1B396A); box-shadow: 0 10px 24px rgba(27, 57, 106, .35); }
+.update-modal h2 { margin: 0; font-size: 1.25rem; }
+.update-version { margin: -4px 0 0; color: var(--muted); font-size: .9rem; }
+.update-version strong { color: var(--brand); }
+.update-notes { text-align: left; max-height: 30vh; overflow-y: auto; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line); font-size: .88rem; }
+.update-notes strong { font-size: .82rem; }
+.update-notes p { margin: 4px 0 8px; white-space: pre-line; color: var(--ink-2); }
+.update-notes p:last-child { margin-bottom: 0; }
+.update-modal .alert-app { text-align: left; margin: 0; }
+.update-progress { text-align: left; }
+.update-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.update-actions .btn-app { width: 100%; justify-content: center; }
+@keyframes update-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes update-pop { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }

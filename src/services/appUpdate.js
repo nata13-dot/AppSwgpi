@@ -9,7 +9,9 @@ export const AppUpdater = registerPlugin('AppUpdater')
 export const UPDATE_EVENT = 'sgpi:check-update'
 const CHECKED_KEY = 'sgpi-update-checked'
 const DISMISSED_KEY = 'sgpi-update-dismissed'
-const CHECK_EVERY_MS = 6 * 60 * 60 * 1000
+// Se revisa al abrir la app o volver a ella, como máximo cada 15 minutos; «Más tarde» la vuelve a ofrecer al día siguiente.
+const CHECK_EVERY_MS = 15 * 60 * 1000
+const REMIND_AFTER_MS = 24 * 60 * 60 * 1000
 
 export const updatesSupported = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
 
@@ -34,9 +36,17 @@ export async function checkForUpdate({ force = false } = {}) {
   const release = (await response.json()).data
   write(CHECKED_KEY, String(Date.now()))
   if (!release || release.version_code <= Number(installed.versionCode)) return { installed, release: null }
-  // Lo pospuesto no se vuelve a ofrecer solo, salvo que sea obligatorio o lo pida el usuario.
-  if (!force && !release.obligatoria && read(DISMISSED_KEY) === String(release.version_code)) return { installed, release: null }
+  // Lo pospuesto espera su recordatorio, salvo que sea obligatorio o lo pida el usuario.
+  if (!force && !release.obligatoria && snoozed(release)) return { installed, release: null }
   return { installed, release }
 }
 
-export const postpone = (release) => write(DISMISSED_KEY, String(release.version_code))
+/** «Recordármelo más tarde»: no se vuelve a mostrar esa versión hasta dentro de 24 h. */
+export const postpone = (release) => write(DISMISSED_KEY, JSON.stringify({ code: release.version_code, until: Date.now() + REMIND_AFTER_MS }))
+
+function snoozed(release) {
+  try {
+    const value = JSON.parse(read(DISMISSED_KEY) || 'null')
+    return value?.code === release.version_code && Date.now() < Number(value.until || 0)
+  } catch { return false }
+}
