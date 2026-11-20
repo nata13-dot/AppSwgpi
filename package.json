@@ -11,7 +11,8 @@
     "android:release:windows": "npm run build:mobile && cd android && gradlew.bat assembleRelease",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "release:android": "bash scripts/release-android.sh"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",
