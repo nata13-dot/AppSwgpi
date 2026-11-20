@@ -738,7 +738,7 @@ a.btn-app { text-decoration: none; }
 .chips-wrap .chips-app { flex-wrap: wrap; overflow: visible; }
 
 /* Pantalla de bloqueo de la app (huella o bloqueo del teléfono) */
-.app-lock { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 24px; padding: calc(28px + var(--safe-top)) 24px calc(28px + var(--safe-bottom)); overflow-y: auto; text-align: center; color: #fff; background: radial-gradient(circle at 50% 38%, rgba(45, 90, 150, .55), transparent 60%), linear-gradient(165deg, rgba(16, 39, 68, .82), rgba(9, 22, 40, .97)), url('/images/campus.webp') center / cover; animation: app-lock-in .35s ease-out; }
+.app-lock { position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 24px; padding: calc(28px + var(--safe-top)) 24px calc(28px + var(--safe-bottom)); overflow-y: auto; text-align: center; color: #fff; background: radial-gradient(circle at 50% 38%, rgba(45, 90, 150, .55), transparent 60%), linear-gradient(165deg, rgba(16, 39, 68, .82), rgba(9, 22, 40, .97)), url('/images/campus.webp') center / cover, #091628; animation: app-lock-in .35s ease-out; }
 .app-lock-brand { display: flex; align-items: center; gap: 10px; text-align: left; }
 .app-lock-brand img { width: 40px; height: 40px; border-radius: 12px; background: #fff; padding: 3px; }
 .app-lock-brand span { display: flex; flex-direction: column; line-height: 1.15; } .app-lock-brand small { opacity: .7; font-size: .76rem; }
@@ -1222,7 +1222,12 @@ a.btn-app { text-decoration: none; }
 }
 :root[data-glass="on"] body { background: transparent; }
 :root[data-glass="on"] { background: #0c2142; }
-:root[data-glass="on"] :is(.shell, .shell-main, .content-app, main) { background: transparent !important; }
+:root[data-glass="on"] :is(.shell, .shell-main, .content-app, main:not(.app-lock)) { background: transparent !important; }
+/* La pantalla de bloqueo nunca es transparente: debe ocultar por completo lo que hay detrás. */
+:root[data-glass="on"] .app-lock {
+  background: radial-gradient(circle at 50% 38%, rgba(45, 90, 150, .55), transparent 60%), linear-gradient(165deg, rgba(16, 39, 68, .82), rgba(9, 22, 40, .97)), url('/images/campus.webp') center / cover, #091628 !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
 /* Superficies */
 :root[data-glass="on"] :is(.card-app, .stat-app, .alert-app, .module-card, .ac-panel, .sg-guide, .sg-related-card, .sg-card, .result-box, .times-box,
   .special-box, .tinted-box, .room-timer, .live-turn, .removal-option, .selection-bar, .more-quick button, .eval-room, .pager-app) {
