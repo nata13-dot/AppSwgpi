@@ -1,6 +1,6 @@
 import { useState, Fragment } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiEdit2, FiPlus, FiSave, FiTrash2, FiUserMinus, FiUserPlus } from 'react-icons/fi'
+import { FiChevronDown, FiEdit2, FiPlus, FiSave, FiTrash2, FiUserMinus, FiUserPlus, FiUsers } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { ordinal, useSemesters } from '../../lib/semesters'
@@ -14,6 +14,7 @@ export default function GroupControl({ initialSemester, onClose, onChanged, onEd
   const [semester, setSemester] = useState(initialSemester || '')
   const current = semester || String(semesters[0] || '')
   const [editing, setEditing] = useState(null) // null | {} (nuevo) | grupo
+  const [openGroups, setOpenGroups] = useState(() => new Set()) // grupos desplegados; se conservan al recargar
   const groups = useQuery({ queryKey: ['subject-groups', current], queryFn: () => api.get('/subject-groups', { params: { semestre: current, with_students: 1 } }).then((response) => response.data), enabled: Boolean(current) })
   const students = useQuery({
     queryKey: ['users', 'group-control'],
@@ -74,29 +75,10 @@ export default function GroupControl({ initialSemester, onClose, onChanged, onEd
               return (
                 <Fragment key={group.id}>
                 {heading && <p className="group-period-heading">{group.periodo_vigente ? 'Periodo vigente' : 'Otros periodos'}</p>}
-                <section className="card-app">
-                  <header className="card-head">
-                    <div><h2>{group.semestre} {group.grupo} · {group.nombre}</h2>{group.periodo && <p>{group.periodo}{group.periodo_vigente ? ' · vigente' : group.periodo_estado ? ` · ${group.periodo_estado.replace('_', ' ')}` : ''}</p>}</div>
-                    <div className="card-actions"><Badge tone="info">{members.length} alumnos</Badge><IconButton icon={FiEdit2} label="Editar grupo" onClick={() => setEditing(group)} /><IconButton icon={FiTrash2} className="danger" label="Eliminar grupo" onClick={() => removeGroup(group, members.length)} /></div>
-                  </header>
-                  <label className="inline-add">
-                    <FiUserPlus aria-hidden="true" />
-                    <select className="control" value="" onChange={(event) => assign(group.id, event.target.value)} aria-label="Agregar alumno al grupo">
-                      <option value="">Agregar alumno al grupo</option>
-                      {available.map((student) => <option key={student.id} value={student.id}>{student.id} - {fullName(student)} {student.grupo ? `(actual: ${student.semestre || ''}° ${student.grupo})` : '(sin grupo)'}</option>)}
-                    </select>
-                  </label>
-                  <ul className="list-app">
-                    {members.map((student) => (
-                      <li key={student.id} className="list-row">
-                        <div><strong>{fullName(student)}</strong><small>{student.id}</small></div>
-                        <IconButton icon={FiEdit2} label="Editar alumno" onClick={() => onEditStudent(student.id)} />
-                        <IconButton icon={FiUserMinus} className="danger" label="Quitar del grupo" onClick={() => removeStudent(student.id, group.id)} />
-                      </li>
-                    ))}
-                    {!members.length && <li className="muted small-text">Sin alumnos en este grupo.</li>}
-                  </ul>
-                </section>
+                <GroupCard group={group} members={members} available={available} open={openGroups.has(group.id)}
+                  onToggle={(value) => setOpenGroups((prev) => { const next = new Set(prev); if (value) next.add(group.id); else next.delete(group.id); return next })}
+                  onEdit={() => setEditing(group)} onDelete={() => removeGroup(group, members.length)}
+                  onAssign={(studentId) => assign(group.id, studentId)} onEditStudent={onEditStudent} onRemove={(studentId) => removeStudent(studentId, group.id)} />
                 </Fragment>
               )
             })}
@@ -147,5 +129,60 @@ function GroupForm({ group, semester, semesters, existing, onClose, onSaved }) {
         {group && <p className="muted small-text full">Los alumnos asignados se moverán al nuevo semestre/grupo si cambias esos datos.</p>}
       </form>
     </Sheet>
+  )
+}
+
+const initials = (student) => `${(student.nombres || '?').trim().charAt(0)}${(student.apa || '').trim().charAt(0)}`.toUpperCase()
+
+/** Resumen de un grupo (iniciales y total); al desplegarlo, búsqueda, agregar y la lista de alumnos. */
+function GroupCard({ group, members, available, open, onToggle, onEdit, onDelete, onAssign, onEditStudent, onRemove }) {
+  const [term, setTerm] = useState('')
+  const needle = term.trim().toLowerCase()
+  const shown = needle ? members.filter((s) => `${s.id} ${fullName(s)}`.toLowerCase().includes(needle)) : members
+  return (
+    <details className="group-summary card-app" open={open} onToggle={(event) => onToggle(event.currentTarget.open)}>
+      <summary className="group-summary-head">
+        <div className="group-summary-title">
+          <strong>{group.semestre}° {group.grupo} <span className="muted">· {group.nombre}</span></strong>
+          {group.periodo && <small>{group.periodo}{group.periodo_vigente ? ' · vigente' : group.periodo_estado ? ` · ${group.periodo_estado.replace('_', ' ')}` : ''}</small>}
+        </div>
+        <div className="group-summary-meta">
+          <span className="group-avatars" aria-hidden="true">
+            {members.slice(0, 4).map((s) => <span key={s.id}>{initials(s)}</span>)}
+            {members.length > 4 && <span className="more">+{members.length - 4}</span>}
+          </span>
+          <span className="group-count"><FiUsers aria-hidden="true" /> {members.length}</span>
+          <span className="group-toggle">{open ? 'Ocultar' : 'Ver alumnos'}<FiChevronDown aria-hidden="true" /></span>
+        </div>
+      </summary>
+      {open && (
+        <div className="group-summary-body">
+          <div className="group-summary-tools">
+            <label className="inline-add">
+              <FiUserPlus aria-hidden="true" />
+              <select className="control" value="" onChange={(event) => onAssign(event.target.value)} aria-label="Agregar alumno al grupo">
+                <option value="">Agregar alumno al grupo</option>
+                {available.map((student) => <option key={student.id} value={student.id}>{student.id} - {fullName(student)} {student.grupo ? `(actual: ${student.semestre || ''}° ${student.grupo})` : '(sin grupo)'}</option>)}
+              </select>
+            </label>
+            <IconButton icon={FiEdit2} label="Editar grupo" onClick={onEdit} />
+            <IconButton icon={FiTrash2} className="danger" label="Eliminar grupo" onClick={onDelete} />
+          </div>
+          {members.length > 6 && <input className="control group-search" type="search" value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Buscar en el grupo" aria-label="Buscar en el grupo" />}
+          <ul className="group-members">
+            {shown.map((student) => (
+              <li key={student.id}>
+                <span className="group-avatar" aria-hidden="true">{initials(student)}</span>
+                <span className="group-member-name"><strong>{fullName(student)}</strong><small>{student.id}</small></span>
+                <IconButton icon={FiEdit2} label="Editar alumno" onClick={() => onEditStudent(student.id)} />
+                <IconButton icon={FiUserMinus} className="danger" label="Quitar del grupo" onClick={() => onRemove(student.id)} />
+              </li>
+            ))}
+            {!members.length && <li className="muted small-text">Sin alumnos en este grupo.</li>}
+            {members.length > 0 && !shown.length && <li className="muted small-text">Nadie coincide con la búsqueda.</li>}
+          </ul>
+        </div>
+      )}
+    </details>
   )
 }
