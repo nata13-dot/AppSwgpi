@@ -452,8 +452,12 @@ export function mountThesisConsole(root, api, user, options = {}) {
     } catch (e) {
       if (disposed) return
       if (courseId && [403, 404].includes(e?.response?.status ?? e?.status)) { courseId = null; content = previous; await render(); status.textContent = error(e); return }
-      content.replaceChildren(el('p', error(e)))
-      button('Reintentar', () => render(), content)
+      // 503: la API está al día pero falta la migración; se explica en lugar de mostrar sólo el error.
+      const pending = (e?.response?.status ?? e?.status) === 503
+      const note = el('div', undefined, { className: `ac-hint tc-error${pending ? '' : ' danger'}`, role: 'alert' })
+      note.append(el('p', pending ? `${error(e)} La administración del sistema debe aplicar la actualización de la base de datos en el servidor; mientras tanto esta sección no está disponible.` : error(e)))
+      content.replaceChildren(note)
+      button('Reintentar', () => render(), content, 'primary tc-retry')
       previous.replaceWith(content)
     }
   }
