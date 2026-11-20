@@ -1448,3 +1448,4 @@ a.btn-app { text-decoration: none; }
 @keyframes update-slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
 .tracking-console .tc-content > .tc-retry { align-self: flex-start; margin-top: 4px; }
 .tracking-console .tc-error.danger { border-left-color: var(--ac-danger); background: rgba(178, 59, 59, .08); }
+.group-period-heading { grid-column: 1 / -1; margin: 6px 0 -4px; font-size: .74rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }

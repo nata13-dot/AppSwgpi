@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiEdit2, FiPlus, FiSave, FiTrash2, FiUserMinus, FiUserPlus } from 'react-icons/fi'
 import { toast } from 'react-toastify'
@@ -14,14 +14,14 @@ export default function GroupControl({ initialSemester, onClose, onChanged, onEd
   const [semester, setSemester] = useState(initialSemester || '')
   const current = semester || String(semesters[0] || '')
   const [editing, setEditing] = useState(null) // null | {} (nuevo) | grupo
-  const groups = useQuery({ queryKey: ['subject-groups', current], queryFn: () => api.get('/subject-groups', { params: { semestre: current } }).then((response) => response.data), enabled: Boolean(current) })
+  const groups = useQuery({ queryKey: ['subject-groups', current], queryFn: () => api.get('/subject-groups', { params: { semestre: current, with_students: 1 } }).then((response) => response.data), enabled: Boolean(current) })
   const students = useQuery({
     queryKey: ['users', 'group-control'],
     queryFn: () => api.get('/users', { params: { perfil_id: 3, status: 'active', compact: 1, per_page: 500 } }).then((response) => response.data.data || []),
     staleTime: 30_000,
   })
-  const semesterStudents = (students.data || []).filter((student) => String(student.semestre || '') === String(current))
-  const sameGroup = (student, group) => String(student.grupo || '').toUpperCase() === String(group.grupo || '').toUpperCase()
+  // Los integrantes vienen de la matrícula de cada grupo (no por letra): así no se mezclan grupos de distintos periodos.
+  const allStudents = students.data || []
   const reload = () => {
     client.invalidateQueries({ queryKey: ['subject-groups'] })
     client.invalidateQueries({ queryKey: ['users'] })
@@ -36,10 +36,10 @@ export default function GroupControl({ initialSemester, onClose, onChanged, onEd
       reload()
     } catch (error) { toast.error(apiError(error)) }
   }
-  const removeStudent = async (studentId) => {
-    if (!(await confirmAction({ title: 'Quitar alumno del grupo', text: 'El alumno quedará sin semestre y grupo asignado hasta que lo reasignes.', confirmText: 'Sí, quitar' }))) return
+  const removeStudent = async (studentId, groupId) => {
+    if (!(await confirmAction({ title: 'Quitar alumno del grupo', text: 'Su matrícula en este grupo queda inactiva (se conserva el historial). Podrás asignarlo a otro grupo.', confirmText: 'Sí, quitar' }))) return
     try {
-      await api.put(`/users/${studentId}`, { semestre: null, grupo: null })
+      await api.delete(`/subject-groups/${groupId}/students/${encodeURIComponent(studentId)}`)
       toast.success('Alumno removido del grupo')
       reload()
     } catch (error) { toast.error(apiError(error)) }
@@ -66,20 +66,24 @@ export default function GroupControl({ initialSemester, onClose, onChanged, onEd
         </div>
         {groups.isLoading || students.isLoading ? <Loading /> : !(groups.data || []).length ? <Empty title="Sin grupos" message="No hay grupos creados para este semestre." /> : (
           <div className="grid-2">
-            {groups.data.map((group) => {
-              const members = semesterStudents.filter((student) => sameGroup(student, group))
-              const available = semesterStudents.filter((student) => !sameGroup(student, group))
+            {groups.data.map((group, index) => {
+              const members = group.alumnos || []
+              const ids = new Set(members.map((student) => String(student.id)))
+              const available = allStudents.filter((student) => !ids.has(String(student.id)))
+              const heading = index === 0 || Boolean(groups.data[index - 1].periodo_vigente) !== Boolean(group.periodo_vigente)
               return (
-                <section key={group.id} className="card-app">
+                <Fragment key={group.id}>
+                {heading && <p className="group-period-heading">{group.periodo_vigente ? 'Periodo vigente' : 'Otros periodos'}</p>}
+                <section className="card-app">
                   <header className="card-head">
-                    <div><h2>{group.semestre} {group.grupo} · {group.nombre}</h2>{group.periodo && <p>{group.periodo}</p>}</div>
+                    <div><h2>{group.semestre} {group.grupo} · {group.nombre}</h2>{group.periodo && <p>{group.periodo}{group.periodo_vigente ? ' · vigente' : group.periodo_estado ? ` · ${group.periodo_estado.replace('_', ' ')}` : ''}</p>}</div>
                     <div className="card-actions"><Badge tone="info">{members.length} alumnos</Badge><IconButton icon={FiEdit2} label="Editar grupo" onClick={() => setEditing(group)} /><IconButton icon={FiTrash2} className="danger" label="Eliminar grupo" onClick={() => removeGroup(group, members.length)} /></div>
                   </header>
                   <label className="inline-add">
                     <FiUserPlus aria-hidden="true" />
                     <select className="control" value="" onChange={(event) => assign(group.id, event.target.value)} aria-label="Agregar alumno al grupo">
                       <option value="">Agregar alumno al grupo</option>
-                      {available.map((student) => <option key={student.id} value={student.id}>{student.id} - {fullName(student)} {student.grupo ? `(actual: ${student.grupo})` : '(sin grupo)'}</option>)}
+                      {available.map((student) => <option key={student.id} value={student.id}>{student.id} - {fullName(student)} {student.grupo ? `(actual: ${student.semestre || ''}° ${student.grupo})` : '(sin grupo)'}</option>)}
                     </select>
                   </label>
                   <ul className="list-app">
@@ -87,12 +91,13 @@ export default function GroupControl({ initialSemester, onClose, onChanged, onEd
                       <li key={student.id} className="list-row">
                         <div><strong>{fullName(student)}</strong><small>{student.id}</small></div>
                         <IconButton icon={FiEdit2} label="Editar alumno" onClick={() => onEditStudent(student.id)} />
-                        <IconButton icon={FiUserMinus} className="danger" label="Quitar del grupo" onClick={() => removeStudent(student.id)} />
+                        <IconButton icon={FiUserMinus} className="danger" label="Quitar del grupo" onClick={() => removeStudent(student.id, group.id)} />
                       </li>
                     ))}
                     {!members.length && <li className="muted small-text">Sin alumnos en este grupo.</li>}
                   </ul>
                 </section>
+                </Fragment>
               )
             })}
           </div>
