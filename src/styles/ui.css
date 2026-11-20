@@ -1497,3 +1497,4 @@ a.btn-app { text-decoration: none; }
 .update-actions .btn-app { width: 100%; justify-content: center; }
 @keyframes update-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes update-pop { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+.audit-details { margin: 4px 0; padding-left: 18px; font-size: .84rem; color: var(--muted); } .audit-details li { margin: 1px 0; } .audit-what strong { white-space: normal; }

@@ -195,7 +195,7 @@ function PolicyForm({ initial, onClose, onSaved }) {
 }
 
 export function AuditPage() {
-  const empty = { page: 1, per_page: 25, career_id: '', actor_id: '', method: '', status: '', date_from: '', date_to: '' }
+  const empty = { page: 1, per_page: 25, q: '', career_id: '', actor_id: '', method: '', status: '', date_from: '', date_to: '' }
   const [filters, setFilters] = useState(empty)
   const [draft, setDraft] = useState(empty)
   const careers = useQuery({ queryKey: ['institutional-careers'], queryFn: () => api.get('/admin/careers').then((response) => response.data.careers || []) })
@@ -205,6 +205,7 @@ export function AuditPage() {
     <Page eyebrow="Administración general" title="Auditoría multicarrera" subtitle="Operaciones de escritura sin exponer contraseñas ni contenido sensible.">
       <Card>
         <form className="form-grid" onSubmit={(event) => { event.preventDefault(); setFilters({ ...draft, page: 1 }) }}>
+          <Field label="Buscar" full><input className="control" type="search" maxLength={120} placeholder="Nombre, número de control, título o acción (por ejemplo: aprobó, eliminó)" value={draft.q} onChange={set('q')} /></Field>
           <Field label="Carrera"><select className="control" value={draft.career_id} onChange={set('career_id')}><option value="">Todas</option>{(careers.data || []).map((career) => <option key={career.id} value={career.id}>{career.clave} · {career.nombre_corto}</option>)}</select></Field>
           <Field label="Actor"><input className="control" placeholder="ID de usuario" value={draft.actor_id} onChange={set('actor_id')} /></Field>
           <Field label="Método"><select className="control" value={draft.method} onChange={set('method')}><option value="">Todos</option>{['POST', 'PUT', 'PATCH', 'DELETE'].map((method) => <option key={method}>{method}</option>)}</select></Field>
@@ -216,11 +217,15 @@ export function AuditPage() {
       </Card>
       <Card flush>
         {query.isLoading ? <div className="card-pad"><Loading /></div> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
-          <Rows headers={['Operación', 'Fecha', 'Carrera', 'Actor', 'Resultado', 'IP y dispositivo']} rows={(query.data?.data || []).map((item) => [
-            <span className="cell-main" key="o"><strong>{item.metodo}</strong><code className="break">{item.ruta}</code></span>,
+          <Rows headers={['Qué hizo', 'Fecha', 'Carrera', 'Quién', 'Resultado', 'IP y dispositivo']} rows={(query.data?.data || []).map((item) => [
+            <span className="cell-main audit-what" key="o">
+              <strong>{item.descripcion || item.ruta}</strong>
+              {item.detalles?.length > 0 && <ul className="audit-details">{item.detalles.map((detail, index) => <li key={index}>{detail}</li>)}</ul>}
+              <small><code className="break">{item.metodo} {item.ruta}</code></small>
+            </span>,
             formatDateTime(item.creado_en), item.carrera_clave || 'Institucional',
             <span className="cell-main" key="a"><strong>{actor(item, item.actor_id || 'Sistema')}</strong><small>{item.actor_id}</small></span>,
-            <Badge key="r" tone={Number(item.estado_http) < 400 ? 'success' : 'danger'}>{item.estado_http}</Badge>,
+            <Badge key="r" tone={Number(item.estado_http) < 400 ? 'success' : 'danger'}>{Number(item.estado_http) < 400 ? 'Hecho' : `No se completó · ${item.estado_http}`}</Badge>,
             <span className="cell-main" key="ip"><strong>{item.direccion_ip || '—'}</strong><small>{item.dispositivo || ''}</small></span>,
           ])} />
         )}
