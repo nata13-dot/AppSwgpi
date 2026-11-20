@@ -7,10 +7,8 @@ import { API_URL } from './api'
  */
 export const AppUpdater = registerPlugin('AppUpdater')
 export const UPDATE_EVENT = 'sgpi:check-update'
-const CHECKED_KEY = 'sgpi-update-checked'
 const DISMISSED_KEY = 'sgpi-update-dismissed'
-// Se revisa al abrir la app o volver a ella, como máximo cada 15 minutos; «Más tarde» la vuelve a ofrecer al día siguiente.
-const CHECK_EVERY_MS = 15 * 60 * 1000
+// Se revisa cada vez que la app se abre desde cero (no al volver de segundo plano); «Más tarde» la vuelve a ofrecer al día siguiente.
 const REMIND_AFTER_MS = 24 * 60 * 60 * 1000
 
 export const updatesSupported = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android'
@@ -23,18 +21,15 @@ export async function installedVersion() {
 }
 
 /**
- * Consulta la última versión. `force` ignora el intervalo y lo que el usuario pospuso.
+ * Consulta la última versión. `force` (búsqueda manual) ignora lo que el usuario pospuso.
  * Devuelve { installed, release } con release = null si no hay nada nuevo que ofrecer.
  */
 export async function checkForUpdate({ force = false } = {}) {
   if (!updatesSupported()) return { installed: null, release: null }
   const installed = await installedVersion()
-  const last = Number(read(CHECKED_KEY) || 0)
-  if (!force && Date.now() - last < CHECK_EVERY_MS) return { installed, release: null }
   const response = await fetch(`${API_URL}/app/latest?current=${encodeURIComponent(installed.versionCode)}`, { headers: { Accept: 'application/json' } })
   if (!response.ok) throw new Error('No fue posible consultar las actualizaciones.')
   const release = (await response.json()).data
-  write(CHECKED_KEY, String(Date.now()))
   if (!release || release.version_code <= Number(installed.versionCode)) return { installed, release: null }
   // Lo pospuesto espera su recordatorio, salvo que sea obligatorio o lo pida el usuario.
   if (!force && !release.obligatoria && snoozed(release)) return { installed, release: null }

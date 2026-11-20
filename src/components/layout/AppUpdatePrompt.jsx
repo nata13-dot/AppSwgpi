@@ -9,7 +9,8 @@ import { AppUpdater, UPDATE_EVENT, checkForUpdate, postpone, updatesSupported } 
 const size = (bytes) => (bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : '')
 
 /**
- * Ofrece la versión nueva de la app al abrirla o al volver a ella (cada 6 h), o cuando se pide desde Mi perfil.
+ * Ofrece la versión nueva de la app cada vez que se abre desde cero (no al volver de segundo plano), o cuando se
+ * pide desde Mi perfil.
  * Si la versión es obligatoria no se puede cerrar el aviso.
  */
 export default function AppUpdatePrompt() {
@@ -51,13 +52,12 @@ export default function AppUpdatePrompt() {
     const progress = AppUpdater.addListener('progress', ({ percent: value }) => setPercent(value))
     const resume = CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
       if (!isActive) return
-      // Al volver de los ajustes de Android, se continúa si ya se permitió instalar.
-      if (waitingPermission.current) {
-        waitingPermission.current = false
-        const info = await AppUpdater.info().catch(() => null)
-        if (info?.canInstall) { install(); return }
-      }
-      check(false)
+      // Volver de segundo plano no vuelve a buscar (sólo al abrir la app desde cero); únicamente se continúa
+      // la instalación si el usuario regresa de dar el permiso en los ajustes de Android.
+      if (!waitingPermission.current) return
+      waitingPermission.current = false
+      const info = await AppUpdater.info().catch(() => null)
+      if (info?.canInstall) install()
     })
     const manual = () => check(true)
     window.addEventListener(UPDATE_EVENT, manual)
