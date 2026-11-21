@@ -62,6 +62,15 @@ export function useAuth() {
     return data.user
   }, [auth.remember, dispatch])
 
+  /** El administrador general sale de la carrera: vuelve a lo institucional y ya no puede modificarla. */
+  const leaveCareer = useCallback(async () => {
+    const { data } = await api.post('/auth/leave-career', {}, {
+      headers: { 'X-SGPI-Remember': auth.remember ? '1' : '0' },
+    })
+    dispatch(setCredentials({ token: data.access_token, user: data.user, remember: data.remember ?? auth.remember }))
+    return data.user
+  }, [auth.remember, dispatch])
+
   /** Abre (o cambia) una simulación de sólo lectura con los permisos de otro nivel, en la carrera activa. */
   const startLevelView = useCallback(async (profileId, careerId = auth.user?.active_career?.id) => {
     const origin = readOrigin()
@@ -105,6 +114,6 @@ export function useAuth() {
     ...auth,
     isAuthenticated: Boolean(auth.token),
     profileId: activeProfileId(auth.user),
-    login, logout, keepSession, refreshUser, switchCareer, startLevelView, exitLevelView, markPasswordChanged,
+    login, logout, keepSession, refreshUser, switchCareer, leaveCareer, startLevelView, exitLevelView, markPasswordChanged,
   }
 }

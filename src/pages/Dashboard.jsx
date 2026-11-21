@@ -30,9 +30,10 @@ const CAREER_FEATURES = {
 
 function Hero({ user, title, subtitle }) {
   const career = user?.active_career || {}
-  const cover = career.portada_ruta ? publicAssetUrl(career.portada_ruta) : null
+  // La portada propia de la carrera o, si no tiene, la foto del instituto; el tono lo da el color de la carrera.
+  const cover = career.portada_ruta ? publicAssetUrl(career.portada_ruta) : '/images/campus.webp'
   return (
-    <section className="hero-app" style={cover ? { backgroundImage: `url(${cover})` } : undefined}>
+    <section className="hero-app" style={{ backgroundImage: `url(${cover})`, '--hero-tint': career.color_primario || '#1B396A', '--hero-tint-2': career.color_secundario || '#2D5A96' }}>
       <h1>{title}</h1>
       <p><strong>Bienvenido, {user?.nombres}</strong>{subtitle && ` · ${subtitle}`}</p>
       {career.nombre && <p>{career.nombre}{career.lema && ` — ${career.lema}`}</p>}

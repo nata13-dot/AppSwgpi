@@ -4,14 +4,14 @@ import { App as CapacitorApp } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  FiArrowRight, FiBell, FiCheck, FiChevronDown, FiChevronsLeft, FiEye, FiGrid, FiLayers, FiLogOut, FiMenu, FiMoon,
+  FiArrowRight, FiBell, FiCheck, FiChevronDown, FiChevronsLeft, FiEye, FiGrid, FiLayers, FiLogIn, FiLogOut, FiMenu, FiMoon,
   FiSearch, FiShield, FiSun, FiUser, FiX,
 } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError, setClientVersion } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { bottomNavPaths, filterMenu, flattenMenu, menuForUser, SHORT_LABELS } from '../../lib/navigation'
-import { homePath, isGeneralAdmin, isManagementStaff, profileLabel, roleLabel, SIMULABLE_PROFILES, viewAs, activeProfileId, isAdmin } from '../../lib/permissions'
+import { generalAdminOutside, homePath, isGeneralAdmin, isManagementStaff, profileLabel, roleLabel, SIMULABLE_PROFILES, viewAs, activeProfileId, isAdmin } from '../../lib/permissions'
 import { markNoticesRead, noticeKey, noticePublished, noticesForUser, noticeValidity, readNoticeKeys } from '../../lib/notices'
 import { accountAppearance, setAppearance } from '../../lib/theme'
 import { fullName, matchesSearch, publicAssetUrl } from '../../utils/formatters'
@@ -32,7 +32,7 @@ export default function AppLayout() {
   useEffect(() => {
     if (Capacitor.isNativePlatform()) CapacitorApp.getInfo().then((info) => { setAppVersion(info.version); setClientVersion(info.version) }).catch(() => {})
   }, [])
-  const { user, logout, switchCareer, startLevelView, exitLevelView } = useAuth()
+  const { user, logout, switchCareer, leaveCareer, startLevelView, exitLevelView } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const client = useQueryClient()
@@ -42,6 +42,8 @@ export default function AppLayout() {
   const [dark, setDark] = useState(() => document.documentElement.dataset.theme === 'dark')
   const simulation = viewAs(user)
   const generalAdmin = isGeneralAdmin(user)
+  const outside = generalAdminOutside(user)
+  const entered = generalAdmin && !simulation && !outside
 
   const modules = useQuery({
     queryKey: ['career-modules', user?.active_career?.id, activeProfileId(user)],
@@ -65,7 +67,7 @@ export default function AppLayout() {
 
   const careers = user?.careers || []
   const canSwitchCareer = !simulation && (generalAdmin || careers.length > 1)
-  const canSimulate = generalAdmin || Boolean(simulation)
+  const canSimulate = (generalAdmin && !outside) || Boolean(simulation)
 
   useEffect(() => { localStorage.setItem('sgpi-sidebar-collapsed', collapsed ? '1' : '0') }, [collapsed])
   useEffect(() => {
@@ -98,8 +100,16 @@ export default function AppLayout() {
     try { await action() } catch (error) { toast.error(error.message && !error.response ? error.message : apiError(error)) } finally { setBusy(false) }
   }
   const changeCareer = (careerId) => run(async () => {
-    if (Number(careerId) === Number(user?.active_career?.id)) return setSheet(null)
-    reloadSession(await switchCareer(careerId))
+    // Fuera de una carrera, elegir la activa también es entrar (pide un token nuevo).
+    if (!outside && Number(careerId) === Number(user?.active_career?.id)) return setSheet(null)
+    const nextUser = await switchCareer(careerId)
+    setSheet(null)
+    client.clear()
+    navigate(generalAdmin ? '/dashboard' : homePath(nextUser), { replace: true })
+  })
+  const exitCareer = () => run(async () => {
+    reloadSession(await leaveCareer())
+    toast.info('Saliste de la carrera. Para modificarla, vuelve a entrar.')
   })
   const changeLevel = (profileId) => run(async () => {
     reloadSession(await startLevelView(profileId))
@@ -120,13 +130,13 @@ export default function AppLayout() {
   }
 
   return (
-    <div className={`shell ${collapsed ? 'collapsed' : ''} ${simulation ? 'simulating' : ''}`} style={{ '--career-color': careerColor(user?.active_career) }}>
+    <div className={`shell ${collapsed ? 'collapsed' : ''} ${simulation ? 'simulating' : ''}`} style={{ '--career-color': outside ? '#1B396A' : careerColor(user?.active_career) }}>
       <LiveSync enabled={Boolean(user)} />
       {settings.data?.global_notice && <div className="global-notice" role="status">{settings.data.global_notice}</div>}
       <aside className="sidebar-app" aria-label="Menú principal">
         <NavLink to={homePath(user)} className="sidebar-brand">
           <img src="/images/itssmt.webp" alt="ITSSMT" />
-          <span><strong>Gestión de Proyectos</strong><strong>{user?.active_career?.nombre_corto || 'Integradores ITSSMT'}</strong><small>{user?.active_career?.clave || 'Sistema institucional'}</small></span>
+          <span><strong>Gestión de Proyectos</strong><strong>{outside ? 'Administración general' : (user?.active_career?.nombre_corto || 'Integradores ITSSMT')}</strong><small>{outside ? 'Todas las carreras' : (user?.active_career?.clave || 'Sistema institucional')}</small></span>
         </NavLink>
         <div className="sidebar-profile"><Avatar user={user} /><span><strong>{user?.nombres}</strong><small>{roleLabel(user)}</small></span></div>
         <MenuList menu={menu} pathname={location.pathname} collapsed={collapsed} badges={badges.data} />
@@ -139,10 +149,10 @@ export default function AppLayout() {
       <div className="workspace">
         <header className="topbar-app">
           <NavLink to={homePath(user)} className="topbar-logo" aria-label="Inicio"><img src="/images/itssmt.webp" alt="" /></NavLink>
-          <div className="topbar-title"><strong>{user?.active_career?.nombre_corto || 'SGPI'}</strong><small>{roleLabel(user)}</small></div>
+          <div className="topbar-title"><strong>{outside ? 'Administración general' : (user?.active_career?.nombre_corto || 'SGPI')}</strong><small>{roleLabel(user)}</small></div>
           <button type="button" className="topbar-search" onClick={() => setSheet('search')}><FiSearch /><span>Buscar pantallas y registros...</span><kbd>Ctrl K</kbd></button>
           <div className="topbar-actions">
-            {canSwitchCareer && <button type="button" className="topbar-chip" onClick={() => setSheet('career')} disabled={busy}><i style={{ background: careerColor(user?.active_career) }} /><span>{user?.active_career?.nombre_corto || 'Carrera'}</span><FiChevronDown /></button>}
+            {canSwitchCareer && <button type="button" className="topbar-chip" onClick={() => setSheet('career')} disabled={busy}><i style={{ background: careerColor(user?.active_career) }} /><span>{outside ? 'Entrar a una carrera' : (user?.active_career?.nombre_corto || 'Carrera')}</span><FiChevronDown /></button>}
             {canSimulate && <button type="button" className={`topbar-chip level ${simulation ? 'active' : ''}`} onClick={() => setSheet('level')} disabled={busy}><FiLayers /><span>{simulation ? roleLabel(user) : 'Administrador general'}</span><FiChevronDown /></button>}
             <IconButton icon={FiSearch} label="Buscar" className="mobile-only" onClick={() => setSheet('search')} />
             <button type="button" className="icon-btn badge-host" aria-label={`Notificaciones${unread ? `, ${unread} nuevas` : ''}`} onClick={openNotifications}><FiBell />{unread > 0 && <b>{unread > 9 ? '9+' : unread}</b>}</button>
@@ -154,6 +164,13 @@ export default function AppLayout() {
             <FiEye aria-hidden="true" />
             <span>Viendo <strong>{user?.active_career?.nombre_corto}</strong> como <strong>{roleLabel(user)}</strong>. Simulación de sólo lectura con tu cuenta: los cambios están bloqueados y no se muestran datos personales de nadie.</span>
             <Button variant="dark" size="sm" onClick={leaveLevel} loading={busy}>Volver a administrador general</Button>
+          </div>
+        )}
+        {entered && (
+          <div className="career-entered-banner" role="status" style={{ '--banner-color': careerColor(user?.active_career) }}>
+            <FiLogIn aria-hidden="true" />
+            <span>Administrando <strong>{user?.active_career?.clave}</strong> · {user?.active_career?.nombre_corto}. Los cambios quedan en la auditoría como administración general.</span>
+            <Button variant="dark" size="sm" icon={FiLogOut} onClick={exitCareer} loading={busy}>Salir de la carrera</Button>
           </div>
         )}
         <main className="content-app" id="main"><Outlet /></main>
@@ -168,7 +185,7 @@ export default function AppLayout() {
 
       <Sheet open={sheet === 'more'} title={fullName(user)} subtitle={`${roleLabel(user)}${user?.active_career ? ` · ${user.active_career.nombre_corto}` : ''}`} onClose={() => setSheet(null)} size="menu">
         <div className="more-quick">
-          {canSwitchCareer && <button type="button" onClick={() => setSheet('career')}><FiGrid /><span>Carrera</span><small>{user?.active_career?.nombre_corto}</small></button>}
+          {canSwitchCareer && <button type="button" onClick={() => setSheet('career')}><FiGrid /><span>Carrera</span><small>{outside ? 'Entrar' : user?.active_career?.nombre_corto}</small></button>}
           {canSimulate && <button type="button" onClick={() => setSheet('level')}><FiLayers /><span>Nivel</span><small>{simulation ? roleLabel(user) : 'Admin. general'}</small></button>}
           <button type="button" onClick={flipTheme}>{dark ? <FiSun /> : <FiMoon />}<span>{dark ? 'Modo claro' : 'Modo oscuro'}</span></button>
           <button type="button" onClick={() => navigate('/profile')}><FiUser /><span>Mi perfil</span></button>
@@ -177,10 +194,10 @@ export default function AppLayout() {
         <Button variant="ghost-danger" icon={FiLogOut} className="w-100 mt-3" onClick={signout}>Cerrar sesión</Button>
       </Sheet>
 
-      <Sheet open={sheet === 'career'} title="Administrar como" subtitle="Elige la carrera con la que quieres trabajar." onClose={() => setSheet(null)} size="sm">
+      <Sheet open={sheet === 'career'} title={generalAdmin ? 'Entrar a una carrera' : 'Administrar como'} subtitle={generalAdmin ? 'Dentro de la carrera actúas como su jefatura; todo queda en la auditoría.' : 'Elige la carrera con la que quieres trabajar.'} onClose={() => setSheet(null)} size="sm">
         <div className="option-list">
           {careers.map((career) => {
-            const active = Number(career.id) === Number(user?.active_career?.id)
+            const active = !outside && Number(career.id) === Number(user?.active_career?.id)
             return (
               <button type="button" key={career.id} className={active ? 'active' : ''} disabled={busy} onClick={() => changeCareer(career.id)}>
                 <i className="dot" style={{ background: careerColor(career) }} />
@@ -190,6 +207,7 @@ export default function AppLayout() {
             )
           })}
         </div>
+        {entered && <Button variant="ghost" icon={FiLogOut} className="w-100 mt-2" onClick={exitCareer} loading={busy}>Salir de la carrera</Button>}
         {generalAdmin && <Button variant="ghost" className="w-100 mt-2" onClick={() => navigate('/careers')}>Gestionar carreras</Button>}
       </Sheet>
 

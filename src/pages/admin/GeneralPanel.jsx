@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { FiActivity, FiCalendar, FiDatabase, FiLayers, FiLogIn, FiMail, FiShield, FiCheckSquare, FiGrid } from 'react-icons/fi'
 import { toast } from 'react-toastify'
@@ -13,6 +13,7 @@ const PERIOD_STATES = { abierto: ['success', 'Abierto'], en_cierre: ['warning', 
 /** Panel institucional del administrador general (Frontend_Swgpi/pages/admin/general.php). */
 export default function GeneralPanel() {
   const navigate = useNavigate()
+  const needsCareer = Boolean(useLocation().state?.needsCareer)
   const client = useQueryClient()
   const { switchCareer, startLevelView } = useAuth()
   const [viewAsCareer, setViewAsCareer] = useState(null)
@@ -70,7 +71,8 @@ export default function GeneralPanel() {
       <section className="kpi-grid" aria-label="Indicadores institucionales">
         {kpis.map(([label, value, warn]) => <div key={label} className={`kpi ${warn ? 'warn' : ''}`}><strong>{careers.isLoading ? '–' : value}</strong><span>{label}</span></div>)}
       </section>
-      <Card title="Carreras" subtitle={'"Administrar" entra a la carrera con tu perfil de administrador general.'}>
+      {needsCareer && <div className="alert-app info mb-3">Esa pantalla pertenece a una carrera. Entra primero a la carrera que quieres modificar.</div>}
+      <Card title="Carreras" subtitle="Para modificar algo de una carrera, «Entrar»: actúas como su jefatura y todo queda en la auditoría. «Salir de la carrera» te devuelve aquí.">
         {careers.isLoading ? <Loading /> : careers.isError ? <ErrorState error={careers.error} onRetry={careers.refetch} /> : (
           <div className="grid-4">
             {list.map((career) => {
@@ -85,7 +87,7 @@ export default function GeneralPanel() {
                   <div><div className="row-wrap"><small>Preparación</small><span className="spacer" /><small>{readiness}%</small></div><Progress value={readiness} label="Preparación" /></div>
                   <Switch checked={career.basic_semesters_enabled} disabled={busy === `basic-${career.id}`} onChange={(value) => toggleBasic(career, value)} label="Registrar 1° a 4°" hint="Casos integradores" />
                   <footer>
-                    <Button size="sm" icon={FiLogIn} loading={busy === `career-${career.id}`} onClick={() => administer(career.id)}>Administrar</Button>
+                    <Button size="sm" icon={FiLogIn} loading={busy === `career-${career.id}`} onClick={() => administer(career.id)}>Entrar</Button>
                     <Button size="sm" variant="ghost" icon={FiLayers} aria-label="Simular un nivel en esta carrera" onClick={() => setViewAsCareer(career.id)} />
                   </footer>
                 </article>

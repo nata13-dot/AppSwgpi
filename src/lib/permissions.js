@@ -29,6 +29,8 @@ export const mustChangePassword = (user) => Boolean(user?.must_change_password) 
 
 // El perfil base 4 identifica al administrador general; durante una simulación la API devuelve el simulado.
 export const isGeneralAdmin = (user) => Number(user?.perfil_id) === 4
+/** Administrador general fuera de toda carrera: sólo lo institucional; para modificar una carrera debe entrar a ella. */
+export const generalAdminOutside = (user) => isGeneralAdmin(user) && !viewAs(user) && !user?.career_entered
 export const isTeacher = (user) => activeProfileId(user) === 2
 export const isStudent = (user) => activeProfileId(user) === 3
 export const isCareerHead = (user) => activeProfileId(user) === 5

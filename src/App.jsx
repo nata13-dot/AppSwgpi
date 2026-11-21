@@ -4,7 +4,7 @@ import AppLayout from './components/layout/AppLayout'
 import { GuestRoute, ProtectedRoute, Require } from './components/auth/RouteGuards'
 import { Loading } from './components/ui'
 import { useAuth } from './hooks/useAuth'
-import { canManageAcademics, canViewUsers, homePath, isAdmin, mustChangePassword, isGeneralAdmin, isManagementStaff, isTeacher } from './lib/permissions'
+import { canManageAcademics, canViewUsers, generalAdminOutside, homePath, isAdmin, mustChangePassword, isGeneralAdmin, isManagementStaff, isTeacher } from './lib/permissions'
 
 const Login = lazy(() => import('./pages/auth/Login'))
 const PasswordRecovery = lazy(() => import('./pages/auth/PasswordRecovery'))
@@ -88,6 +88,16 @@ const routes = [
   ['/profile', Profile],
 ]
 
+/** Pantallas que el administrador general abre sin entrar a una carrera (igual que en includes/config.php). */
+const INSTITUTIONAL = new Set(['/general', '/careers', '/operations', '/audit', '/integrity', '/backups', '/sent-emails', '/profile'])
+
+/** Fuera de una carrera, las pantallas de carrera mandan al panel institucional para entrar primero. */
+function CareerScoped({ children }) {
+  const { user } = useAuth()
+  if (generalAdminOutside(user)) return <Navigate to="/general" replace state={{ needsCareer: true }} />
+  return children
+}
+
 /** El repositorio es público: con sesión se muestra dentro del sistema y sin ella en una página abierta. */
 function PublicOrApp() {
   const { isAuthenticated, user } = useAuth()
@@ -123,7 +133,10 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
             {routes.map(([path, Component, allow]) => (
-              <Route key={path} path={path} element={allow ? <Require allow={allow}><Component /></Require> : <Component />} />
+              <Route key={path} path={path} element={(() => {
+                const page = allow ? <Require allow={allow}><Component /></Require> : <Component />
+                return INSTITUTIONAL.has(path) ? page : <CareerScoped>{page}</CareerScoped>
+              })()} />
             ))}
           </Route>
         </Route>

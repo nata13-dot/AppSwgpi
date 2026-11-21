@@ -4,7 +4,7 @@ import {
   FiUserCheck, FiUsers, FiVolume2, FiBriefcase, FiEdit3, FiMail, FiMonitor, FiFlag, FiTrendingUp, FiBook,
 } from 'react-icons/fi'
 import {
-  canManageAcademics, canViewUsers, isAdmin, isGeneralAdmin, isManagementStaff, isStudent, isTeacher,
+  canManageAcademics, canViewUsers, generalAdminOutside, isAdmin, isGeneralAdmin, isManagementStaff, isStudent, isTeacher,
 } from './permissions'
 
 /*
@@ -29,9 +29,13 @@ function managementMenu(user) {
         item('Respaldos', '/backups', FiDatabase, null, ['base de datos', 'backup']),
         item('Correos enviados', '/sent-emails', FiMail, null, ['correo', 'destinatarios', 'email']),
       ] },
-      { section: `Carrera: ${career}` },
-      item('Inicio de la carrera', '/dashboard', FiHome),
     )
+    // Fuera de una carrera no hay gestiones: se entra a una desde el panel o el selector de carrera.
+    if (generalAdminOutside(user)) {
+      menu.push(item('Mi perfil', '/profile', FiUser, null, ['cuenta', 'foto', 'contraseña']))
+      return menu
+    }
+    menu.push({ section: `Dentro de: ${career}` }, item('Inicio de la carrera', '/dashboard', FiHome))
   } else {
     menu.push({ section: 'Administración' }, item('Inicio', '/dashboard', FiHome))
   }
@@ -127,6 +131,7 @@ export const flattenMenu = (menu) => menu.flatMap((entry) => (entry.group ? entr
 
 /** Accesos de la barra inferior en el teléfono (el quinto botón, "Más", abre el menú completo). */
 export function bottomNavPaths(user) {
+  if (generalAdminOutside(user)) return ['/general', '/careers', '/operations', '/audit']
   if (isGeneralAdmin(user)) return ['/general', '/dashboard', '/projects', '/evaluations']
   if (isManagementStaff(user)) return ['/dashboard', '/projects', '/evaluations', '/evaluation-documents']
   if (isTeacher(user)) return ['/dashboard', '/projects', '/evaluations', '/deliverables']
@@ -134,6 +139,6 @@ export function bottomNavPaths(user) {
 }
 
 export const SHORT_LABELS = {
-  '/general': 'Panel', '/dashboard': 'Inicio', '/projects': 'Proyectos', '/evaluations': 'Evaluar',
+  '/general': 'Panel', '/careers': 'Carreras', '/operations': 'Operación', '/audit': 'Auditoría', '/dashboard': 'Inicio', '/projects': 'Proyectos', '/evaluations': 'Evaluar',
   '/evaluation-documents': 'Evidencias', '/deliverables': 'Entregas', '/proposals': 'Propuesta',
 }

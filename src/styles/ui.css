@@ -62,6 +62,11 @@ button { font: inherit; color: inherit; }
 .view-as-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px; background: #ffe08a; color: #3d2f00; font-size: .85rem; }
 .view-as-banner svg { flex-shrink: 0; }
 .view-as-banner span { flex: 1 1 240px; }
+/* El administrador general dentro de una carrera: aviso con el color de esa carrera y botón para salir. */
+.career-entered-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 16px; color: #fff; font-size: .85rem; background: color-mix(in srgb, var(--banner-color, #1B396A) 88%, #000); }
+.career-entered-banner svg { flex-shrink: 0; }
+.career-entered-banner span { flex: 1 1 240px; }
+.career-entered-banner .btn-app { background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .35); }
 
 .bottom-nav { position: fixed; z-index: 45; left: 0; right: 0; bottom: 0; height: calc(var(--bottom-h) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); display: grid; grid-template-columns: repeat(5, 1fr); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -4px 18px rgba(16, 30, 54, .07); }
 .bottom-nav a, .bottom-nav button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--muted); text-decoration: none; font-size: .7rem; font-weight: 600; cursor: pointer; position: relative; }
@@ -1513,3 +1518,21 @@ a.btn-app { text-decoration: none; }
 .thesis-console .tc-reg-text { margin: 2px 0 10px; white-space: pre-line; }
 .thesis-console .tc-pick-scroll { max-height: 180px; overflow-y: auto; }
 .thesis-console [hidden] { display: none !important; }
+
+/* Portada del panel con el tono de la carrera (Dashboard.jsx). */
+.hero-app::after { background: linear-gradient(115deg, color-mix(in srgb, var(--hero-tint, #102744) 90%, transparent), color-mix(in srgb, var(--hero-tint-2, #102744) 55%, transparent)); }
+
+/* Carreras y accesos: vista previa de la identidad, imágenes y carreras inactivas. */
+.career-picker button.inactive { filter: grayscale(.75); opacity: .75; }
+.career-preview-app { min-height: 150px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.career-preview-app h2 { color: #fff; font-size: 1.2rem; margin: 4px 0 0; }
+.career-preview-app .career-preview-motto { font-style: italic; font-size: .82rem; }
+.career-preview-code { padding: 2px 9px; border-radius: 10px; font-size: .72rem; font-weight: 800; background: color-mix(in srgb, var(--hero-accent, #00A6D6) 80%, transparent); }
+.career-preview-chip { margin-top: 8px; padding: 3px 11px; border-radius: 999px; font-size: .74rem; font-weight: 700; background: var(--hero-accent, #00A6D6); }
+.career-preview-logo { width: 42px; height: 42px; object-fit: contain; border-radius: 8px; background: rgba(255, 255, 255, .9); padding: 3px; margin-bottom: 4px; }
+.career-images { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.career-image-row { display: flex; align-items: center; gap: 10px; }
+.career-image-thumb { flex: 0 0 120px; height: 64px; display: grid; place-items: center; overflow: hidden; border: 1px dashed var(--line); border-radius: 10px; background: var(--surface-2, rgba(0, 0, 0, .03)); }
+.career-image-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.career-image-thumb.logo img { object-fit: contain; padding: 4px; }
+.career-image-row label.btn-app { cursor: pointer; }

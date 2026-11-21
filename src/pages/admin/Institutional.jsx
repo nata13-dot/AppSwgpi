@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiActivity, FiAlertTriangle, FiCheckCircle, FiDatabase, FiDownload, FiEdit3, FiFileText, FiMail, FiPlus, FiPower, FiRefreshCw, FiSave, FiSearch, FiShield, FiTrash2 } from 'react-icons/fi'
+import { FiActivity, FiAlertTriangle, FiCheckCircle, FiDatabase, FiDownload, FiEdit3, FiFileText, FiImage, FiLogIn, FiMail, FiPlus, FiPower, FiRefreshCw, FiSave, FiSearch, FiShield, FiTrash2, FiUpload } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError, unwrapCollection } from '../../services/api'
 import { profileLabel, SIMULABLE_PROFILES } from '../../lib/permissions'
 import { downloadApiFile } from '../../utils/downloads'
-import { formatDateTime } from '../../utils/formatters'
+import { formatDateTime, publicAssetUrl } from '../../utils/formatters'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
 import { Badge, Button, Card, confirmAction, DataTable, Empty, ErrorState, Field, IconButton, Loading, Page, Pager, Progress, promptText, SearchInput, Sheet, Stat, Switch } from '../../components/ui'
 
 /*
@@ -34,23 +36,34 @@ export function CareersPage() {
   const client = useQueryClient()
   const query = useQuery({ queryKey: ['institutional-careers'], queryFn: () => api.get('/admin/careers').then((response) => response.data.careers || []) })
   const [selectedId, setSelectedId] = useState(null)
+  const [creating, setCreating] = useState(false)
+  const { refreshUser, switchCareer } = useAuth()
+  const navigate = useNavigate()
   const careers = query.data || []
   const selected = careers.find((item) => item.id === (selectedId || careers[0]?.id))
-  const reload = () => { client.invalidateQueries({ queryKey: ['institutional-careers'] }); client.invalidateQueries({ queryKey: ['admin-careers'] }) }
+  // También se relee la sesión: la lista de carreras para entrar y sus colores salen de ahí.
+  const reload = () => { client.invalidateQueries({ queryKey: ['institutional-careers'] }); client.invalidateQueries({ queryKey: ['admin-careers'] }); refreshUser().catch(() => {}) }
+  const enter = async (careerId) => {
+    try { await switchCareer(careerId); client.clear(); navigate('/dashboard', { replace: true }) } catch (error) { toast.error(apiError(error)) }
+  }
   return (
     <Page eyebrow="Administración general" title="Carreras y accesos" subtitle="Identidad, preparación y personas autorizadas de cada carrera."
-      actions={<Button variant="ghost" icon={FiDownload} onClick={() => fileDownload('/admin/careers/export', `resumen_carreras_${today()}.csv`)}>Exportar resumen</Button>}>
+      actions={<>
+        <Button icon={FiPlus} onClick={() => setCreating(true)}>Nueva carrera</Button>
+        <Button variant="ghost" icon={FiDownload} onClick={() => fileDownload('/admin/careers/export', `resumen_carreras_${today()}.csv`)}>Exportar resumen</Button>
+      </>}>
+      <NewCareer open={creating} onClose={() => setCreating(false)} onCreated={(career) => { setCreating(false); setSelectedId(career?.id ?? null); reload() }} />
       {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
         <>
           <div className="career-picker">
             {careers.map((career) => (
-              <button type="button" key={career.id} className={selected?.id === career.id ? 'active' : ''} style={{ '--c1': career.color_primario || '#1B396A', '--c2': career.color_secundario || '#2D5A96' }} onClick={() => setSelectedId(career.id)}>
-                <span>{career.clave}</span><strong>{career.nombre_corto}</strong><small>{career.members_count} integrantes · {career.readiness?.percentage || 0}% preparada</small>
+              <button type="button" key={career.id} className={`${selected?.id === career.id ? 'active' : ''} ${career.activa ? '' : 'inactive'}`} style={{ '--c1': career.color_primario || '#1B396A', '--c2': career.color_secundario || '#2D5A96' }} onClick={() => setSelectedId(career.id)}>
+                <span>{career.clave}{career.activa ? '' : ' · Inactiva'}</span><strong>{career.nombre_corto}</strong><small>{career.members_count} integrantes · {career.readiness?.percentage || 0}% preparada</small>
               </button>
             ))}
           </div>
           <Card title="Puesta en marcha" flush>
-            <Rows headers={['Carrera', 'Personas', 'Académico', 'Operación', 'Preparación']} rows={careers.map((career) => {
+            <Rows headers={['Carrera', 'Personas', 'Académico', 'Operación', 'Preparación', 'Acceso']} rows={careers.map((career) => {
               const roles = career.role_counts || {}
               const readiness = career.readiness || {}
               const missing = Object.entries(readiness.checklist || {}).filter(([, done]) => !done).map(([key]) => READINESS[key] || key)
@@ -60,6 +73,7 @@ export function CareersPage() {
                 `${career.subjects_count} asignaturas · ${career.groups_count} grupos`,
                 `${career.projects_count} proyectos · ${career.evaluations_count} evaluaciones · ${career.documents_count} documentos`,
                 <span className="readiness" key="r"><span className="row-wrap"><strong>{readiness.percentage || 0}%</strong><small className="muted">{readiness.completed || 0}/{readiness.total || 7}</small></span><Progress value={readiness.percentage} tone={readiness.percentage >= 100 ? 'success' : 'primary'} /><small className="muted">{missing.length ? `Falta: ${missing.join(', ')}` : 'Lista para operar'}</small></span>,
+                career.activa ? <Button key="e" size="sm" variant="ghost" icon={FiLogIn} onClick={() => enter(career.id)}>Entrar</Button> : <Badge key="e" tone="neutral">Inactiva</Badge>,
               ]
             })} />
           </Card>
@@ -70,19 +84,99 @@ export function CareersPage() {
   )
 }
 
+const COLORS = [['color_primario', 'Principal'], ['color_secundario', 'Secundario'], ['color_acento', 'Acento']]
+
+/** Vista previa en vivo: portada propia o la del instituto con el tono de la carrera, como en los tableros. */
+function CareerPreview({ form, career }) {
+  const cover = career?.portada_ruta ? publicAssetUrl(career.portada_ruta) : '/images/campus.webp'
+  const logo = career?.logo_ruta ? publicAssetUrl(career.logo_ruta) : null
+  return (
+    <section className="hero-app career-preview-app" style={{ backgroundImage: `url(${cover})`, '--hero-tint': form.color_primario, '--hero-tint-2': form.color_secundario, '--hero-accent': form.color_acento || form.color_primario }} aria-label="Vista previa">
+      {logo && <img className="career-preview-logo" src={logo} alt="" />}
+      <span className="career-preview-code">{(form.clave ?? career?.clave ?? '').toUpperCase() || 'CLAVE'}</span>
+      <h2>{form.nombre_corto || 'Nombre corto'}</h2>
+      <p>{form.nombre || 'Nombre de la carrera'}</p>
+      {form.lema && <p className="career-preview-motto">{form.lema}</p>}
+      <span className="career-preview-chip">Botón de muestra</span>
+    </section>
+  )
+}
+
+const BLANK = { clave: '', nombre: '', nombre_corto: '', color_primario: '#1B396A', color_secundario: '#2D5A96', color_acento: '#00A6D6', lema: '', jefe_id: '', asistente_id: '', activa: true }
+
+function NewCareer({ open, onClose, onCreated }) {
+  const [form, setForm] = useState(BLANK)
+  const set = (key) => (event) => setForm({ ...form, [key]: event.target.value })
+  const create = useMutation({
+    mutationFn: () => api.post('/admin/careers', { ...form, clave: form.clave.trim().toUpperCase(), nombre: form.nombre.trim(), nombre_corto: form.nombre_corto.trim(), lema: form.lema.trim() || null, jefe_id: form.jefe_id.trim() || null, asistente_id: form.asistente_id.trim() || null }),
+    onSuccess: (response) => { toast.success(`Carrera ${form.clave.toUpperCase()} creada. Entra a ella para cargar asignaturas, grupos y alumnos.`); setForm(BLANK); onCreated(response.data?.career) },
+    onError: (error) => toast.error(apiError(error)),
+  })
+  return (
+    <Sheet open={open} title="Nueva carrera" subtitle="Se crea con sus módulos habilitados y sin datos." onClose={onClose}>
+      <form className="stack" onSubmit={(event) => { event.preventDefault(); create.mutate() }}>
+        <CareerPreview form={form} />
+        <div className="form-grid">
+          <Field label="Clave" hint="Sólo letras y números"><input className="control" required maxLength={20} pattern="[A-Za-z0-9]+" value={form.clave} onChange={set('clave')} style={{ textTransform: 'uppercase' }} /></Field>
+          <Field label="Nombre corto"><input className="control" required maxLength={100} value={form.nombre_corto} onChange={set('nombre_corto')} /></Field>
+          <Field label="Nombre" className="full"><input className="control" required maxLength={180} value={form.nombre} onChange={set('nombre')} /></Field>
+        </div>
+        <div className="color-row">{COLORS.map(([key, label]) => <Field key={key} label={label}><input className="control color" type="color" value={form[key]} onChange={set(key)} /></Field>)}</div>
+        <Field label="Lema"><input className="control" maxLength={255} value={form.lema} onChange={set('lema')} /></Field>
+        <div className="form-grid">
+          <Field label="Jefatura (No. de empleado)" hint="Opcional"><input className="control" maxLength={20} value={form.jefe_id} onChange={set('jefe_id')} /></Field>
+          <Field label="Asistencia de jefatura" hint="Opcional"><input className="control" maxLength={20} value={form.asistente_id} onChange={set('asistente_id')} /></Field>
+        </div>
+        <Switch checked={form.activa} onChange={(value) => setForm({ ...form, activa: value })} label="Activa desde ahora" />
+        <Button type="submit" icon={FiPlus} loading={create.isPending}>Crear carrera</Button>
+      </form>
+    </Sheet>
+  )
+}
+
 function CareerIdentity({ career, onSaved }) {
-  const [form, setForm] = useState({ nombre: career.nombre || '', nombre_corto: career.nombre_corto || '', color_primario: career.color_primario || '#1B396A', color_secundario: career.color_secundario || '#2D5A96', color_acento: career.color_acento || '#00A6D6', lema: career.lema || '' })
+  const [form, setForm] = useState({ nombre: career.nombre || '', nombre_corto: career.nombre_corto || '', color_primario: career.color_primario || '#1B396A', color_secundario: career.color_secundario || '#2D5A96', color_acento: career.color_acento || '#00A6D6', lema: career.lema || '', activa: Boolean(career.activa) })
   const save = useMutation({ mutationFn: () => api.put(`/admin/careers/${career.id}`, { ...form, nombre: form.nombre.trim(), nombre_corto: form.nombre_corto.trim(), lema: form.lema.trim() }), onSuccess: () => { toast.success('Identidad actualizada correctamente.'); onSaved() }, onError: (error) => toast.error(apiError(error)) })
   const set = (key) => (event) => setForm({ ...form, [key]: event.target.value })
+  const [uploading, setUploading] = useState(null)
+  const upload = async (tipo, file) => {
+    if (!file) return
+    if (file.size > 4 * 1024 * 1024) { toast.error('La imagen supera 4 MB.'); return }
+    const body = new FormData()
+    body.append('tipo', tipo)
+    body.append('imagen', file)
+    setUploading(tipo)
+    try { await api.post(`/admin/careers/${career.id}/image`, body); toast.success(tipo === 'logo' ? 'Logo actualizado.' : 'Portada actualizada.'); onSaved() } catch (error) { toast.error(apiError(error)) } finally { setUploading(null) }
+  }
+  const removeImage = async (tipo) => {
+    if (!(await confirmAction({ title: tipo === 'logo' ? 'Quitar logo' : 'Quitar portada', text: tipo === 'logo' ? 'La carrera se mostrará sin logo.' : 'Se usará la foto del instituto con el color de la carrera.', confirmText: 'Quitar', danger: true }))) return
+    try { await api.delete(`/admin/careers/${career.id}/image/${tipo}`); onSaved() } catch (error) { toast.error(apiError(error)) }
+  }
   return (
     <Card title="Identidad de carrera" subtitle={career.nombre}>
       <form className="stack" onSubmit={(event) => { event.preventDefault(); save.mutate() }}>
+        <CareerPreview form={{ ...form, clave: career.clave }} career={career} />
         <Field label="Nombre"><input className="control" value={form.nombre} onChange={set('nombre')} /></Field>
         <Field label="Nombre corto"><input className="control" value={form.nombre_corto} onChange={set('nombre_corto')} /></Field>
-        <div className="color-row">{[['color_primario', 'Principal'], ['color_secundario', 'Secundario'], ['color_acento', 'Acento']].map(([key, label]) => <Field key={key} label={label}><input className="control color" type="color" value={form[key]} onChange={set(key)} /></Field>)}</div>
+        <div className="color-row">{COLORS.map(([key, label]) => <Field key={key} label={label}><input className="control color" type="color" value={form[key]} onChange={set(key)} /></Field>)}</div>
         <Field label="Lema"><textarea className="control" rows={3} value={form.lema} onChange={set('lema')} /></Field>
+        <Switch checked={form.activa} onChange={(value) => setForm({ ...form, activa: value })} label="Carrera activa (desactivada no aparece para entrar ni para el registro de alumnos)" />
         <Button type="submit" icon={FiSave} loading={save.isPending}>Guardar identidad</Button>
       </form>
+      <div className="career-images mt-3">
+        <strong><FiImage aria-hidden="true" /> Logo y portada</strong>
+        <small className="muted">Sin portada propia se usa la foto del instituto con el color de la carrera. JPG, PNG o WebP de hasta 4 MB.</small>
+        {[['logo', 'Logo', career.logo_ruta], ['portada', 'Portada', career.portada_ruta]].map(([tipo, label, path]) => (
+          <div key={tipo} className="career-image-row">
+            <div className={`career-image-thumb ${tipo}`}>{path ? <img src={publicAssetUrl(path)} alt="" /> : <small className="muted">Sin {label.toLowerCase()}</small>}</div>
+            <label className="btn-app ghost sm">
+              {uploading === tipo ? <span className="spinner-border spinner-border-sm" aria-hidden="true" /> : <FiUpload aria-hidden="true" />}<span>{path ? `Cambiar ${label.toLowerCase()}` : `Subir ${label.toLowerCase()}`}</span>
+              <input type="file" hidden accept="image/jpeg,image/png,image/webp" disabled={Boolean(uploading)} onChange={(event) => { upload(tipo, event.target.files[0]); event.target.value = '' }} />
+            </label>
+            {path && <IconButton icon={FiTrash2} className="danger" label={`Quitar ${label.toLowerCase()}`} onClick={() => removeImage(tipo)} />}
+          </div>
+        ))}
+      </div>
     </Card>
   )
 }
