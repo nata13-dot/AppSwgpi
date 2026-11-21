@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiActivity, FiAlertTriangle, FiCheckCircle, FiDatabase, FiDownload, FiEdit3, FiFileText, FiImage, FiLogIn, FiMail, FiPlus, FiPower, FiRefreshCw, FiSave, FiSearch, FiShield, FiTrash2, FiUpload } from 'react-icons/fi'
+import { FiActivity, FiAlertTriangle, FiCheckCircle, FiDatabase, FiDownload, FiEdit3, FiFileText, FiImage, FiLogIn, FiMail, FiPlus, FiPower, FiRefreshCw, FiSave, FiSearch, FiShield, FiTrash2, FiUpload, FiUsers } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError, unwrapCollection } from '../../services/api'
 import { profileLabel, SIMULABLE_PROFILES } from '../../lib/permissions'
@@ -8,14 +8,13 @@ import { downloadApiFile } from '../../utils/downloads'
 import { formatDateTime, publicAssetUrl } from '../../utils/formatters'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
-import { Badge, Button, Card, confirmAction, DataTable, Empty, ErrorState, Field, IconButton, Loading, Page, Pager, Progress, promptText, SearchInput, Sheet, Stat, Switch } from '../../components/ui'
+import { Badge, Button, Card, confirmAction, DataTable, Empty, ErrorState, Field, IconButton, Loading, Page, Pager, Progress, promptText, SearchInput, Sheet, Stat, Switch, Tabs, useDebounced } from '../../components/ui'
 
 /*
  * Administración institucional del administrador general: carreras y accesos, operaciones, auditoría,
  * integridad, respaldos y correos enviados (Frontend_Swgpi/pages/admin/careers.php, operations.php, career-audit.php,
  * career-integrity.php, database-backups.php y sent-emails.php).
  */
-const READINESS = { identity: 'Identidad', career_management: 'Jefatura', subjects: 'Asignaturas', groups: 'Grupos', students: 'Estudiantes', configuration: 'Configuración', rubrics: 'Rúbricas' }
 const actor = (item, fallback = 'Sistema') => [item.actor_nombres, item.actor_apellido].filter(Boolean).join(' ') || fallback
 const bytes = (value) => {
   const size = Number(value || 0)
@@ -32,55 +31,107 @@ function Rows({ headers, rows, empty = 'No hay registros para mostrar.' }) {
     columns={headers.map((label, column) => ({ key: String(column), label, primary: column === 0, render: (row) => row.cells[column] }))} />
 }
 
+const STAFF_ROLES = [2, 7, 6, 5]
+const READINESS_STEPS = {
+  identity: ['Identidad', 'Nombre y colores', 'identity'],
+  career_management: ['Jefatura', 'Asigna un jefe de carrera', 'people'],
+  subjects: ['Asignaturas', 'Entra y carga el plan de estudios', 'enter'],
+  groups: ['Grupos', 'Entra y crea los grupos', 'enter'],
+  students: ['Estudiantes', 'Entra y da de alta o abre el autorregistro', 'enter'],
+  configuration: ['Configuración', 'Entra y revisa los ajustes', 'enter'],
+  rubrics: ['Rúbricas', 'Entra y crea las rúbricas de evaluación', 'enter'],
+}
+const readStored = (key) => { try { return localStorage.getItem(key) } catch { return null } }
+const store = (key, value) => { try { localStorage.setItem(key, value) } catch { /* opcional */ } }
+
+/** Carreras y accesos: tarjetas de carreras y una ficha por carrera con Resumen · Identidad · Personal. */
 export function CareersPage() {
   const client = useQueryClient()
   const query = useQuery({ queryKey: ['institutional-careers'], queryFn: () => api.get('/admin/careers').then((response) => response.data.careers || []) })
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedId, setSelectedId] = useState(() => Number(readStored('sgpi-careers-selected')) || null)
+  const [tab, setTab] = useState(() => readStored('sgpi-careers-tab') || 'summary')
   const [creating, setCreating] = useState(false)
   const { refreshUser, switchCareer } = useAuth()
   const navigate = useNavigate()
   const careers = query.data || []
-  const selected = careers.find((item) => item.id === (selectedId || careers[0]?.id))
+  const selected = careers.find((item) => item.id === selectedId) || careers[0]
   // También se relee la sesión: la lista de carreras para entrar y sus colores salen de ahí.
   const reload = () => { client.invalidateQueries({ queryKey: ['institutional-careers'] }); client.invalidateQueries({ queryKey: ['admin-careers'] }); refreshUser().catch(() => {}) }
+  const choose = (id) => { setSelectedId(id); store('sgpi-careers-selected', String(id)) }
+  const changeTab = (key) => { setTab(key); store('sgpi-careers-tab', key) }
   const enter = async (careerId) => {
     try { await switchCareer(careerId); client.clear(); navigate('/dashboard', { replace: true }) } catch (error) { toast.error(apiError(error)) }
   }
   return (
-    <Page eyebrow="Administración general" title="Carreras y accesos" subtitle="Identidad, preparación y personas autorizadas de cada carrera."
+    <Page eyebrow="Administración general" title="Carreras y accesos" subtitle="Elige una carrera para ver cómo va, cambiar su identidad o su personal. Para cargar datos dentro de ella, «Entrar»."
       actions={<>
         <Button icon={FiPlus} onClick={() => setCreating(true)}>Nueva carrera</Button>
         <Button variant="ghost" icon={FiDownload} onClick={() => fileDownload('/admin/careers/export', `resumen_carreras_${today()}.csv`)}>Exportar resumen</Button>
       </>}>
-      <NewCareer open={creating} onClose={() => setCreating(false)} onCreated={(career) => { setCreating(false); setSelectedId(career?.id ?? null); reload() }} />
+      <NewCareer open={creating} onClose={() => setCreating(false)} onCreated={(career) => { setCreating(false); if (career?.id) choose(career.id); changeTab('people'); reload() }} />
       {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
         <>
           <div className="career-picker">
             {careers.map((career) => (
-              <button type="button" key={career.id} className={`${selected?.id === career.id ? 'active' : ''} ${career.activa ? '' : 'inactive'}`} style={{ '--c1': career.color_primario || '#1B396A', '--c2': career.color_secundario || '#2D5A96' }} onClick={() => setSelectedId(career.id)}>
-                <span>{career.clave}{career.activa ? '' : ' · Inactiva'}</span><strong>{career.nombre_corto}</strong><small>{career.members_count} integrantes · {career.readiness?.percentage || 0}% preparada</small>
+              <button type="button" key={career.id} className={`${selected?.id === career.id ? 'active' : ''} ${career.activa ? '' : 'inactive'}`} style={{ '--c1': career.color_primario || '#1B396A', '--c2': career.color_secundario || '#2D5A96', '--c3': career.color_acento || '#fff' }} onClick={() => choose(career.id)}>
+                <span>{career.clave}{career.activa ? '' : ' · Inactiva'}</span><strong>{career.nombre_corto}</strong>
+                <i className="career-picker-meter"><b style={{ width: `${career.readiness?.percentage || 0}%` }} /></i>
+                <small>{career.readiness?.percentage || 0}% lista · {career.members_count} personas</small>
               </button>
             ))}
+            <button type="button" className="career-picker-new" onClick={() => setCreating(true)}><FiPlus /><strong>Nueva carrera</strong><small>Clave, nombre y colores</small></button>
           </div>
-          <Card title="Puesta en marcha" flush>
-            <Rows headers={['Carrera', 'Personas', 'Académico', 'Operación', 'Preparación', 'Acceso']} rows={careers.map((career) => {
-              const roles = career.role_counts || {}
-              const readiness = career.readiness || {}
-              const missing = Object.entries(readiness.checklist || {}).filter(([, done]) => !done).map(([key]) => READINESS[key] || key)
-              return [
-                <span className="cell-main" key="c"><strong>{career.nombre_corto}</strong><small>{career.clave}</small></span>,
-                <span className="cell-main" key="p"><strong>{career.members_count}</strong><small>{roles.career_heads || 0} jefatura · {roles.career_head_assistants || 0} asistencia · {roles.project_coordinators || 0} coordinación · {roles.teachers || 0} docentes · {roles.students || 0} estudiantes</small></span>,
-                `${career.subjects_count} asignaturas · ${career.groups_count} grupos`,
-                `${career.projects_count} proyectos · ${career.evaluations_count} evaluaciones · ${career.documents_count} documentos`,
-                <span className="readiness" key="r"><span className="row-wrap"><strong>{readiness.percentage || 0}%</strong><small className="muted">{readiness.completed || 0}/{readiness.total || 7}</small></span><Progress value={readiness.percentage} tone={readiness.percentage >= 100 ? 'success' : 'primary'} /><small className="muted">{missing.length ? `Falta: ${missing.join(', ')}` : 'Lista para operar'}</small></span>,
-                career.activa ? <Button key="e" size="sm" variant="ghost" icon={FiLogIn} onClick={() => enter(career.id)}>Entrar</Button> : <Badge key="e" tone="neutral">Inactiva</Badge>,
-              ]
-            })} />
-          </Card>
-          {selected && <div className="split-layout"><CareerIdentity key={`i-${selected.id}`} career={selected} onSaved={reload} /><Memberships key={`m-${selected.id}`} career={selected} onChanged={reload} /></div>}
+          {selected && (
+            <Card className="career-sheet-app" title={selected.nombre} subtitle={`${selected.clave} · ${selected.activa ? 'Activa' : 'Inactiva'} · ${selected.period?.nombre ? `Periodo ${selected.period.nombre}` : 'Sin periodo abierto'}`}
+              actions={selected.activa ? <Button icon={FiLogIn} onClick={() => enter(selected.id)}>Entrar</Button> : null}>
+              <Tabs value={tab} onChange={changeTab} items={[
+                { key: 'summary', label: 'Resumen', icon: FiActivity },
+                { key: 'identity', label: 'Identidad', icon: FiEdit3 },
+                { key: 'people', label: 'Personal', icon: FiUsers },
+              ]} />
+              <div className="mt-3">
+                {tab === 'summary' && <CareerSummary career={selected} onGo={changeTab} onEnter={() => enter(selected.id)} />}
+                {tab === 'identity' && <CareerIdentity key={`i-${selected.id}`} career={selected} onSaved={reload} />}
+                {tab === 'people' && <Memberships key={`m-${selected.id}`} career={selected} onChanged={reload} />}
+              </div>
+            </Card>
+          )}
         </>
       )}
     </Page>
+  )
+}
+
+function CareerSummary({ career, onGo, onEnter }) {
+  const roles = career.role_counts || {}
+  const readiness = career.readiness || {}
+  const checklist = readiness.checklist || {}
+  return (
+    <div className="split-layout">
+      <div className="stat-grid">
+        <Stat label="Jefatura" value={roles.career_heads || 0} onClick={() => onGo('people')} />
+        <Stat label="Asistencia y coordinación" value={(roles.career_head_assistants || 0) + (roles.project_coordinators || 0)} onClick={() => onGo('people')} />
+        <Stat label="Docentes" value={roles.teachers || 0} onClick={() => onGo('people')} />
+        <Stat label="Estudiantes" value={roles.students || 0} />
+        <Stat label="Asignaturas" value={career.subjects_count || 0} />
+        <Stat label="Grupos" value={career.groups_count || 0} />
+        <Stat label="Proyectos" value={career.projects_count || 0} />
+        <Stat label="Evaluaciones" value={career.evaluations_count || 0} />
+      </div>
+      <div className="tinted-box">
+        <div className="row-wrap"><strong>Puesta en marcha</strong><span className="spacer" /><strong>{readiness.percentage || 0}%</strong></div>
+        <Progress value={readiness.percentage} tone={readiness.percentage >= 100 ? 'success' : 'primary'} />
+        <ul className="ready-list">
+          {Object.entries(READINESS_STEPS).map(([key, [label, hint, action]]) => (
+            <li key={key} className={checklist[key] ? 'done' : ''}>
+              {checklist[key] ? <FiCheckCircle aria-hidden="true" /> : <i className="ready-dot" aria-hidden="true" />}
+              <span><strong>{label}</strong>{!checklist[key] && <small>{hint}</small>}</span>
+              {!checklist[key] && (action === 'enter' ? (career.activa && <Button size="sm" variant="ghost" onClick={onEnter}>Entrar</Button>) : <Button size="sm" variant="ghost" onClick={() => onGo(action)}>Ir</Button>)}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   )
 }
 
@@ -153,17 +204,18 @@ function CareerIdentity({ career, onSaved }) {
     try { await api.delete(`/admin/careers/${career.id}/image/${tipo}`); onSaved() } catch (error) { toast.error(apiError(error)) }
   }
   return (
-    <Card title="Identidad de carrera" subtitle={career.nombre}>
+    <div className="split-layout">
       <form className="stack" onSubmit={(event) => { event.preventDefault(); save.mutate() }}>
-        <CareerPreview form={{ ...form, clave: career.clave }} career={career} />
         <Field label="Nombre"><input className="control" value={form.nombre} onChange={set('nombre')} /></Field>
         <Field label="Nombre corto"><input className="control" value={form.nombre_corto} onChange={set('nombre_corto')} /></Field>
         <div className="color-row">{COLORS.map(([key, label]) => <Field key={key} label={label}><input className="control color" type="color" value={form[key]} onChange={set(key)} /></Field>)}</div>
         <Field label="Lema"><textarea className="control" rows={3} value={form.lema} onChange={set('lema')} /></Field>
         <Switch checked={form.activa} onChange={(value) => setForm({ ...form, activa: value })} label="Carrera activa (desactivada no aparece para entrar ni para el registro de alumnos)" />
-        <Button type="submit" icon={FiSave} loading={save.isPending}>Guardar identidad</Button>
+        <Button type="submit" icon={FiSave} loading={save.isPending}>Guardar cambios</Button>
       </form>
-      <div className="career-images mt-3">
+      <div className="stack">
+      <CareerPreview form={{ ...form, clave: career.clave }} career={career} />
+      <div className="career-images">
         <strong><FiImage aria-hidden="true" /> Logo y portada</strong>
         <small className="muted">Sin portada propia se usa la foto del instituto con el color de la carrera. JPG, PNG o WebP de hasta 4 MB.</small>
         {[['logo', 'Logo', career.logo_ruta], ['portada', 'Portada', career.portada_ruta]].map(([tipo, label, path]) => (
@@ -177,47 +229,93 @@ function CareerIdentity({ career, onSaved }) {
           </div>
         ))}
       </div>
-    </Card>
+      </div>
+    </div>
   )
 }
 
 function Memberships({ career, onChanged }) {
   const client = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [draft, setDraft] = useState({ usuario_id: '', perfil_id: 5, es_principal: false })
-  const query = useQuery({ queryKey: ['career-memberships', career.id, search], queryFn: () => api.get('/admin/career-memberships', { params: { carrera_id: career.id, search } }).then((response) => response.data) })
+  const [filter, setFilter] = useState('')
+  const [roleFilter, setRoleFilter] = useState('all')
+  const [term, setTerm] = useState('')
+  const search = useDebounced(term, 250)
+  const [picked, setPicked] = useState(null)
+  const [role, setRole] = useState(2)
+  const query = useQuery({ queryKey: ['career-memberships', career.id], queryFn: () => api.get('/admin/career-memberships', { params: { carrera_id: career.id, per_page: 100 } }).then((response) => unwrapCollection(response.data)) })
+  const candidates = useQuery({
+    queryKey: ['career-candidates', career.id, search], enabled: search.trim().length >= 2 && !picked,
+    queryFn: () => api.get('/admin/career-candidates', { params: { carrera_id: career.id, search: search.trim() } }).then((response) => response.data.data || []),
+  })
   const refresh = () => { client.invalidateQueries({ queryKey: ['career-memberships', career.id] }); onChanged() }
-  const create = useMutation({ mutationFn: () => api.post('/admin/career-memberships', { ...draft, usuario_id: draft.usuario_id.trim(), carrera_id: career.id, perfil_id: Number(draft.perfil_id), activo: true }), onSuccess: () => { toast.success('Membresía guardada correctamente.'); setDraft({ usuario_id: '', perfil_id: 5, es_principal: false }); refresh() }, onError: (error) => toast.error(apiError(error)) })
-  const toggle = async (item) => { try { await api.put(`/admin/career-memberships/${item.id}`, { activo: !item.activo }); refresh() } catch (error) { toast.error(apiError(error)) } }
+  const name = (person) => [person?.nombres, person?.apellido_paterno, person?.apellido_materno].filter(Boolean).join(' ') || person?.id
+  const add = useMutation({
+    mutationFn: () => api.post('/admin/career-memberships', { usuario_id: picked.id, carrera_id: career.id, perfil_id: Number(role), activo: true }),
+    onSuccess: () => { toast.success(`${picked.nombre} agregado como ${profileLabel(role)}.`); setPicked(null); setTerm(''); refresh() },
+    onError: (error) => toast.error(apiError(error)),
+  })
+  const update = async (item, changes, message) => { try { await api.put(`/admin/career-memberships/${item.id}`, changes); if (message) toast.success(message); refresh() } catch (error) { toast.error(apiError(error)) } }
   const remove = async (item) => {
-    if (!(await confirmAction({ title: 'Eliminar membresía', text: 'La persona pierde este acceso a la carrera.', confirmText: 'Sí, eliminar', danger: true }))) return
-    try { await api.delete(`/admin/career-memberships/${item.id}`); toast.success('Membresía eliminada.'); refresh() } catch (error) { toast.error(apiError(error)) }
+    if (!(await confirmAction({ title: 'Quitar de la carrera', text: `${name(item.user)} perderá el acceso a ${career.nombre_corto}.`, confirmText: 'Quitar', danger: true }))) return
+    try { await api.delete(`/admin/career-memberships/${item.id}`); toast.success('Persona quitada de la carrera.'); refresh() } catch (error) { toast.error(apiError(error)) }
   }
+  const members = query.data || []
+  const counts = members.reduce((acc, item) => ({ ...acc, [item.perfil_id]: (acc[item.perfil_id] || 0) + 1 }), {})
+  const shown = members.filter((item) => (roleFilter === 'all' || String(item.perfil_id) === roleFilter) && (!filter || `${name(item.user)} ${item.user?.id}`.toLowerCase().includes(filter.toLowerCase())))
   return (
-    <Card title="Membresías" subtitle={career.nombre}>
-      <form className="form-grid tinted-box" onSubmit={(event) => { event.preventDefault(); create.mutate() }}>
-        <Field label="No. de control o empleado"><input className="control" required value={draft.usuario_id} onChange={(event) => setDraft({ ...draft, usuario_id: event.target.value })} /></Field>
-        <Field label="Rol en esta carrera"><select className="control" value={draft.perfil_id} onChange={(event) => setDraft({ ...draft, perfil_id: Number(event.target.value) })}>{SIMULABLE_PROFILES.map((id) => <option key={id} value={id}>{profileLabel(id)}</option>)}</select></Field>
-        <div className="full row-wrap"><Switch checked={draft.es_principal} onChange={(value) => setDraft({ ...draft, es_principal: value })} label="Carrera principal" /><span className="spacer" /><Button type="submit" icon={FiPlus} loading={create.isPending}>Asignar</Button></div>
+    <div className="stack">
+      <form className="tinted-box stack" onSubmit={(event) => { event.preventDefault(); if (picked) add.mutate() }}>
+        <strong>Agregar persona</strong>
+        {picked ? (
+          <div className="list-row picked-person"><div><strong>{picked.nombre}</strong><small>{picked.id}</small></div><Button variant="ghost" size="sm" onClick={() => { setPicked(null); setTerm('') }}>Cambiar</Button></div>
+        ) : (
+          <div className="suggest-host">
+            <SearchInput value={term} onChange={setTerm} placeholder="Escribe nombre o número de empleado…" />
+            {search.trim().length >= 2 && (
+              <div className="suggest-list" role="listbox">
+                {candidates.isLoading ? <small className="muted">Buscando…</small> : (candidates.data || []).length ? candidates.data.map((person) => (
+                  <button type="button" key={person.id} onClick={() => { setPicked(person); setRole(STAFF_ROLES.includes(person.perfil_aqui) ? person.perfil_aqui : 2) }}>
+                    <strong>{person.nombre}</strong>
+                    <small>{person.id}{person.carreras.length ? ` · ${person.carreras.map((c) => `${c.clave}: ${profileLabel(c.perfil_id)}`).join(', ')}` : ' · Sin carrera'}</small>
+                    {person.perfil_aqui && <Badge>Ya está en esta carrera</Badge>}
+                  </button>
+                )) : <small className="muted">Sin coincidencias entre el personal. Si es nuevo, regístralo primero en Usuarios dentro de una carrera.</small>}
+              </div>
+            )}
+          </div>
+        )}
+        <div className="row-wrap">
+          <Field label="Como"><select className="control" value={role} onChange={(event) => setRole(Number(event.target.value))}>{STAFF_ROLES.map((id) => <option key={id} value={id}>{profileLabel(id)}</option>)}</select></Field>
+          <span className="spacer" />
+          <Button type="submit" icon={FiPlus} disabled={!picked} loading={add.isPending}>Agregar</Button>
+        </div>
       </form>
-      <SearchInput value={search} onChange={setSearch} placeholder="Buscar persona..." />
+      <div className="row-wrap">
+        <div className="chips-app">
+          {[['all', 'Todos', members.length], ...[5, 6, 7, 2].filter((id) => counts[id]).map((id) => [String(id), profileLabel(id), counts[id]])].map(([key, label, count]) => (
+            <button type="button" key={key} className={roleFilter === key ? 'active' : ''} onClick={() => setRoleFilter(key)}>{label} <small>{count}</small></button>
+          ))}
+        </div>
+        <span className="spacer" />
+        <SearchInput value={filter} onChange={setFilter} placeholder="Filtrar personal…" />
+      </div>
       {query.isLoading ? <Loading /> : query.isError ? <ErrorState error={query.error} /> : (
-        <ul className="list-app mt-2">
-          {unwrapCollection(query.data).map((item) => {
-            const person = item.user || {}
-            return (
-              <li key={item.id} className="list-row">
-                <div><strong>{[person.nombres, person.apellido_paterno, person.apellido_materno].filter(Boolean).join(' ') || person.id}</strong><small>{person.id}{item.es_principal ? ' · Principal' : ''} · {profileLabel(item.perfil_id)}</small></div>
-                <Badge tone={item.activo ? 'success' : 'neutral'}>{item.activo ? 'Activo' : 'Inactivo'}</Badge>
-                <IconButton icon={FiPower} label={item.activo ? 'Desactivar' : 'Activar'} onClick={() => toggle(item)} />
-                <IconButton icon={FiTrash2} className="danger" label="Eliminar" onClick={() => remove(item)} />
-              </li>
-            )
-          })}
-          {!unwrapCollection(query.data).length && <li className="muted small-text">No hay membresías para mostrar.</li>}
+        <ul className="list-app">
+          {shown.map((item) => (
+            <li key={item.id} className={`list-row ${item.activo ? '' : 'muted-row'}`}>
+              <div><strong>{name(item.user)}</strong><small>{item.user?.id}{item.es_principal ? ' · Carrera principal' : ''}{item.activo ? '' : ' · Sin acceso'}</small></div>
+              <select className="control compact" aria-label="Rol" value={item.perfil_id} onChange={(event) => update(item, { perfil_id: Number(event.target.value) }, `${name(item.user)} ahora es ${profileLabel(event.target.value)}.`)}>
+                {[...new Set([...STAFF_ROLES, item.perfil_id])].map((id) => <option key={id} value={id}>{profileLabel(id)}</option>)}
+              </select>
+              <Switch checked={Boolean(item.activo)} onChange={(value) => update(item, { activo: value })} label="" />
+              <IconButton icon={FiTrash2} className="danger" label="Quitar de la carrera" onClick={() => remove(item)} />
+            </li>
+          ))}
+          {!shown.length && <li className="muted small-text">{members.length ? 'Nadie coincide con el filtro.' : 'Esta carrera aún no tiene personal. Búscalo arriba para agregarlo.'}</li>}
         </ul>
       )}
-    </Card>
+      <small className="muted">Aquí sólo aparece el personal. Los alumnos se gestionan dentro de la carrera, en Personas › Usuarios.</small>
+    </div>
   )
 }
 

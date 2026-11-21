@@ -1536,3 +1536,23 @@ a.btn-app { text-decoration: none; }
 .career-image-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .career-image-thumb.logo img { object-fit: contain; padding: 4px; }
 .career-image-row label.btn-app { cursor: pointer; }
+.career-picker-new { flex: 0 0 170px !important; align-items: center !important; justify-content: center; text-align: center !important; color: var(--brand) !important; background: transparent !important; border: 2px dashed var(--line-strong) !important; box-shadow: none !important; }
+.career-picker-new svg { font-size: 1.4rem; }
+.career-picker-meter { display: block; width: 100%; height: 4px; margin-top: auto; border-radius: 99px; background: rgba(255, 255, 255, .25); overflow: hidden; }
+.career-picker-meter b { display: block; height: 100%; border-radius: inherit; background: var(--c3, #fff); }
+.career-sheet-app { margin-top: 14px; }
+.career-sheet-app .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; align-content: start; }
+.ready-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ready-list li { display: flex; align-items: center; gap: 10px; }
+.ready-list li > svg { color: #2e8b57; flex-shrink: 0; }
+.ready-list li span { flex: 1; display: flex; flex-direction: column; }
+.ready-list li small { color: var(--muted); font-size: .76rem; }
+.ready-list li.done strong { font-weight: 500; color: var(--muted); }
+.ready-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line-strong); flex-shrink: 0; }
+.suggest-host { position: relative; }
+.suggest-list { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+.suggest-list button { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; text-align: left; color: var(--ink); cursor: pointer; }
+.suggest-list button small { flex-basis: 100%; color: var(--muted); }
+.suggest-list button:hover { background: var(--surface-2); }
+.picked-person { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 6px 10px; }
+.muted-row { opacity: .6; }
