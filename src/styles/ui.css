@@ -953,7 +953,12 @@ a.btn-app { text-decoration: none; }
 .swal2-popup.swal-app { width: min(440px, 100%); padding: 22px 20px 18px; border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lg); font-family: var(--font); border-top: 4px solid var(--brand); }
 .swal2-title.swal-app-title { padding: 6px 0 0; font-family: var(--font-head); font-size: 1.2rem; font-weight: 800; color: var(--ink); }
 .swal2-html-container.swal-app-text { margin: 8px 4px 0; font-size: .93rem; line-height: 1.5; color: var(--ink-2); }
-.swal2-icon.swal-app-icon { width: 54px; height: 54px; margin: 6px auto 4px; border-width: 3px; }
+.swal2-icon.swal-app-icon { font-size: 10.8px; width: 5em; height: 5em; margin: 6px auto 4px; border-width: .25em; } /* escala completa: sus piezas están en em */
+/* Palomita de éxito: sin las máscaras de la animación del aro (con fondo oscuro o cristal dejaban un círculo encima). */
+.swal2-icon.swal2-success.swal-app-icon { border-color: var(--success, #2e8b57); color: var(--success, #2e8b57); }
+.swal2-icon.swal2-success.swal-app-icon .swal2-success-ring { border-color: color-mix(in srgb, var(--success, #2e8b57) 30%, transparent); }
+.swal2-icon.swal2-success.swal-app-icon [class^='swal2-success-line'] { background-color: var(--success, #2e8b57) !important; z-index: 3; }
+.swal2-icon.swal2-success.swal-app-icon [class^='swal2-success-circular-line'], .swal2-icon.swal2-success.swal-app-icon .swal2-success-fix { display: none !important; }
 .swal2-icon.swal-app-icon .swal2-icon-content { font-size: 2.2rem; }
 .swal2-icon.swal2-warning.swal-app-icon { border-color: var(--warning); color: var(--warning); }
 .swal2-icon.swal2-question.swal-app-icon, .swal2-icon.swal2-info.swal-app-icon { border-color: var(--brand-2); color: var(--brand-2); }
