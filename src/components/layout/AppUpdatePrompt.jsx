@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { App as CapacitorApp } from '@capacitor/app'
-import { FiDownloadCloud, FiShield } from 'react-icons/fi'
+import { useCallback, useEffect, useState } from 'react'
+import { FiDownloadCloud, FiFolder } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import { Button } from '../ui'
 import { registerBackHandler } from '../../utils/backNavigation'
@@ -16,10 +15,9 @@ const size = (bytes) => (bytes ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : '')
 export default function AppUpdatePrompt() {
   const [release, setRelease] = useState(null)
   const [installed, setInstalled] = useState(null)
-  const [stage, setStage] = useState('idle') // idle | permission | downloading | installing
+  const [stage, setStage] = useState('idle') // idle | downloading | ready (descargada: la instala el sistema)
   const [percent, setPercent] = useState(-1)
   const [error, setError] = useState('')
-  const waitingPermission = useRef(false)
 
   const check = useCallback(async (force = false) => {
     try {
@@ -37,10 +35,9 @@ export default function AppUpdatePrompt() {
     setError('')
     setStage('downloading'); setPercent(-1)
     try {
-      await AppUpdater.downloadAndInstall({ url: release.url, sha256: release.sha256 })
-      setStage('installing')
+      await AppUpdater.downloadAndInstall({ url: release.url, sha256: release.sha256, version: release.version_name })
+      setStage('ready')
     } catch (e) {
-      if (e?.code === 'NEEDS_PERMISSION') { setStage('permission'); return }
       setStage('idle'); setError(e?.message || 'No se pudo descargar la actualización.')
     }
   }, [release])
@@ -49,20 +46,12 @@ export default function AppUpdatePrompt() {
     if (!updatesSupported()) return undefined
     // Un momento después de abrir, para no competir con el inicio de sesión ni la carga de la pantalla.
     const first = setTimeout(() => check(false), 2500)
+    // Volver de segundo plano no vuelve a buscar: sólo al abrir la app desde cero.
     const progress = AppUpdater.addListener('progress', ({ percent: value }) => setPercent(value))
-    const resume = CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
-      if (!isActive) return
-      // Volver de segundo plano no vuelve a buscar (sólo al abrir la app desde cero); únicamente se continúa
-      // la instalación si el usuario regresa de dar el permiso en los ajustes de Android.
-      if (!waitingPermission.current) return
-      waitingPermission.current = false
-      const info = await AppUpdater.info().catch(() => null)
-      if (info?.canInstall) install()
-    })
     const manual = () => check(true)
     window.addEventListener(UPDATE_EVENT, manual)
-    return () => { clearTimeout(first); progress.then((h) => h.remove()); resume.then((h) => h.remove()); window.removeEventListener(UPDATE_EVENT, manual) }
-  }, [check, install])
+    return () => { clearTimeout(first); progress.then((h) => h.remove()); window.removeEventListener(UPDATE_EVENT, manual) }
+  }, [check])
 
   // Botón Atrás de Android: equivale a «Recordármelo más tarde» (no hace nada si es obligatoria o descargando).
   useEffect(() => {
@@ -97,18 +86,23 @@ export default function AppUpdatePrompt() {
             <small className="muted">{percent >= 0 ? `Descargando… ${percent}%` : 'Descargando…'}</small>
           </div>
         )}
-        {stage === 'installing' && <div className="alert-app">Confirma la instalación en la ventana de Android. Tus datos y tu sesión se conservan.</div>}
-        {stage === 'permission' && <div className="alert-app">Android necesita que permitas a SGPI instalar actualizaciones. Toca «Permitir instalación», activa la opción y vuelve a la app.</div>}
+        {stage === 'ready' && (
+          <div className="alert-app success update-ready">
+            <strong>Descarga lista y verificada.</strong>
+            <span>Toca la notificación «SGPI {release.version_name}» (o ábrela desde Descargas) y luego «Instalar». Tus datos y tu sesión se conservan.</span>
+            <span className="muted small-text">La primera vez, Android puede pedirte permitir instalaciones desde esa app; acéptalo y vuelve a tocar la notificación.</span>
+          </div>
+        )}
         {error && <div className="alert-app danger">{error}</div>}
         <div className="update-actions">
-          {stage === 'permission' ? (
+          {stage === 'ready' ? (
             <>
-              <Button icon={FiShield} onClick={() => { waitingPermission.current = true; AppUpdater.openInstallSettings() }}>Permitir instalación</Button>
-              <Button variant="ghost" onClick={install}>Ya lo permití</Button>
+              <Button icon={FiFolder} onClick={() => AppUpdater.openDownloads()}>Abrir Descargas</Button>
+              {!required && <Button variant="ghost" onClick={() => { postpone(release); setRelease(null) }}>Listo</Button>}
             </>
           ) : (
             <>
-              <Button icon={FiDownloadCloud} loading={busy} disabled={busy} onClick={install}>{stage === 'installing' ? 'Volver a abrir el instalador' : 'Actualizar ahora'}</Button>
+              <Button icon={FiDownloadCloud} loading={busy} disabled={busy} onClick={install}>Actualizar ahora</Button>
               {!required && <Button variant="ghost" disabled={busy} onClick={close}>Recordármelo más tarde</Button>}
             </>
           )}

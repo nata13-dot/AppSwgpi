@@ -1506,3 +1506,4 @@ a.btn-app { text-decoration: none; }
 .audit-entry { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 4px 0 14px 10px; }
 .audit-entry::before { content: ''; position: absolute; left: -21px; top: 10px; width: 12px; height: 12px; border-radius: 50%; background: var(--brand-2); border: 2px solid var(--surface); }
 .audit-what .badge-app { align-self: flex-start; }
+.update-ready { display: flex; flex-direction: column; gap: 4px; text-align: left; }

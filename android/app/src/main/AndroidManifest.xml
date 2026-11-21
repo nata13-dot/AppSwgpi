@@ -123,6 +123,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Actualizaciones de la app fuera de Play Store (AppUpdaterPlugin); Android pide confirmación al usuario. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Sin REQUEST_INSTALL_PACKAGES: Play Protect desconfía de apps desconocidas que pueden instalar otras.
+         Las actualizaciones las instala el sistema desde la notificación de descarga (AppUpdaterPlugin). -->
 </manifest>
