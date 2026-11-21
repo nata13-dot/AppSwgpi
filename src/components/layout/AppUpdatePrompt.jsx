@@ -76,9 +76,8 @@ export default function AppUpdatePrompt() {
         </p>
         {required && <div className="alert-app warning">Esta actualización es obligatoria: instálala para seguir usando SGPI.</div>}
         <div className="update-notes">
-          {release.notas?.length > 0 ? release.notas.map((note) => (
-            <div key={note.version}><strong>Novedades de la {note.version}</strong><p>{note.notas}</p></div>
-          )) : <p>Mejoras y correcciones.</p>}
+          {/* Sólo la última versión: es la que se instala aunque falten varias. */}
+          {release.notas?.[0]?.notas ? <div><strong>Novedades</strong><p>{release.notas[0].notas}</p></div> : <p>Mejoras y correcciones.</p>}
         </div>
         {busy && (
           <div className="update-progress" role="progressbar" aria-label="Descarga de la actualización" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent >= 0 ? percent : undefined}>
