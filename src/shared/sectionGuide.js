@@ -213,11 +213,11 @@ const GUIDES = {
     affects: ['Los proyectos de cada grupo con esa modalidad quedan ligados a la materia en el periodo abierto, sin contraseña.', '«Aplicar y reemplazar» deja de pedir avances en las materias que no están en el paquete; lo entregado, las plantillas y las competencias se conservan.', 'Si un avance exige tipos de archivo, el alumno sólo puede subir ésos.'],
   },
   'thesis:list': (role) => role === 'student' ? {
-    how: ['Abre tu curso de tesis para ver tus capítulos, tus fechas de entrega y los comentarios de tus docentes.'],
-    affects: ['El curso lo crea tu jefatura o tu director; si no aparece, pídeselo.'],
+    how: ['Cuando tu jefatura abra el registro de tesis, captura título, línea de investigación, planteamiento y objetivos, y toca «Registrar tesis».', 'Si será de dos, invita a tu compañero con su número de control; él acepta la invitación desde esta misma pantalla.', 'Al aprobarse tu tesis, aquí aparece tu curso con sus capítulos, fechas y comentarios.'],
+    affects: ['La tesis queda en validación; si piden cambios, corrígela antes de la fecha indicada.', 'Al aprobarla se te asignan director y revisores y se abre tu seguimiento por capítulos.'],
   } : {
-    how: ['Con «Nuevo curso de tesis» elige la tesis y su alumno, define los capítulos, los docentes que revisan y, si quieres, las entregas con fecha.', 'Abre un curso para revisar sus entregas.'],
-    affects: ['El director y los revisores de la tesis se agregan solos; puedes sumar más docentes.', 'Crean cursos la jefatura, la asistencia, la administración o el director de la tesis.'],
+    how: ['En «Registros de tesis» revisa cada registro y elige: aprobar (con director y revisores), pedir cambios con fecha o rechazar.', 'La jefatura abre o cierra el registro, elige semestres, integrantes por tesis y docentes validadores en «Configurar el registro de tesis».', 'Abre un curso para revisar sus entregas; también puedes crear uno a mano con «Nuevo curso de tesis».'],
+    affects: ['Aprobar asigna director y revisores y abre el seguimiento de cada integrante con los 6 capítulos estándar (editables).', 'Los alumnos reciben aviso de cada decisión; validan la jefatura, la asistencia y los docentes elegidos.'],
   },
   'thesis:course': (role) => role === 'student' ? {
     how: ['En «Nueva entrega» sube tu documento en PDF, marca los capítulos que incluye y, si aplica, la entrega planeada a la que corresponde.', 'Revisa abajo los comentarios de cada docente y sus notas por página; toca «p. N» para ir a esa página.'],

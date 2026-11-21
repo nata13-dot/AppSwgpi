@@ -98,11 +98,15 @@ export function mountThesisConsole(root, api, user, options = {}) {
     if (disposed) return
     if (!autoOpened && Number(user?.active_profile_id ?? user?.perfil_id) === 3 && data.data.length === 1) { autoOpened = true; courseId = data.data[0].id; remember(); return renderCourse() }
     autoOpened = true
+    const student = Number(user?.active_profile_id ?? user?.perfil_id) === 3
+    // Registro de tesis: el alumno registra la suya; jefatura y validadores la validan y configuran la ventana.
+    if (student) await renderStudentRegistration()
+    else await renderRegistrations()
     const head = box('tc-row-actions tc-list-actions')
     if (data.can_create) button('Nuevo curso de tesis', async () => { creating = true; await render() }, head, 'primary')
     content.append(head)
     if (!data.data.length) {
-      hint(content, data.can_create ? 'Aún no hay cursos de tesis. Crea uno sobre la tesis de un alumno: capítulos, docentes que revisan y fechas de entrega.' : 'No tienes cursos de tesis. Aparecerán aquí cuando te asignen a uno.')
+      if (!student) hint(content, data.can_create ? 'Aún no hay cursos de tesis. Se abren solos al aprobar un registro de tesis, o créalos a mano con «Nuevo curso de tesis».' : 'No tienes cursos de tesis. Aparecerán aquí cuando te asignen a uno.')
       return
     }
     const grid = box('tc-cards')
@@ -122,6 +126,153 @@ export function mountThesisConsole(root, api, user, options = {}) {
       grid.append(card)
     }
     content.append(grid)
+  }
+
+  // ------------------------------------------------------------------ Registro de tesis (alumno)
+  const REG_STATE = { pendiente: ['warn', 'En validación'], requiere_cambios: ['warn', 'Requiere cambios'], aprobado: ['ok', 'Aprobada'], rechazado: ['danger', 'Rechazada'] }
+
+  function registrationForm(parent, current, onSubmit, submitLabel) {
+    const [f, done] = form(parent, submitLabel, async () => onSubmit({
+      titulo: title.value, planteamiento: problem.value, objetivo_general: goal.value, linea_investigacion: line.value, justificacion: why.value || null,
+      objetivos: [...goals.querySelectorAll('input')].map((i) => i.value.trim()).filter(Boolean),
+    }))
+    const title = field(f, 'Título de la tesis', input({ required: true, maxLength: 255, value: current?.titulo || '' }))
+    const line = field(f, 'Línea de investigación', input({ required: true, maxLength: 255, value: current?.linea_investigacion || '', placeholder: 'Ej. Inteligencia artificial' }))
+    const problem = field(f, 'Planteamiento del problema', textarea({ required: true, maxLength: 5000, rows: 4, value: current?.planteamiento || '' }))
+    problem.parentElement.classList.add('tc-wide')
+    const goal = field(f, 'Objetivo general', textarea({ required: true, maxLength: 3000, value: current?.objetivo_general || '' }))
+    goal.parentElement.classList.add('tc-wide')
+    const goalsWrap = box('tc-wide tc-editor', el('strong', 'Objetivos específicos'))
+    const goals = box('tc-template')
+    const addGoal = (text = '') => {
+      const row = box('tc-template-row tc-chapter-row')
+      const item = input({ maxLength: 1000, value: text, placeholder: `Objetivo ${goals.children.length + 1}` })
+      const remove = el('button', 'Quitar', { type: 'button', className: 'ac-btn tc-remove' })
+      remove.onclick = () => row.remove()
+      row.append(el('span', '•', { className: 'tc-chapter-number' }), item, remove); goals.append(row)
+    }
+    ;(current?.objetivos?.length ? current.objetivos : ['']).forEach(addGoal)
+    const more = el('button', 'Agregar objetivo', { type: 'button', className: 'ac-btn' })
+    more.onclick = () => addGoal()
+    goalsWrap.append(goals, more); f.append(goalsWrap)
+    const why = field(f, 'Justificación (opcional)', textarea({ maxLength: 3000, value: current?.justificacion || '' }))
+    why.parentElement.classList.add('tc-wide')
+    done()
+  }
+
+  async function renderStudentRegistration() {
+    const status = await api('GET', '/thesis-registration/status').then((r) => r.data).catch(() => null)
+    if (!status || disposed || !status.window) return
+    status.invitations ||= []
+    const { thesis, window: win } = status
+    if (thesis?.estado === 'aprobado') return // aprobada: su seguimiento aparece abajo
+    if (!thesis && !status.invitations.length && !status.can_register && !status.last_rejected) {
+      if (win.open && !status.eligible) return
+      if (!win.open && !status.eligible) return
+      hint(content, win.open ? 'El registro de tesis está abierto.' : 'El registro de tesis está cerrado. Te avisaremos cuando tu jefatura lo abra.')
+      return
+    }
+    const node = panel('Registro de tesis', content, thesis ? chip(...[REG_STATE[thesis.estado]?.[1] || thesis.estado, REG_STATE[thesis.estado]?.[0] || '']) : null)
+    for (const inv of status.invitations) {
+      const row = box('ac-row tc-row', box('tc-row-main', el('strong', `${inv.de} te invitó a su tesis`), el('small', `«${inv.titulo}»`, { className: 'ac-muted' })))
+      const actions = box('tc-row-actions')
+      button('Aceptar', () => act(() => api('PUT', `/thesis-registration/invitations/${inv.id}`, { decision: 'aceptada' })), actions, 'primary')
+      button('Rechazar', () => act(() => api('PUT', `/thesis-registration/invitations/${inv.id}`, { decision: 'rechazada' })), actions)
+      row.append(actions); node.append(row)
+    }
+    if (!thesis) {
+      if (status.last_rejected) hint(node, `Tu registro anterior «${status.last_rejected.titulo}» fue rechazado${status.last_rejected.comentario ? `: ${status.last_rejected.comentario}` : '.'} Puedes registrar otro mientras el registro esté abierto.`)
+      if (status.can_register) {
+        hint(node, `Registro abierto hasta el ${date(win.closes_at)}. La tesis puede tener hasta ${win.max_members} integrante(s): regístrala y luego invita a tu compañero.`)
+        registrationForm(node, null, async (body) => (await api('POST', '/thesis-registration', body)).message, 'Registrar tesis')
+      }
+      return
+    }
+    node.append(el('h3', thesis.titulo, { className: 'tc-reg-title' }), el('p', `${thesis.linea_investigacion || ''} · ${thesis.integrantes.map((m) => m.nombre).join(', ')}`, { className: 'ac-muted' }))
+    if (thesis.comentario) hint(node, `Observaciones${thesis.revisado_por ? ` de ${thesis.revisado_por}` : ''}: ${thesis.comentario}`)
+    if (thesis.estado === 'pendiente') node.append(el('p', 'Tu tesis espera la validación de jefatura o de un docente validador. Te avisaremos al revisarla.', { className: 'ac-muted' }))
+    const correcting = thesis.estado === 'requiere_cambios' && thesis.revision_permitida_hasta && new Date(thesis.revision_permitida_hasta) > new Date()
+    if (correcting) {
+      node.append(el('p', `Corrige y reenvía antes del ${date(thesis.revision_permitida_hasta)}.`, { className: 'ac-muted' }))
+      registrationForm(node, thesis, async (body) => (await api('PUT', '/thesis-registration/mine', body)).message, 'Enviar corrección')
+    }
+    for (const inv of thesis.invitaciones || []) {
+      const row = box('ac-row tc-row', box('tc-row-main', el('span', `Invitación a ${inv.nombre} (${inv.estudiante_id})`), el('small', 'Pendiente de aceptar', { className: 'ac-muted' })))
+      button('Cancelar', () => act(() => api('DELETE', `/thesis-registration/invitations/${inv.id}`)), row)
+      node.append(row)
+    }
+    const slots = win.max_members - thesis.integrantes.length - (thesis.invitaciones || []).length
+    if (slots > 0 && ['pendiente', 'requiere_cambios'].includes(thesis.estado)) {
+      const [f, done] = form(node, 'Invitar', async () => (await api('POST', '/thesis-registration/invitations', { estudiante_id: who.value.trim() })).message, 'tc-inline')
+      const who = field(f, 'Invitar a un compañero (número de control)', input({ required: true, maxLength: 20 }))
+      done()
+    }
+  }
+
+  // ------------------------------------------------------------------ Registros de tesis (validación y configuración)
+  async function renderRegistrations() {
+    const list = await api('GET', '/thesis-registration').catch(() => null)
+    if (!list || disposed) return
+    const settings = await api('GET', '/thesis-registration/settings').then((r) => r.data).catch(() => null)
+    const pending = list.data.filter((t) => ['pendiente', 'requiere_cambios'].includes(t.estado))
+    const node = panel('Registros de tesis', content, settings ? chip(settings.open ? `Abierto hasta ${date(settings.closes_at)}` : 'Registro cerrado', settings.open ? 'ok' : '') : null)
+    if (settings?.manager) {
+      const cfg = el('details', undefined, { className: 'ac-details' })
+      cfg.append(el('summary', 'Configurar el registro de tesis'))
+      const [f, done] = form(cfg, 'Guardar', async () => {
+        const semesters = sem.values()
+        if (!semesters.length) throw new Error('Elige al menos un semestre.')
+        return (await api('PUT', '/thesis-registration/settings', { until: serverDate(until.value), semesters, max_members: Number(max.value), validators: vals.values() })).message
+      })
+      const until = field(f, 'Abierto hasta (vacío = cerrado)', input({ type: 'datetime-local', value: localInput(settings.until) }))
+      const max = field(f, 'Integrantes por tesis', select([[1, 'Individual'], [2, 'Hasta 2'], [3, 'Hasta 3']], settings.max_members))
+      const sem = pills(f, 'Semestres que registran', [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [n, `${n}°`]), settings.semesters)
+      const vals = pills(f, 'Docentes que también validan', settings.teachers.map((t) => [t.id, t.nombre]), settings.validators)
+      vals.group.classList.add('tc-wide')
+      done()
+      node.append(cfg)
+    }
+    if (!list.data.length) { node.append(el('p', 'Todavía no hay registros de tesis.', { className: 'ac-muted' })); return }
+    node.append(el('p', pending.length ? `${pending.length} registro(s) esperan validación.` : 'No hay registros pendientes.', { className: 'ac-muted' }))
+    for (const t of list.data) {
+      const [kind, label] = REG_STATE[t.estado] || ['', t.estado]
+      const item = el('details', undefined, { className: 'ac-details tc-reg' })
+      if (['pendiente', 'requiere_cambios'].includes(t.estado) && pending[0]?.id === t.id) item.open = true
+      const summary = el('summary')
+      summary.append(el('strong', t.titulo), ' ', chip(label, kind), el('small', ` · ${t.integrantes.map((m) => m.nombre).join(', ')} · ${t.grupo || ''}`, { className: 'ac-muted' }))
+      item.append(summary)
+      item.append(el('p', `Línea de investigación: ${t.linea_investigacion || '—'}`, { className: 'ac-muted' }))
+      const text = (title, value) => { if (value) item.append(el('strong', title), el('p', value, { className: 'tc-reg-text' })) }
+      text('Planteamiento', t.planteamiento)
+      text('Objetivo general', t.objetivo_general)
+      if (t.objetivos?.length) { const ul = el('ul'); t.objetivos.forEach((o) => ul.append(el('li', o))); item.append(el('strong', 'Objetivos específicos'), ul) }
+      text('Justificación', t.justificacion)
+      if (t.comentario) hint(item, `Observaciones${t.revisado_por ? ` de ${t.revisado_por}` : ''}: ${t.comentario}`)
+      if (t.director) item.append(el('p', `Director: ${t.director.nombre}${t.revisores.length ? ` · Revisores: ${t.revisores.map((r) => r.nombre).join(', ')}` : ''}`, { className: 'ac-muted' }))
+      if (['pendiente', 'requiere_cambios'].includes(t.estado)) {
+        const [f, done] = form(item, 'Registrar decisión', async () => {
+          const body = { decision: decision.value, comentario: comment.value || null }
+          if (decision.value === 'requiere_cambios') body.revision_allowed_until = serverDate(deadline.value)
+          if (decision.value === 'aprobado') { body.director_id = director.value; body.revisores = reviewers.values() }
+          return (await api('POST', `/thesis-registration/${t.id}/review`, body)).message
+        })
+        const decision = field(f, 'Decisión', select([['aprobado', 'Aprobar y abrir su seguimiento'], ['requiere_cambios', 'Pedir cambios'], ['rechazado', 'Rechazar']], 'aprobado'))
+        const director = field(f, 'Director de la tesis', select([['', 'Selecciona'], ...list.teachers.map((d) => [d.id, d.nombre])], ''))
+        const deadline = field(f, 'Corregir antes de', input({ type: 'datetime-local' }))
+        const comment = field(f, 'Observaciones para el alumno', textarea({ maxLength: 3000 }))
+        comment.parentElement.classList.add('tc-wide')
+        const reviewers = pills(f, 'Revisores (opcional)', list.teachers.map((d) => [d.id, d.nombre]))
+        reviewers.group.classList.add('tc-wide', 'tc-pick-scroll')
+        const sync = () => {
+          const v = decision.value
+          director.parentElement.hidden = v !== 'aprobado'; reviewers.group.hidden = v !== 'aprobado'; deadline.parentElement.hidden = v !== 'requiere_cambios'
+          director.required = v === 'aprobado'; deadline.required = v === 'requiere_cambios'; comment.required = v !== 'aprobado'
+        }
+        decision.onchange = sync; sync()
+        done()
+      }
+      node.append(item)
+    }
   }
 
   // ------------------------------------------------------------------ Crear / editar
