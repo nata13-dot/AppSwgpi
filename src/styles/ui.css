@@ -1556,3 +1556,7 @@ a.btn-app { text-decoration: none; }
 .suggest-list button:hover { background: var(--surface-2); }
 .picked-person { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 6px 10px; }
 .muted-row { opacity: .6; }
+.ga-kpis { margin-bottom: 14px; }
+.ga-kpis button.kpi { border: 1px solid var(--line); text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.ga-kpis button.kpi.active { border-color: var(--brand); box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 25%, transparent); }
+@media (min-width: 900px) { .ga-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

@@ -21,6 +21,7 @@ function managementMenu(user) {
     menu.push(
       { section: 'Administración general' },
       item('Panel institucional', '/general', FiMonitor, null, ['institucional', 'carreras']),
+      item('Administradores generales', '/general-admins', FiShield, null, ['temporal', 'designar', 'vigencia']),
       item('Carreras y accesos', '/careers', FiLayers, null, ['membresías', 'colores']),
       item('Operaciones', '/operations', FiActivity, null, ['alertas', 'continuidad']),
       { group: 'Seguridad y continuidad', icon: FiShield, items: [

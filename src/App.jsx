@@ -12,6 +12,7 @@ const SelfRegister = lazy(() => import('./pages/auth/SelfRegister'))
 const ChangePassword = lazy(() => import('./pages/auth/ChangePassword'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const GeneralPanel = lazy(() => import('./pages/admin/GeneralPanel'))
+const GeneralAdmins = lazy(() => import('./pages/admin/GeneralAdmins'))
 const Users = lazy(() => import('./pages/users/Users'))
 const Projects = lazy(() => import('./pages/projects/Projects'))
 const Rooms = lazy(() => import('./pages/rooms/Rooms'))
@@ -56,6 +57,7 @@ const staffOrTeacher = (user) => isManagementStaff(user) || isTeacher(user)
 const routes = [
   ['/dashboard', Dashboard],
   ['/general', GeneralPanel, isGeneralAdmin],
+  ['/general-admins', GeneralAdmins, isGeneralAdmin],
   ['/careers', Careers, isGeneralAdmin],
   ['/operations', Operations, isGeneralAdmin],
   ['/audit', Audit, isGeneralAdmin],
@@ -89,7 +91,7 @@ const routes = [
 ]
 
 /** Pantallas que el administrador general abre sin entrar a una carrera (igual que en includes/config.php). */
-const INSTITUTIONAL = new Set(['/general', '/careers', '/operations', '/audit', '/integrity', '/backups', '/sent-emails', '/profile'])
+const INSTITUTIONAL = new Set(['/general', '/general-admins', '/careers', '/operations', '/audit', '/integrity', '/backups', '/sent-emails', '/profile'])
 
 /** Fuera de una carrera, las pantallas de carrera mandan al panel institucional para entrar primero. */
 function CareerScoped({ children }) {
