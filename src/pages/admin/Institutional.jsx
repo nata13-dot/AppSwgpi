@@ -34,7 +34,7 @@ function Rows({ headers, rows, empty = 'No hay registros para mostrar.' }) {
 const STAFF_ROLES = [2, 7, 6, 5]
 const READINESS_STEPS = {
   identity: ['Identidad', 'Nombre y colores', 'identity'],
-  career_management: ['Jefatura', 'Asigna un jefe de carrera', 'people'],
+  career_management: ['Jefatura', 'Agrega al jefe de carrera en Personal', 'people'],
   subjects: ['Asignaturas', 'Entra y carga el plan de estudios', 'enter'],
   groups: ['Grupos', 'Entra y crea los grupos', 'enter'],
   students: ['Estudiantes', 'Entra y da de alta o abre el autorregistro', 'enter'],
@@ -260,6 +260,9 @@ function Memberships({ career, onChanged }) {
     try { await api.delete(`/admin/career-memberships/${item.id}`); toast.success('Persona quitada de la carrera.'); refresh() } catch (error) { toast.error(apiError(error)) }
   }
   const members = query.data || []
+  // Si la carrera ya tiene jefatura, no se ofrece «Jefe de carrera» al agregar ni al cambiar de rol.
+  const hasHead = members.some((item) => Number(item.perfil_id) === 5 && item.activo)
+  const choices = (current) => STAFF_ROLES.filter((id) => id !== 5 || !hasHead || Number(current) === 5)
   const counts = members.reduce((acc, item) => ({ ...acc, [item.perfil_id]: (acc[item.perfil_id] || 0) + 1 }), {})
   const shown = members.filter((item) => (roleFilter === 'all' || String(item.perfil_id) === roleFilter) && (!filter || `${name(item.user)} ${item.user?.id}`.toLowerCase().includes(filter.toLowerCase())))
   return (
@@ -274,7 +277,7 @@ function Memberships({ career, onChanged }) {
             {search.trim().length >= 2 && (
               <div className="suggest-list" role="listbox">
                 {candidates.isLoading ? <small className="muted">Buscando…</small> : (candidates.data || []).length ? candidates.data.map((person) => (
-                  <button type="button" key={person.id} onClick={() => { setPicked(person); setRole(STAFF_ROLES.includes(person.perfil_aqui) ? person.perfil_aqui : 2) }}>
+                  <button type="button" key={person.id} onClick={() => { setPicked(person); setRole(choices().includes(person.perfil_aqui) ? person.perfil_aqui : 2) }}>
                     <strong>{person.nombre}</strong>
                     <small>{person.id}{person.carreras.length ? ` · ${person.carreras.map((c) => `${c.clave}: ${profileLabel(c.perfil_id)}`).join(', ')}` : ' · Sin carrera'}</small>
                     {person.perfil_aqui && <Badge>Ya está en esta carrera</Badge>}
@@ -285,10 +288,11 @@ function Memberships({ career, onChanged }) {
           </div>
         )}
         <div className="row-wrap">
-          <Field label="Como"><select className="control" value={role} onChange={(event) => setRole(Number(event.target.value))}>{STAFF_ROLES.map((id) => <option key={id} value={id}>{profileLabel(id)}</option>)}</select></Field>
+          <Field label="Como"><select className="control" value={role} onChange={(event) => setRole(Number(event.target.value))}>{choices().map((id) => <option key={id} value={id}>{profileLabel(id)}</option>)}</select></Field>
           <span className="spacer" />
           <Button type="submit" icon={FiPlus} disabled={!picked} loading={add.isPending}>Agregar</Button>
         </div>
+        {hasHead && <small className="muted">Esta carrera ya tiene jefe de carrera. Para cambiarlo, cambia primero el rol del jefe actual en la lista.</small>}
       </form>
       <div className="row-wrap">
         <div className="chips-app">
@@ -305,7 +309,7 @@ function Memberships({ career, onChanged }) {
             <li key={item.id} className={`list-row ${item.activo ? '' : 'muted-row'}`}>
               <div><strong>{name(item.user)}</strong><small>{item.user?.id}{item.es_principal ? ' · Carrera principal' : ''}{item.activo ? '' : ' · Sin acceso'}</small></div>
               <select className="control compact" aria-label="Rol" value={item.perfil_id} onChange={(event) => update(item, { perfil_id: Number(event.target.value) }, `${name(item.user)} ahora es ${profileLabel(event.target.value)}.`)}>
-                {[...new Set([...STAFF_ROLES, item.perfil_id])].map((id) => <option key={id} value={id}>{profileLabel(id)}</option>)}
+                {[...new Set([...choices(item.perfil_id), item.perfil_id])].map((id) => <option key={id} value={id}>{profileLabel(id)}</option>)}
               </select>
               <Switch checked={Boolean(item.activo)} onChange={(value) => update(item, { activo: value })} label="" />
               <IconButton icon={FiTrash2} className="danger" label="Quitar de la carrera" onClick={() => remove(item)} />

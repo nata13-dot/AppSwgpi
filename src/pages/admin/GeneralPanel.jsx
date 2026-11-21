@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { FiActivity, FiCalendar, FiDatabase, FiLayers, FiLogIn, FiMail, FiShield, FiCheckSquare, FiGrid } from 'react-icons/fi'
+import { FiActivity, FiCalendar, FiCheckSquare, FiClock, FiDatabase, FiGrid, FiLayers, FiLogIn, FiMail, FiShield, FiUserMinus, FiUserPlus } from 'react-icons/fi'
 import { toast } from 'react-toastify'
 import api, { apiError } from '../../services/api'
 import { useAuth } from '../../hooks/useAuth'
 import { homePath, profileLabel, SIMULABLE_PROFILES } from '../../lib/permissions'
-import { Badge, Button, Card, ErrorState, Field, Loading, Page, Progress, Sheet, Switch } from '../../components/ui'
+import { Badge, Button, Card, Chips, ErrorState, Field, IconButton, Loading, Page, Progress, promptPassword, SearchInput, Sheet, Switch, useDebounced } from '../../components/ui'
 
 const PERIOD_STATES = { abierto: ['success', 'Abierto'], en_cierre: ['warning', 'En cierre'], preparacion: ['neutral', 'En preparación'] }
 
@@ -97,6 +97,7 @@ export default function GeneralPanel() {
           </div>
         )}
       </Card>
+      <GeneralAdmins />
       <Card title="Gestiones institucionales">
         <div className="quick-links">
           {[
@@ -123,5 +124,97 @@ export default function GeneralPanel() {
         </div>
       </Sheet>
     </Page>
+  )
+}
+
+const localInput = (date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+const remaining = (iso) => {
+  const ms = new Date(iso) - new Date()
+  const days = Math.floor(ms / 86400000)
+  return days >= 1 ? `${days} día${days === 1 ? '' : 's'}` : `${Math.max(1, Math.round(ms / 3600000))} h`
+}
+
+/** Administradores generales: designar de forma definitiva o temporal, cambiar vigencia y retirar. */
+function GeneralAdmins() {
+  const client = useQueryClient()
+  const query = useQuery({ queryKey: ['general-admins'], queryFn: () => api.get('/admin/general-admins').then((response) => response.data.data || []) })
+  const [editing, setEditing] = useState(null) // null cerrado · {} nuevo · admin existente
+  const [term, setTerm] = useState('')
+  const search = useDebounced(term, 250)
+  const [person, setPerson] = useState(null)
+  const [kind, setKind] = useState('forever')
+  const [until, setUntil] = useState('')
+  const [saving, setSaving] = useState(false)
+  const candidates = useQuery({
+    queryKey: ['ga-candidates', search], enabled: editing !== null && !person && search.trim().length >= 2,
+    queryFn: () => api.get('/admin/career-candidates', { params: { search: search.trim() } }).then((response) => response.data.data || []),
+  })
+  const open = (admin = {}) => {
+    setEditing(admin); setTerm('')
+    setPerson(admin.id ? { id: admin.id, nombre: admin.nombre } : null)
+    setKind(admin.hasta ? 'temp' : 'forever')
+    setUntil(admin.hasta ? localInput(new Date(admin.hasta)) : '')
+  }
+  const days = (n) => setUntil(localInput(new Date(Date.now() + n * 86400000)))
+  const save = async () => {
+    if (!person) return toast.error('Elige a la persona.')
+    if (kind === 'temp' && !until) return toast.error('Indica cuándo termina.')
+    const password = await promptPassword({ title: editing?.id ? 'Confirma el cambio de vigencia' : `¿Designar a ${person.nombre}?`, confirmText: 'Confirmar' })
+    if (!password) return
+    setSaving(true)
+    try {
+      const response = await api.put(`/users/${encodeURIComponent(person.id)}/general-admin`, { grant: true, admin_password: password, hasta: kind === 'temp' ? new Date(until).toISOString() : null })
+      toast.success(response.data.message); setEditing(null); client.invalidateQueries({ queryKey: ['general-admins'] })
+    } catch (error) { toast.error(apiError(error)) } finally { setSaving(false) }
+  }
+  const revoke = async (admin) => {
+    const password = await promptPassword({ title: `¿Retirar la administración general a ${admin.nombre}?`, confirmText: 'Retirar' })
+    if (!password) return
+    try {
+      const response = await api.put(`/users/${encodeURIComponent(admin.id)}/general-admin`, { grant: false, admin_password: password })
+      toast.success(response.data.message); client.invalidateQueries({ queryKey: ['general-admins'] })
+    } catch (error) { toast.error(apiError(error)) }
+  }
+  return (
+    <Card title="Administradores generales" subtitle="Ven todas las carreras y no aparecen como jefatura ni personal de ninguna. La designación puede ser definitiva o temporal."
+      actions={<Button size="sm" icon={FiUserPlus} onClick={() => open({})}>Designar</Button>}>
+      {query.isLoading ? <Loading rows={2} /> : query.isError ? <ErrorState error={query.error} onRetry={query.refetch} /> : (
+        <ul className="list-app">
+          {query.data.map((admin) => (
+            <li key={admin.id} className="list-row">
+              <div><strong>{admin.nombre}{admin.soy_yo ? ' (tú)' : ''}</strong><small>{admin.id}{admin.designado_por ? ` · designado por ${admin.designado_por}` : ''}</small></div>
+              {admin.hasta ? <Badge tone="warning" icon={FiClock}>Temporal · quedan {remaining(admin.hasta)}</Badge> : <Badge tone="primary">Definitiva</Badge>}
+              {!admin.soy_yo && <><IconButton icon={FiCalendar} label="Cambiar vigencia" onClick={() => open(admin)} /><IconButton icon={FiUserMinus} className="danger" label="Retirar" onClick={() => revoke(admin)} /></>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <Sheet open={editing !== null} title={editing?.id ? 'Cambiar vigencia' : 'Designar administrador general'} onClose={() => setEditing(null)} size="sm">
+        <div className="stack">
+          {person ? (
+            <div className="list-row picked-person"><div><strong>{person.nombre}</strong><small>{person.id}</small></div>{!editing?.id && <Button variant="ghost" size="sm" onClick={() => { setPerson(null); setTerm('') }}>Cambiar</Button>}</div>
+          ) : (
+            <div className="suggest-host">
+              <SearchInput value={term} onChange={setTerm} placeholder="Nombre o número de empleado…" />
+              {search.trim().length >= 2 && (
+                <div className="suggest-list" role="listbox">
+                  {candidates.isLoading ? <small className="muted">Buscando…</small> : (candidates.data || []).length ? candidates.data.map((item) => (
+                    <button type="button" key={item.id} onClick={() => setPerson(item)}><strong>{item.nombre}</strong><small>{item.id}{item.carreras.length ? ` · ${item.carreras.map((c) => c.clave).join(', ')}` : ''}</small></button>
+                  )) : <small className="muted">Sin coincidencias entre el personal.</small>}
+                </div>
+              )}
+            </div>
+          )}
+          <Field label="Vigencia"><Chips options={[{ value: 'forever', label: 'Definitiva' }, { value: 'temp', label: 'Temporal' }]} value={kind} onChange={(value) => { setKind(value); if (value === 'temp' && !until) days(7) }} /></Field>
+          {kind === 'temp' && (
+            <>
+              <div className="row-wrap">{[[1, '1 día'], [7, '1 semana'], [30, '1 mes'], [180, '6 meses']].map(([n, label]) => <Button key={n} size="sm" variant="ghost" onClick={() => days(n)}>{label}</Button>)}</div>
+              <Field label="Termina el" hint="Al vencer se retira sola, se cierran sus sesiones de la app y se le avisa."><input className="control" type="datetime-local" value={until} onChange={(event) => setUntil(event.target.value)} /></Field>
+            </>
+          )}
+          <Button icon={FiShield} loading={saving} onClick={save}>{editing?.id ? 'Guardar vigencia' : 'Designar'}</Button>
+        </div>
+      </Sheet>
+    </Card>
   )
 }
